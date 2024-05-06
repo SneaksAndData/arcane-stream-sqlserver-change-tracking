@@ -97,7 +97,7 @@ jobs:
             --build-arg PROJECT_NAME=$PROJECT_NAME && \
           docker push $AZCR_REPO.azurecr.io/$PROJECT_NAME_LOWER:$version
       - name: Build and Push Chart (DEV)
-        uses: SneaksAndData/github-actions/build_helm_chart@v0.1.6
+        uses: SneaksAndData/github-actions/build_helm_chart@v0.1.7
         with:
           application: ${{ env.PROJECT_NAME_LOWER }}
           container_registry_user: ${{steps.vault_secrets_dev.outputs.acr_user}}
@@ -129,7 +129,7 @@ jobs:
           docker tag $AZCR_DEV_REPO.azurecr.io/$PROJECT_NAME_LOWER:$version $AZCR_REPO.azurecr.io/$PROJECT_NAME_LOWER:$version && docker push $AZCR_REPO.azurecr.io/$PROJECT_NAME_LOWER:$version
       - name: Build and Push Chart (PROD)
         if: ${{ github.ref == 'refs/heads/main' }}
-        uses: SneaksAndData/github-actions/build_helm_chart@v0.1.6
+        uses: SneaksAndData/github-actions/build_helm_chart@v0.1.7
         with:
           application: ${{ env.PROJECT_NAME_LOWER }}
           container_registry_user: ${{steps.vault_secrets_production.outputs.acr_user}}
