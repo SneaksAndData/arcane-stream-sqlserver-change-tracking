@@ -5,7 +5,7 @@
         <TargetFramework>net6.0</TargetFramework>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="ESD.Proteus" Version="1.0.3" />
+        <PackageReference Include="SnD.Sdk" Version="1.1.6" />
     </ItemGroup>
 
 </Project>
