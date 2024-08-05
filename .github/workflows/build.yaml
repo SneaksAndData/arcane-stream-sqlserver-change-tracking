@@ -6,10 +6,9 @@ on:
   pull_request:
     branches: [ main ]
     
-# ! Replace DotnetProject and dotnet-project with project name in real repository
 env:
-  PROJECT_NAME: DotnetProject
-  PROJECT_NAME_LOWER: dotnet-project
+  PROJECT_NAME: ArcaneStreamSqlServerChangeTracking
+  PROJECT_NAME_LOWER: arcane-stream-sqlserver-change-tracking
   
 jobs:
   validate_commit:
@@ -48,9 +47,7 @@ jobs:
     name: Build Docker Image and Helm Charts
     runs-on: ubuntu-latest
     needs: [ validate_commit ]
-    # Remove the line below and uncomment the next one
-    if: ${{ false }}
-    # if: ${{ always() && (needs.validate_commit.result == 'success' || needs.validate_commit.result == 'skipped') }}
+    if: ${{ always() && (needs.validate_commit.result == 'success' || needs.validate_commit.result == 'skipped') }}
     permissions:
       contents: read
       packages: write
