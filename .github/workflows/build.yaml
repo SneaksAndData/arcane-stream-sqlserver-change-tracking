@@ -7,7 +7,7 @@ on:
     branches: [ main ]
     
 env:
-  PROJECT_NAME: ArcaneStreamSqlServerChangeTracking
+  PROJECT_NAME: Arcane.Stream.SqlServerChangeTracking
   PROJECT_NAME_LOWER: arcane-stream-sqlserver-change-tracking
   
 jobs:
@@ -35,7 +35,7 @@ jobs:
         working-directory: ./test
         run: |
           dotnet add package coverlet.msbuild &&
-          dotnet test Arcane.Stream.SqlServerChangeTracking.Tests.csproj --configuration Debug --runtime linux-x64 /p:CollectCoverage=true /p:CoverletOutput=Coverage/ /p:CoverletOutputFormat=lcov --logger GitHubActions
+          dotnet test ${PROJECT_NAME}.Tests.csproj --configuration Debug --runtime linux-x64 /p:CollectCoverage=true /p:CoverletOutput=Coverage/ /p:CoverletOutputFormat=lcov --logger GitHubActions
       - name: Publish Code Coverage
         if: ${{ github.event_name == 'pull_request' && always() }}
         uses: romeovs/lcov-reporter-action@v0.4.0
