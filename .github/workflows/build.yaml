@@ -6,10 +6,10 @@ on:
   pull_request:
     branches: [ main ]
     
-# ! Replace DotnetProject and dotnet-project with project name in real repository
 env:
-  PROJECT_NAME: DotnetProject
-  PROJECT_NAME_LOWER: dotnet-project
+  PROJECT_NAME: Arcane.Stream.SqlServerChangeTracking
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
   
 jobs:
   validate_commit:
@@ -36,7 +36,7 @@ jobs:
         working-directory: ./test
         run: |
           dotnet add package coverlet.msbuild &&
-          dotnet test ${PROJECT_NAME}Tests.csproj --configuration Debug --runtime linux-x64 /p:CollectCoverage=true /p:CoverletOutput=Coverage/ /p:CoverletOutputFormat=lcov --logger GitHubActions
+          dotnet test ${PROJECT_NAME}.Tests.csproj --configuration Debug --runtime linux-x64 /p:CollectCoverage=true /p:CoverletOutput=Coverage/ /p:CoverletOutputFormat=lcov --logger GitHubActions
       - name: Publish Code Coverage
         if: ${{ github.event_name == 'pull_request' && always() }}
         uses: romeovs/lcov-reporter-action@v0.4.0
@@ -48,9 +48,7 @@ jobs:
     name: Build Docker Image and Helm Charts
     runs-on: ubuntu-latest
     needs: [ validate_commit ]
-    # Remove the line below and uncomment the next one
-    if: ${{ false }}
-    # if: ${{ always() && (needs.validate_commit.result == 'success' || needs.validate_commit.result == 'skipped') }}
+    if: ${{ always() && (needs.validate_commit.result == 'success' || needs.validate_commit.result == 'skipped') }}
     permissions:
       contents: read
       packages: write
