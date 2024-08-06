@@ -1,0 +1,27 @@
+{{- if .Values.rbac.clusterRole.sqlServerChangeTrackingStreamViewer.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "app.clusteRole.sqlServerChangeTrackingStreamViewer" . }}
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+    {{- include "app.labels" $ | nindent 4 }}
+    {{- with .Values.rbac.clusterRole.sqlServerChangeTrackingStreamViewer.additionalLabels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.rbac.clusterRole.sqlServerChangeTrackingStreamViewer.additionalAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+    - verbs:
+        - get
+        - list
+        - watch
+      apiGroups:
+        - streaming.sneaksanddata.com
+      resources:
+        - sql-server-ct-streams
+        - sql-server-ct-streams/status
+{{- end }}
