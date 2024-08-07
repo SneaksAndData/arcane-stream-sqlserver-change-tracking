@@ -67,9 +67,9 @@ Create the name of the service account to use
 {{/*
 Generate the CR viewer cluster role name
 */}}
-{{- define "app.clusteRole.sqlServerChangeTrackingStreamViewer" -}}
-{{- if .Values.rbac.clusterRole.blobStorageStreamViewer.nameOverride }}
-{{- .Values.rbac.clusterRole.blobStorageStreamViewer.nameOverride }}
+{{- define "app.clusterRole.sqlServerChangeTrackingStreamViewer" -}}
+{{- if .Values.rbac.clusterRole.sqlServerChangeTrackingStreamViewer.nameOverride }}
+{{- .Values.rbac.clusterRole.sqlServerChangeTrackingStreamViewer.nameOverride }}
 {{- else }}
 {{- printf "%s-sql-server-ct-viewer" (include "app.fullname" .) }}
 {{- end }}
@@ -78,9 +78,9 @@ Generate the CR viewer cluster role name
 {{/*
 Generate the CR editor cluster role name
 */}}
-{{- define "app.clusteRole.sqlServerChangeTrackingStreamEditor" -}}
-{{- if .Values.rbac.clusterRole.blobStorageStreamEditor.nameOverride }}
-{{- .Values.rbac.clusterRole.blobStorageStreamEditor.nameOverride }}
+{{- define "app.clusterRole.sqlServerChangeTrackingStreamEditor" -}}
+{{- if .Values.rbac.clusterRole.sqlServerChangeTrackingStreamEditor.nameOverride }}
+{{- .Values.rbac.clusterRole.sqlServerChangeTrackingStreamEditor.nameOverride }}
 {{- else }}
 {{- printf "%s-sql-server-ct-editor" (include "app.fullname" .) }}
 {{- end }}
@@ -118,7 +118,7 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{/*
 Generate the job editor cluster role name
 */}}
-{{- define "app.clusteRole.jobEditor" -}}
+{{- define "app.clusterRole.jobEditor" -}}
 {{- if .Values.rbac.clusterRole.jobEditor.nameOverride }}
 {{- .Values.rbac.clusterRole.jobEditor.nameOverride }}
 {{- else }}
