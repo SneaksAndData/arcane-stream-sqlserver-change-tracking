@@ -71,7 +71,7 @@ Generate the CR viewer cluster role name
 {{- if .Values.rbac.clusterRole.sqlServerChangeTrackingStreamViewer.nameOverride }}
 {{- .Values.rbac.clusterRole.sqlServerChangeTrackingStreamViewer.nameOverride }}
 {{- else }}
-{{- printf "%s-sql-server-ct-viewer" (include "app.fullname" .) }}
+{{- printf "%s-viewer" (include "app.fullname" .) }}
 {{- end }}
 {{- end }}
 
@@ -82,7 +82,7 @@ Generate the CR editor cluster role name
 {{- if .Values.rbac.clusterRole.sqlServerChangeTrackingStreamEditor.nameOverride }}
 {{- .Values.rbac.clusterRole.sqlServerChangeTrackingStreamEditor.nameOverride }}
 {{- else }}
-{{- printf "%s-sql-server-ct-editor" (include "app.fullname" .) }}
+{{- printf "%s-editor" (include "app.fullname" .) }}
 {{- end }}
 {{- end }}
 
