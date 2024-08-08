@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Threading.Tasks;
+using Akka.Util.Extensions;
 using Arcane.Framework.Contracts;
 using Arcane.Framework.Providers.Hosting;
+using Arcane.Framework.Sources.SqlServer.Exceptions;
 using Arcane.Stream.SqlServerChangeTracking.Models;
 using Arcane.Stream.SqlServerChangeTracking.Services;
 using Microsoft.Extensions.Hosting;
@@ -26,7 +29,14 @@ try
             services.AddAwsS3Writer(AmazonStorageConfiguration.CreateFromEnv());
         })
         .Build()
-        .RunStream<SqlServerChangeTrackingStreamContext>(Log.Logger);
+        .RunStream<SqlServerChangeTrackingStreamContext>(Log.Logger, (exception, _)=>
+        {
+            return exception switch
+            {
+                SqlServerConnectionException => Task.FromResult(ExitCodes.RESTART.AsOption()),
+                _ => Task.FromResult(ExitCodes.FATAL.AsOption())
+            };
+        });
 }
 catch (Exception ex)
 {
