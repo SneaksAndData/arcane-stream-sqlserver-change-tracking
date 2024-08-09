@@ -35,7 +35,7 @@ public class SqlServerChangeTrackingGraphBuilder(
                 context.Schema,
                 context.Table,
                 context.StreamKind,
-                context.ChangeCaptureInterval,
+                TimeSpan.FromSeconds(context.ChangeCaptureInterval),
                 context.CommandTimeout,
                 context.LookbackInterval,
                 context.IsBackfilling,
