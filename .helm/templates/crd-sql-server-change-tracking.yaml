@@ -8,7 +8,7 @@ spec:
   names:
     plural: sql-server-ct-streams
     singular: sql-server-ct-stream
-    kind: SqlServerChangeTrackingStream
+    kind: SqlServerChangeTracking
     shortNames:
       - sqlcts
   versions:
@@ -63,9 +63,9 @@ spec:
                     apiGroup: streaming.sneaksanddata.com
                     kind: StreamingJobTemplate
                     name: standard-job
-                reloadingJobTemplateRef:
+                backfillJobTemplateRef:
                   description: |
-                    Name of the job template to be used for the streaming job if stream is running in reloading mode.
+                    Name of the job template to be used for the streaming job if stream is running in backfill mode.
                   type: object
                   properties:
                     name:

@@ -1,4 +1,6 @@
 using System;
+using System.Text.Json.Serialization;
+using Arcane.Framework.Configuration;
 using Arcane.Framework.Services.Base;
 
 namespace Arcane.Stream.SqlServerChangeTracking.Models;
@@ -28,6 +30,8 @@ public class SqlServerChangeTrackingStreamContext : IStreamContext, IStreamConte
     /// <summary>
     /// Max time to wait for rowsPerGroup to accumulate.
     /// </summary>
+    [JsonConverter(typeof(SecondsToTimeSpanConverter))]
+    [JsonPropertyName("groupingIntervalSeconds")]
     public TimeSpan GroupingInterval { get; set; }
 
     /// <summary>
@@ -53,7 +57,8 @@ public class SqlServerChangeTrackingStreamContext : IStreamContext, IStreamConte
     /// <summary>
     /// How long to wait before polling for next result set.
     /// </summary>
-    public TimeSpan ChangeCaptureInterval { get; set; }
+    [JsonPropertyName("changeCaptureIntervalSeconds")]
+    public int ChangeCaptureInterval { get; set; }
 
     /// <inheritdoc cref="IStreamContext.StreamId"/>
     public string StreamId { get; private set; }
@@ -84,9 +89,9 @@ public class SqlServerChangeTrackingStreamContext : IStreamContext, IStreamConte
     
     public void LoadSecretsFromEnvironment()
     {
-        this.ConnectionString = this.GetSecretFromEnvironment("CONNECTION_STRING");
+        this.ConnectionString = this.GetSecretFromEnvironment("CONNECTIONSTRING");
     }
     
     private string GetSecretFromEnvironment(string secretName)
-        => Environment.GetEnvironmentVariable($"{nameof(Arcane)}__{secretName}".ToUpperInvariant());
+        => Environment.GetEnvironmentVariable($"{nameof(Arcane)}_{secretName}".ToUpperInvariant());
 }
