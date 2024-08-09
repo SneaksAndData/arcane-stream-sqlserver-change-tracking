@@ -93,5 +93,5 @@ public class SqlServerChangeTrackingStreamContext : IStreamContext, IStreamConte
     }
     
     private string GetSecretFromEnvironment(string secretName)
-        => Environment.GetEnvironmentVariable($"{nameof(Arcane)}__{secretName}".ToUpperInvariant());
+        => Environment.GetEnvironmentVariable($"{nameof(Arcane)}_{secretName}".ToUpperInvariant());
 }
