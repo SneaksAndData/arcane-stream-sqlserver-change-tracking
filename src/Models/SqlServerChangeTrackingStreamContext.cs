@@ -89,7 +89,7 @@ public class SqlServerChangeTrackingStreamContext : IStreamContext, IStreamConte
     
     public void LoadSecretsFromEnvironment()
     {
-        this.ConnectionString = this.GetSecretFromEnvironment("CONNECTION_STRING");
+        this.ConnectionString = this.GetSecretFromEnvironment("CONNECTIONSTRING");
     }
     
     private string GetSecretFromEnvironment(string secretName)
