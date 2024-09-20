@@ -31,6 +31,7 @@ try
         .Build()
         .RunStream<SqlServerChangeTrackingStreamContext>(Log.Logger, (exception, _)=>
         {
+            Log.Logger.Error(exception, "Fatal exception occured");
             return exception switch
             {
                 SqlServerConnectionException => Task.FromResult(ExitCodes.RESTART.AsOption()),
