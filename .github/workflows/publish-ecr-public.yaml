@@ -1,4 +1,4 @@
-name: Publish Arcane.Stream.RestApi to ECR public registry
+name: Publish Arcane.Stream.SqlServerChangeTracking to ECR public registry
 run-name: Publish Arcane.Stream.SqlServerChangeTracking to public.ecr.aws by @${{ github.actor }}
 
 on:
