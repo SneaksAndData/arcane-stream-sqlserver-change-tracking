@@ -5,7 +5,6 @@ using Akka.Util;
 using Arcane.Framework.Configuration;
 using Arcane.Framework.Services.Base;
 using Arcane.Framework.Services.Models;
-using Arcane.Framework.Sinks.Extensions;
 using Arcane.Framework.Sinks.Models;
 
 namespace Arcane.Stream.SqlServerChangeTracking.Models;
@@ -48,7 +47,7 @@ public class SqlServerChangeTrackingStreamContext : IStreamContext, IStreamConte
     /// Data location for parquet files.
     /// </summary>
     public string SinkLocation { get; set; }
-
+    
     /// <summary>
     /// Number of seconds to look back when determining first set of changes to extract.
     /// </summary>
@@ -77,20 +76,30 @@ public class SqlServerChangeTrackingStreamContext : IStreamContext, IStreamConte
     /// <summary>
     /// Property to hold stream metadata received from the stream context.
     /// </summary>
-    public StreamMetadataDefinition StreamMetadata { get; set; }
+    [JsonPropertyName("streamMetadata")]
+    public StreamMetadataDefinition StreamMetadataProperty { get; set; }
 
-    public Option<StreamMetadata> GetStreamMetadata()
+    /// <inheritdoc cref="IStreamContext.StreamMetadata"/>
+    [JsonIgnore]
+    public Option<StreamMetadata> StreamMetadata
     {
-        if (this.StreamMetadata is null)
+        get
         {
-            return Option<StreamMetadata>.None;
-        }
+            if (this.StreamMetadataProperty is null)
+            {
+                return Option<StreamMetadata>.None;
+            }
 
-        var partitions = this.StreamMetadata
-            .Partitions
-            .Select(p => p.ToStreamPartition())
-            .ToArray();
-        return new StreamMetadata(partitions);
+            var partitions = this.StreamMetadataProperty
+                .Partitions
+                .Select(partition => new StreamPartition
+            {
+                Name = partition.Name,
+                FieldName = partition.FieldName,
+                FieldFormat = partition.FieldFormat
+            }).ToArray();
+            return new StreamMetadata(partitions);
+        }
     }
 
     /// <inheritdoc cref="IStreamContextWriter.SetStreamId"/>
@@ -110,12 +119,12 @@ public class SqlServerChangeTrackingStreamContext : IStreamContext, IStreamConte
     {
         this.StreamKind = streamKind;
     }
-
+    
     public void LoadSecretsFromEnvironment()
     {
         this.ConnectionString = this.GetSecretFromEnvironment("CONNECTIONSTRING");
     }
-
+    
     private string GetSecretFromEnvironment(string secretName)
         => Environment.GetEnvironmentVariable($"{nameof(Arcane)}__{secretName}".ToUpperInvariant());
 }
