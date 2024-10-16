@@ -109,6 +109,22 @@ spec:
                   description: How long to wait before polling for next result set. Can be from 1 to 60 seconds.
                   minimum: 1
                   maximum: 60
+                streamMetadata:
+                  type: object
+                  optional: true
+                  default: null
+                  properties:
+                    partitions:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          fieldName:
+                            type: string
+                          fieldFormat:
+                            type: string
             status:
               type: object
               properties:

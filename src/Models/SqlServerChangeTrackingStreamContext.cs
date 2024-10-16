@@ -1,7 +1,11 @@
 using System;
+using System.Linq;
 using System.Text.Json.Serialization;
+using Akka.Util;
 using Arcane.Framework.Configuration;
 using Arcane.Framework.Services.Base;
+using Arcane.Framework.Services.Models;
+using Arcane.Framework.Sinks.Models;
 
 namespace Arcane.Stream.SqlServerChangeTracking.Models;
 
@@ -68,6 +72,35 @@ public class SqlServerChangeTrackingStreamContext : IStreamContext, IStreamConte
 
     /// <inheritdoc cref="IStreamContext.StreamKind"/>
     public string StreamKind { get; private set; }
+
+    /// <summary>
+    /// Property to hold stream metadata received from the stream context.
+    /// </summary>
+    [JsonPropertyName("streamMetadata")]
+    public StreamMetadataDefinition StreamMetadataProperty { get; set; }
+
+    /// <inheritdoc cref="IStreamContext.StreamMetadata"/>
+    [JsonIgnore]
+    public Option<StreamMetadata> StreamMetadata
+    {
+        get
+        {
+            if (this.StreamMetadataProperty is null)
+            {
+                return Option<StreamMetadata>.None;
+            }
+
+            var partitions = this.StreamMetadataProperty
+                .Partitions
+                .Select(partition => new StreamPartition
+            {
+                Name = partition.Name,
+                FieldName = partition.FieldName,
+                FieldFormat = partition.FieldFormat
+            }).ToArray();
+            return new StreamMetadata(partitions);
+        }
+    }
 
     /// <inheritdoc cref="IStreamContextWriter.SetStreamId"/>
     public void SetStreamId(string streamId)
