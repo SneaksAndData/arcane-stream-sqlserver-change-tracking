@@ -4,8 +4,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using Akka.Streams;
 using Akka.Streams.Dsl;
+using Akka.Util;
 using Arcane.Framework.Contracts;
 using Arcane.Framework.Services.Base;
+using Arcane.Framework.Sinks.Models;
 using Arcane.Framework.Sinks.Parquet;
 using Arcane.Framework.Sources.Exceptions;
 using Arcane.Framework.Sources.SqlServer;
@@ -51,7 +53,8 @@ public class SqlServerChangeTrackingGraphBuilder(
                 rowGroupsPerFile: context.GroupsPerFile,
                 createSchemaFile: true,
                 dataSinkPathSegment: context.IsBackfilling ? "backfill" : "data",
-                dropCompletionToken: context.IsBackfilling);
+                dropCompletionToken: context.IsBackfilling,
+                streamMetadata: context.StreamMetadata.GetOrElse(new StreamMetadata(Option<StreamPartition[]>.None)));
 
             return Source
                 .FromGraph(source)
