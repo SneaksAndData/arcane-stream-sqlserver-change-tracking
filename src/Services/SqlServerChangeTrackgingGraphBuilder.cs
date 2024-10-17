@@ -54,7 +54,7 @@ public class SqlServerChangeTrackingGraphBuilder(
                 createSchemaFile: true,
                 dataSinkPathSegment: context.IsBackfilling ? "backfill" : "data",
                 dropCompletionToken: context.IsBackfilling,
-                streamMetadata: context.StreamMetadata.GetOrElse(new StreamMetadata(Option<StreamPartition[]>.None)));
+                streamMetadata: context.GetStreamMetadata().GetOrElse(new StreamMetadata(Option<StreamPartition[]>.None)));
 
             return Source
                 .FromGraph(source)
