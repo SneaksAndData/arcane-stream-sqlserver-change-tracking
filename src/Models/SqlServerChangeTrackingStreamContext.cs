@@ -5,6 +5,7 @@ using Akka.Util;
 using Arcane.Framework.Configuration;
 using Arcane.Framework.Services.Base;
 using Arcane.Framework.Services.Models;
+using Arcane.Framework.Sinks.Extensions;
 using Arcane.Framework.Sinks.Models;
 
 namespace Arcane.Stream.SqlServerChangeTracking.Models;
@@ -77,29 +78,21 @@ public class SqlServerChangeTrackingStreamContext : IStreamContext, IStreamConte
     /// Property to hold stream metadata received from the stream context.
     /// </summary>
     [JsonPropertyName("streamMetadata")]
-    public StreamMetadataDefinition StreamMetadataProperty { get; set; }
+    public StreamMetadataDefinition StreamMetadata { get; set; }
 
-    /// <inheritdoc cref="IStreamContext.StreamMetadata"/>
-    [JsonIgnore]
-    public Option<StreamMetadata> StreamMetadata
+    /// <inheritdoc cref="Framework.Sinks.Models.StreamMetadata"/>
+    public Option<StreamMetadata> GetStreamMetadata()
     {
-        get
+        if (this.StreamMetadata is null)
         {
-            if (this.StreamMetadataProperty is null)
-            {
-                return Option<StreamMetadata>.None;
-            }
-
-            var partitions = this.StreamMetadataProperty
-                .Partitions
-                .Select(partition => new StreamPartition
-            {
-                Name = partition.Name,
-                FieldName = partition.FieldName,
-                FieldFormat = partition.FieldFormat
-            }).ToArray();
-            return new StreamMetadata(partitions);
+            return Option<StreamMetadata>.None;
         }
+
+        var partitions = this.StreamMetadata
+            .Partitions
+            .Select(partition => partition.ToStreamPartition())
+            .ToArray();
+        return new StreamMetadata(partitions);
     }
 
     /// <inheritdoc cref="IStreamContextWriter.SetStreamId"/>
