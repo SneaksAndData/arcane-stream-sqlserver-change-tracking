@@ -127,8 +127,6 @@ spec:
                             type: string
                           fieldExpression:
                             type: string
-                          isDatePartition:
-                            type: boolean
                     partitions:
                       type: array
                       items:
