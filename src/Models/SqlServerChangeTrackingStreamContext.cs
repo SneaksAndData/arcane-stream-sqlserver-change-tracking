@@ -90,6 +90,7 @@ public class SqlServerChangeTrackingStreamContext : IStreamContext, IStreamConte
 
         var partitions = this.StreamMetadata
             .Partitions
+            .Append(this.StreamMetadata.DatePartition)
             .Select(partition => partition.ToStreamPartition())
             .ToArray();
         return new StreamMetadata(partitions);
