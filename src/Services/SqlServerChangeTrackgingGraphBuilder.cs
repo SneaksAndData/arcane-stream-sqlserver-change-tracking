@@ -31,12 +31,13 @@ public class SqlServerChangeTrackingGraphBuilder(
     {
         context.LoadSecretsFromEnvironment();
         try
-        {
-
-            var source = SqlServerChangeTrackingSource.Create(context.ConnectionString,
-                context.Schema,
-                context.Table,
-                context.StreamKind,
+        {  
+            var streamMeta = context.GetStreamMetadata().GetOrElse(new StreamMetadata(Option<StreamPartition[]>.None));
+            var source = SqlServerChangeTrackingSource.Create(
+                connectionString: context.ConnectionString,
+                schemaName: context.Schema,
+                tableName: context.Table,
+                partitioningExpression: streamMeta.Partitions.GetOrElse([]).FirstOrDefault(sp => sp.IsDatePartition)?.FieldExpression,
                 TimeSpan.FromSeconds(context.ChangeCaptureInterval),
                 context.CommandTimeout,
                 context.LookbackInterval,

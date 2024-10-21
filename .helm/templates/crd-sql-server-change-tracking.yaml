@@ -32,7 +32,7 @@ spec:
           type: string
           jsonPath: .status.phase
       subresources:
-        status: {}
+        status: { }
       schema:
         openAPIV3Schema:
           type: object
@@ -114,12 +114,25 @@ spec:
                   optional: true
                   default: null
                   properties:
+                    datePartition:
+                      type: object
+                      items:
+                        type: object
+                        properties:
+                          description:
+                            type: string
+                          fieldName:
+                            type: string
+                          fieldFormat:
+                            type: string
+                          fieldExpression:
+                            type: string
                     partitions:
                       type: array
                       items:
                         type: object
                         properties:
-                          name:
+                          description:
                             type: string
                           fieldName:
                             type: string
