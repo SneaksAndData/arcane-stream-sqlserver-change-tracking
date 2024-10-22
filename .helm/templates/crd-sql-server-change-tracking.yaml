@@ -116,17 +116,15 @@ spec:
                   properties:
                     datePartition:
                       type: object
-                      items:
-                        type: object
-                        properties:
-                          description:
-                            type: string
-                          fieldName:
-                            type: string
-                          fieldFormat:
-                            type: string
-                          fieldExpression:
-                            type: string
+                      properties:
+                        description:
+                          type: string
+                        fieldName:
+                          type: string
+                        fieldFormat:
+                          type: string
+                        fieldExpression:
+                          type: string
                     partitions:
                       type: array
                       items:
