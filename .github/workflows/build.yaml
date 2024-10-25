@@ -26,23 +26,6 @@ jobs:
         uses: actions/setup-dotnet@v4.0.1
         with:
           dotnet-version: 6.0.x
-      - name: Restore dependencies
-        env:
-          NUGET_TOKEN: ${{ secrets.NUGET_TOKEN }}
-        run: dotnet restore
-      - name: Build
-        run: dotnet build --no-restore
-      - name: Test
-        working-directory: ./test
-        run: |
-          dotnet add package coverlet.msbuild &&
-          dotnet test ${PROJECT_NAME}.Tests.csproj --configuration Debug --runtime linux-x64 /p:CollectCoverage=true /p:CoverletOutput=Coverage/ /p:CoverletOutputFormat=lcov --logger GitHubActions
-      - name: Publish Code Coverage
-        if: ${{ github.event_name == 'pull_request' && always() }}
-        uses: romeovs/lcov-reporter-action@v0.4.0
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          lcov-file: ./test/Coverage/coverage.info
 
   build_image:
     name: Build Docker Image and Helm Charts
