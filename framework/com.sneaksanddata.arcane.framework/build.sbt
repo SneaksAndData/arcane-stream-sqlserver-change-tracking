@@ -4,6 +4,6 @@ ThisBuild / scalaVersion := "3.3.4"
 
 lazy val root = (project in file("."))
   .settings(
-    name := "arcane_framework",
+    name := "arcane-framework",
     idePackagePrefix := Some("com.sneaksanddata.arcane.framework")
   )
