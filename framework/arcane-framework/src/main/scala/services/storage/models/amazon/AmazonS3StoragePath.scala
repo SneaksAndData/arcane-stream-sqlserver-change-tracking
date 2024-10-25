@@ -1,0 +1,62 @@
+package com.sneaksanddata.arcane.framework
+package services.storage.models.amazon
+
+import services.storage.models.base.BlobPath
+
+import scala.util.matching.Regex
+import scala.util.{Failure, Success, Try}
+
+/**
+  * Represents a path to a blob in Amazon S3 storage.
+  *
+  * @param bucket The name of the bucket.
+  * @param objectKey The key of the object in the bucket.
+  */
+private final case class AmazonS3StoragePath(bucket: String, objectKey: String) extends BlobPath {
+
+  /**
+   * Converts the path to a HDFS-style path.
+   *
+   * @return The path as a string.
+   */
+  override def toHdfsPath = s"s3a://$bucket/$objectKey"
+
+  /**
+    * Joins the given key name to the current path.
+    *
+    * @param keyName The key name to join.
+    * @return The new path.
+    */
+  def join(keyName: String) = new AmazonS3StoragePath(bucket, if (objectKey.isEmpty) keyName else s"$objectKey/$keyName")
+
+}
+
+/**
+  * Companion object for [[AmazonS3StoragePath]].
+  */
+object AmazonS3StoragePath {
+  private val matchRegex: String = "s3a://([^/]+)/?(.*)"
+
+  /**
+    * Checks if the given path is an Amazon S3 path.
+    *
+    * @param hdfsPath The path to check.
+    * @return True if the path is an Amazon S3 path, false otherwise.
+    */
+  def isAmazonS3Path(hdfsPath: String): Boolean = hdfsPath.matches(matchRegex)
+
+  /**
+    * Creates an [[AmazonS3StoragePath]] from the given HDFS path.
+    *
+    * @param hdfsPath The HDFS path.
+    * @return The [[AmazonS3StoragePath]].
+    */
+  def fromHdfsPath(hdfsPath: String): Try[AmazonS3StoragePath] = {
+    val r: Regex = AmazonS3StoragePath.matchRegex.r
+    val m = r.findFirstMatchIn(hdfsPath)
+    m match {
+      case Some(matched) => Success(AmazonS3StoragePath(matched.group(1), matched.group(2).stripSuffix("/")))
+      case None => Failure(IllegalArgumentException(s"An AmazonS3StoragePath must be in the format s3a://bucket/path, but was: $hdfsPath"))
+    }
+  }
+}
