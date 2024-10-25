@@ -23,9 +23,9 @@ namespace Arcane.Stream.SqlServerChangeTracking.Services;
 
 public class SqlServerChangeTrackingGraphBuilder(
     IBlobStorageWriter blobStorageWriter,
+    IInterruptionToken interruptionToken,
     MetricsService metricsService,
-    ILogger<SqlServerChangeTrackingGraphBuilder> logger
-    ) : IStreamGraphBuilder<SqlServerChangeTrackingStreamContext>
+    ILogger<SqlServerChangeTrackingGraphBuilder> logger) : IStreamGraphBuilder<SqlServerChangeTrackingStreamContext>
 {
     public IRunnableGraph<(UniqueKillSwitch, Task)> BuildGraph(SqlServerChangeTrackingStreamContext context)
     {
@@ -50,6 +50,7 @@ public class SqlServerChangeTrackingGraphBuilder(
             var parquetSink = ParquetSink.Create(
                 parquetSchema: schema,
                 storageWriter: blobStorageWriter,
+                interruptionToken: interruptionToken,
                 parquetFilePath: $"{context.SinkLocation}/{context.StreamId}",
                 rowGroupsPerFile: context.GroupsPerFile,
                 createSchemaFile: true,

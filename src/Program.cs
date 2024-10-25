@@ -4,9 +4,11 @@ using System.Threading.Tasks;
 using Akka.Util.Extensions;
 using Arcane.Framework.Contracts;
 using Arcane.Framework.Providers.Hosting;
+using Arcane.Framework.Services.Base;
 using Arcane.Framework.Sources.SqlServer.Exceptions;
 using Arcane.Stream.SqlServerChangeTracking.Models;
 using Arcane.Stream.SqlServerChangeTracking.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 using Snd.Sdk.Logs.Providers;
@@ -30,6 +32,7 @@ try
             => services.AddStreamGraphBuilder<SqlServerChangeTrackingGraphBuilder, SqlServerChangeTrackingStreamContext>())
         .ConfigureAdditionalServices((services, context) =>
         {
+            services.AddSingleton<IInterruptionToken>(sp => sp.GetRequiredService<IStreamLifetimeService>());
             services.AddDatadogMetrics(configuration: DatadogConfiguration.UnixDomainSocket(context.ApplicationName));
             services.AddAwsS3Writer(AmazonStorageConfiguration.CreateFromEnv());
         })
