@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Threading;
 using System.Threading.Tasks;
 using Akka.Util.Extensions;
 using Arcane.Framework.Contracts;
@@ -20,10 +19,6 @@ Log.Logger = DefaultLoggingProvider.CreateBootstrapLogger(nameof(Arcane));
 int exitCode;
 try
 {
-    ThreadPool.GetMaxThreads(out var workerThreads, out var completionPortThreads);
-    ThreadPool.SetMaxThreads(Math.Max(workerThreads, 2048), Math.Max(completionPortThreads, 2048));
-    ThreadPool.SetMinThreads(1024, 512);
-        
     exitCode = await Host.CreateDefaultBuilder(args)
         .AddDatadogLogging((_, _, conf) => conf.EnrichWithCustomProperties().WriteTo.Console())
         .ConfigureRequiredServices(services
