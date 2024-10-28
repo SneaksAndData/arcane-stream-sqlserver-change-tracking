@@ -1,20 +1,25 @@
 package com.sneaksanddata.arcane.framework
 package services.storage.base
 
-import services.storage.exceptions.BlobStorageException
-import services.storage.models.UploadResult
 import services.storage.models.base.BlobPath
 
-import zio.ZIO
-
 import java.net.URL
+import scala.concurrent.Future
+
+/**
+ * An exception that is thrown when an error occurs in the blob storage.
+ *
+ * @param message The message of the exception.
+ * @param cause The cause of the exception.
+ */
+final case class BlobStorageException(private val message: String, private val cause: Throwable) extends Exception(message, cause)
 
 /**
  * A trait that defines the interface for writing to a blob storage.
  *
- * @tparam PathType The type of the path to the blob.
+ * @tparam Path The type of the path to the blob.
  */
-trait BlobStorageWriter[PathType <: BlobPath] {
+trait BlobStorageWriter[Path <: BlobPath, Result]: 
   /**
    * Saves the given bytes as a blob.
    *
@@ -22,7 +27,7 @@ trait BlobStorageWriter[PathType <: BlobPath] {
    * @param data The bytes to save.
    * @return The result of the upload.
    */
-  def saveBytesAsBlob(blobPath: PathType, data: Array[Byte]): ZIO[Any, BlobStorageException, UploadResult]
+  def saveBytesAsBlob(blobPath: Path, data: Array[Byte]): Future[Result]
 
   /**
    * Saves the given text as a blob.
@@ -31,7 +36,7 @@ trait BlobStorageWriter[PathType <: BlobPath] {
    * @param data The text to save.
    * @return The result of the upload.
    */
-  def saveTextAsBlob(blobPath: PathType, data: String): ZIO[Any, BlobStorageException, UploadResult]
+  def saveTextAsBlob(blobPath: Path, data: String): Future[Result]
 
   /**
    * Removes the blob at the given path.
@@ -39,7 +44,7 @@ trait BlobStorageWriter[PathType <: BlobPath] {
    * @param blobPath The path to the blob.
    * @param data The data to remove.
    */
-  def removeBlob(blobPath: PathType, data: String): ZIO[Any, BlobStorageException, Unit]
+  def removeBlob(blobPath: Path, data: String): Future[Result]
 
   /**
    * Gets the URI of the blob at the given path.
@@ -48,5 +53,4 @@ trait BlobStorageWriter[PathType <: BlobPath] {
    * @param data The data to get.
    * @return The URI of the blob.
    */
-  def getBlobUri(blobPath: PathType, data: String): ZIO[Any, BlobStorageException, URL]
-}
+  def getBlobUri(blobPath: Path, data: String): Future[URL]
