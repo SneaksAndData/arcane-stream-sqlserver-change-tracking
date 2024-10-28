@@ -11,7 +11,7 @@ import zio.ZIO
  *
  * @tparam PathType The type of the path to the blob.
  */
-trait StorageBlobReader[PathType <: BlobPath] {
+trait BlobStorageReader[PathType <: BlobPath] {
   /**
    * Gets the content of the blob at the given path.
    *
