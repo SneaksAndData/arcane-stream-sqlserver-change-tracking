@@ -7,19 +7,11 @@ import java.net.URL
 import scala.concurrent.Future
 
 /**
- * An exception that is thrown when an error occurs in the blob storage.
- *
- * @param message The message of the exception.
- * @param cause The cause of the exception.
- */
-final case class BlobStorageException(private val message: String, private val cause: Throwable) extends Exception(message, cause)
-
-/**
  * A trait that defines the interface for writing to a blob storage.
  *
  * @tparam Path The type of the path to the blob.
  */
-trait BlobStorageWriter[Path <: BlobPath, Result]: 
+trait BlobStorageWriter[Path <: BlobPath, Result]:
   /**
    * Saves the given bytes as a blob.
    *
