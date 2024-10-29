@@ -1,4 +1,4 @@
-﻿# The scala SBT gitignore file from https://github.com/scala/scala/blob/2.13.x/.gitignore
+# The scala SBT gitignore file from https://github.com/scala/scala/blob/2.13.x/.gitignore
 
 #
 # JARs aren't checked in, they are fetched by sbt
@@ -59,3 +59,9 @@ project/**/metals.sbt
 
 .bsp
 .history
+
+# Mac files
+**/.DS_Store
+
+# Idea folder at every level
+**/.idea
