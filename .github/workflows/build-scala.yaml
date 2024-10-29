@@ -31,7 +31,7 @@ jobs:
       - name: Setup Scala
         uses: japgolly/setup-everything-scala@v3.1
         with:
-          java-version: openjdk:23
+          java-version: temurin:1.23.0.1
       - name: Build the Docker Compose stack
         run: docker compose up -d
       - name: Build and test
