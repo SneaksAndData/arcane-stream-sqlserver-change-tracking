@@ -2,8 +2,9 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import MsSqlConnection.{DATE_PARTITION_KEY, UPSERT_MERGE_KEY}
-
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
+import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
+import io.delta.kernel.types.{IntegerType, StructField, StructType}
 
 import java.sql.ResultSet
 import java.util.Properties
@@ -22,6 +23,8 @@ type ColumnSummary = (String, Boolean)
  * Represents a query to be executed on a Microsoft SQL Server database.
  */
 type MsSqlQuery = String
+
+type SqlSchema = Seq[(String, Int)]
 
 /**
  * Represents the connection options for a Microsoft SQL Server database.
@@ -43,7 +46,7 @@ case class ConnectionOptions(connectionUrl: String,
  *
  * @param connectionOptions The connection options for the database.
  */
-class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoCloseable:
+class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoCloseable with SchemaProvider[StructType]:
   private val driver = new SQLServerDriver()
   private val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
@@ -71,6 +74,29 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * Closes the connection to the database.
    */
   override def close(): Unit = connection.close()
+
+  override def getSchema: Future[StructType] =
+    for query <- QueryProvider.getSchemaQuery(this)
+        sqlSchema <- getSqlSchema(query)
+    yield toSchema(sqlSchema, StructType())
+
+  private def getSqlSchema(query: String): Future[SqlSchema] = Future {
+    val columns = Using.Manager { use =>
+      val statement = use(connection.createStatement())
+      val resultSet = blocking {
+        use(statement.executeQuery(query))
+      }
+      val metadata = resultSet.getMetaData
+      for i <- 1 to metadata.getColumnCount yield (metadata.getColumnName(i), metadata.getColumnType(i))
+    }
+    columns.get
+  }
+
+  @tailrec
+  private def toSchema(sqlSchema: SqlSchema, schema: StructType): StructType =
+    sqlSchema match
+      case Nil => schema
+      case x +: xs => toSchema(xs, schema.add(x._1, IntegerType.INTEGER))
 
   @tailrec
   private def readColumns(resultSet: ResultSet, result: List[ColumnSummary]): List[ColumnSummary] =
@@ -109,12 +135,12 @@ object QueryProvider:
    * @param msSqlConnection The connection to the database.
    * @return A future containing the schema query for the Microsoft SQL Server database.
    */
-  def GetSchemaQuery(msSqlConnection: MsSqlConnection): Future[MsSqlQuery] =
+  def getSchemaQuery(msSqlConnection: MsSqlConnection): Future[MsSqlQuery] =
     msSqlConnection.getColumnSummaries
       .map(columnSummaries => {
         val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
-        val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq", "sq")
-        val matchStatement = QueryProvider.getMatchStatement(columnSummaries, "sq", "tq", None)
+        val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
+        val matchStatement = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
         QueryProvider.getChangesQuery(
           msSqlConnection.connectionOptions,
           mergeExpression,

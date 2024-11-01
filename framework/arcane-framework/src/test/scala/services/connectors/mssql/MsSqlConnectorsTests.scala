@@ -10,6 +10,7 @@ import org.scalatest.matchers.should.Matchers.*
 
 import java.sql.Connection
 import java.util.Properties
+import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 import scala.concurrent.Future
 import scala.language.postfixOps
 
@@ -63,18 +64,27 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     test(conn)
 
   "QueryProvider" should "generate columns query" in withDatabase { dbInfo =>
-    val connector = MsSqlConnection(dbInfo.connectionOptions)
-    val query = QueryProvider.getColumnSummariesQuery(connector.connectionOptions.schemaName,
-      connector.connectionOptions.tableName,
-      connector.connectionOptions.databaseName)
+    val connection = MsSqlConnection(dbInfo.connectionOptions)
+    val query = QueryProvider.getColumnSummariesQuery(connection.connectionOptions.schemaName,
+      connection.connectionOptions.tableName,
+      connection.connectionOptions.databaseName)
     query should include ("case when kcu.CONSTRAINT_NAME is not null then 1 else 0 end as IsPrimaryKey")
   }
 
   "QueryProvider" should "generate schema query" in withDatabase { dbInfo =>
-    val connector = MsSqlConnection(dbInfo.connectionOptions)
-    QueryProvider.GetSchemaQuery(connector) map { query =>
+    val connection = MsSqlConnection(dbInfo.connectionOptions)
+    QueryProvider.getSchemaQuery(connection) map { query =>
       query should (
-        include ("tq.SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY") and include("format(getdate(), 'yyyyMM')")
+        include ("ct.SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY") and include("format(getdate(), 'yyyyMM')")
       )
+    }
+  }
+
+  "MsSqlConnection" should "be able to extract schema column names from the database" in withDatabase { dbInfo =>
+    val dataColumns = List("x", "y")
+    val generatedColumns = List("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ChangeTrackingVersion", "ARCANE_MERGE_KEY", "DATE_PARTITION_KEY")
+    val connection = MsSqlConnection(dbInfo.connectionOptions)
+    connection.getSchema map { schema =>
+      schema.fields map {f => f.getName} should contain theSameElementsAs dataColumns ++ generatedColumns
     }
   }
