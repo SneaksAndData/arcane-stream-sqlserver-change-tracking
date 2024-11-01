@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import MsSqlConnection.{DATE_PARTITION_KEY, UPSERT_MERGE_KEY}
+
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import io.delta.kernel.types.{IntegerType, StructField, StructType}
@@ -139,8 +140,8 @@ object QueryProvider:
     msSqlConnection.getColumnSummaries
       .map(columnSummaries => {
         val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
-        val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
-        val matchStatement = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
+        val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq", "sq")
+        val matchStatement = QueryProvider.getMatchStatement(columnSummaries, "sq", "tq", None)
         QueryProvider.getChangesQuery(
           msSqlConnection.connectionOptions,
           mergeExpression,

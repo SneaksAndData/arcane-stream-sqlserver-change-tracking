@@ -10,7 +10,7 @@ import org.scalatest.matchers.should.Matchers.*
 
 import java.sql.Connection
 import java.util.Properties
-import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
+import scala.concurrent.Future
 import scala.concurrent.Future
 import scala.language.postfixOps
 
@@ -64,18 +64,18 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     test(conn)
 
   "QueryProvider" should "generate columns query" in withDatabase { dbInfo =>
-    val connection = MsSqlConnection(dbInfo.connectionOptions)
-    val query = QueryProvider.getColumnSummariesQuery(connection.connectionOptions.schemaName,
-      connection.connectionOptions.tableName,
-      connection.connectionOptions.databaseName)
+    val connector = MsSqlConnection(dbInfo.connectionOptions)
+    val query = QueryProvider.getColumnSummariesQuery(connector.connectionOptions.schemaName,
+      connector.connectionOptions.tableName,
+      connector.connectionOptions.databaseName)
     query should include ("case when kcu.CONSTRAINT_NAME is not null then 1 else 0 end as IsPrimaryKey")
   }
 
   "QueryProvider" should "generate schema query" in withDatabase { dbInfo =>
-    val connection = MsSqlConnection(dbInfo.connectionOptions)
-    QueryProvider.getSchemaQuery(connection) map { query =>
+    val connector = MsSqlConnection(dbInfo.connectionOptions)
+    QueryProvider.GetSchemaQuery(connector) map { query =>
       query should (
-        include ("ct.SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY") and include("format(getdate(), 'yyyyMM')")
+        include ("tq.SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY") and include("format(getdate(), 'yyyyMM')")
       )
     }
   }
