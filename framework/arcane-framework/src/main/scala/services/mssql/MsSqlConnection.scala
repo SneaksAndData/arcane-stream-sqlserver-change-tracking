@@ -109,7 +109,7 @@ object QueryProvider:
    * @param msSqlConnection The connection to the database.
    * @return A future containing the schema query for the Microsoft SQL Server database.
    */
-  def GetSchemaQuery(msSqlConnection: MsSqlConnection): Future[MsSqlQuery] =
+  def getSchemaQuery(msSqlConnection: MsSqlConnection): Future[MsSqlQuery] =
     msSqlConnection.getColumnSummaries
       .map(columnSummaries => {
         val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
