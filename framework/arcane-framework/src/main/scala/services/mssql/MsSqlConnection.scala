@@ -140,8 +140,8 @@ object QueryProvider:
     msSqlConnection.getColumnSummaries
       .map(columnSummaries => {
         val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
-        val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq", "sq")
-        val matchStatement = QueryProvider.getMatchStatement(columnSummaries, "sq", "tq", None)
+        val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
+        val matchStatement = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
         QueryProvider.getChangesQuery(
           msSqlConnection.connectionOptions,
           mergeExpression,

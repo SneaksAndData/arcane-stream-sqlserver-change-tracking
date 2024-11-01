@@ -10,7 +10,7 @@ import org.scalatest.matchers.should.Matchers.*
 
 import java.sql.Connection
 import java.util.Properties
-import scala.concurrent.Future
+import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.concurrent.Future
 import scala.language.postfixOps
 
@@ -73,10 +73,10 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
 
   "QueryProvider" should "generate schema query" in withDatabase { dbInfo =>
     val connector = MsSqlConnection(dbInfo.connectionOptions)
-    QueryProvider.GetSchemaQuery(connector) map { query =>
+    QueryProvider.getSchemaQuery(connector) map { query =>
       query should (
-        include ("tq.SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY") and include("format(getdate(), 'yyyyMM')")
-      )
+        include ("ct.SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY") and include("format(getdate(), 'yyyyMM')")
+        )
     }
   }
 
@@ -85,6 +85,6 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     val generatedColumns = List("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ChangeTrackingVersion", "ARCANE_MERGE_KEY", "DATE_PARTITION_KEY")
     val connection = MsSqlConnection(dbInfo.connectionOptions)
     connection.getSchema map { schema =>
-      schema.fields map {f => f.getName} should contain theSameElementsAs dataColumns ++ generatedColumns
+      schema.fields.asScala map { f => f.getName } should contain theSameElementsAs dataColumns ++ generatedColumns
     }
   }
