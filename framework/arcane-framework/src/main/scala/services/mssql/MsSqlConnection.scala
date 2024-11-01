@@ -1,11 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import MsSqlConnection.{DATE_PARTITION_KEY, UPSERT_MERGE_KEY}
+import services.base.SchemaProvider
+import services.mssql.MsSqlConnection.{DATE_PARTITION_KEY, UPSERT_MERGE_KEY}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
-import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
-import io.delta.kernel.types.{IntegerType, StructField, StructType}
+import io.delta.kernel.types.{IntegerType, StructType}
 
 import java.sql.ResultSet
 import java.util.Properties
@@ -25,6 +25,9 @@ type ColumnSummary = (String, Boolean)
  */
 type MsSqlQuery = String
 
+/**
+ * Represents the schema of a table in a Microsoft SQL Server database.
+ */
 type SqlSchema = Seq[(String, Int)]
 
 /**
@@ -76,6 +79,11 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    */
   override def close(): Unit = connection.close()
 
+  /**
+   * Gets the schema for the data produced by Arcane.
+   *
+   * @return A future containing the schema for the data produced by Arcane.
+   */
   override def getSchema: Future[StructType] =
     for query <- QueryProvider.getSchemaQuery(this)
         sqlSchema <- getSqlSchema(query)
