@@ -19,10 +19,6 @@ lazy val root = (project in file("."))
     libraryDependencies += "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.1.jre11",
     libraryDependencies += "software.amazon.awssdk" % "s3" % "2.25.27",
 
-    libraryDependencies += "org.apache.parquet" % "parquet" % "1.14.1",
-    libraryDependencies += "org.apache.parquet" % "parquet-format-structures" % "1.14.1",
-    libraryDependencies += "org.apache.parquet" % "parquet-avro" % "1.14.1",
-
     // Test dependencies
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
     libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test
