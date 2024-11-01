@@ -1,12 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package services.connectors.mssql
 
+import services.mssql.{ConnectionOptions, MsSqlConnection, QueryProvider}
+
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import org.scalatest.*
-import org.scalatest.flatspec.FixtureAnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.*
-import services.connectors.mssql.*
 
 import java.sql.Connection
 import java.util.Properties
@@ -26,18 +26,24 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     val statement = con.createStatement()
     statement.execute(query)
     createTable(con)
-    TestConnectionInfo(ConnectionOptions(connectionUrl, "arcane", "arcane"), con)
+    TestConnectionInfo(
+      ConnectionOptions(
+        connectionUrl,
+        "arcane",
+        "dbo",
+        "MsSqlConnectorsTests",
+        Some("format(getdate(), 'yyyyMM')")), con)
 
   def createTable(con: Connection): Unit =
     val query = "use arcane; drop table if exists dbo.MsSqlConnectorsTests; create table dbo.MsSqlConnectorsTests(x int not null, y int)"
     val statement = con.createStatement()
-    statement.execute(query)
+    statement.executeUpdate(query)
 
     val createPKCmd = "use arcane; alter table dbo.MsSqlConnectorsTests add constraint pk_MsSqlConnectorsTests primary key(x);";
-    statement.execute(createPKCmd)
+    statement.executeUpdate(createPKCmd)
 
     val enableCtCmd = "use arcane; alter table dbo.MsSqlConnectorsTests enable change_tracking;";
-    statement.execute(enableCtCmd)
+    statement.executeUpdate(enableCtCmd)
 
     for i <- 1 to 10 do
       val insertCmd = s"use arcane; insert into dbo.MsSqlConnectorsTests values($i, ${i+1})"
@@ -54,12 +60,21 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
 
   def withDatabase(test: TestConnectionInfo => Future[Assertion]): Future[Assertion] =
     val conn = createDb()
-    test(conn) //andThen { case _ => removeDb() }
+    test(conn)
 
-  "MsSqlConnector" should "read schema" in withDatabase { dbInfo =>
-    val connector = MsSqlConnector(dbInfo.connectionOptions)
-    connector.getSchema map { schema =>
-      val cols = schema.getColumns()
-      cols.size() should be (7)
+  "QueryProvider" should "generate columns query" in withDatabase { dbInfo =>
+    val connector = MsSqlConnection(dbInfo.connectionOptions)
+    val query = QueryProvider.getColumnSummariesQuery(connector.connectionOptions.schemaName,
+      connector.connectionOptions.tableName,
+      connector.connectionOptions.databaseName)
+    query should include ("case when kcu.CONSTRAINT_NAME is not null then 1 else 0 end as IsPrimaryKey")
+  }
+
+  "QueryProvider" should "generate schema query" in withDatabase { dbInfo =>
+    val connector = MsSqlConnection(dbInfo.connectionOptions)
+    QueryProvider.GetSchemaQuery(connector) map { query =>
+      query should (
+        include ("tq.SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY") and include("format(getdate(), 'yyyyMM')")
+      )
     }
   }
