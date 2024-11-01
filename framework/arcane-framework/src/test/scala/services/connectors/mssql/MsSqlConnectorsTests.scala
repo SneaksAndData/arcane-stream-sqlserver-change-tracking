@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.connectors.mssql
 
+import models.ArcaneType.{IntType, LongType, StringType}
+import models.Field
 import services.mssql.{ConnectionOptions, MsSqlConnection, QueryProvider}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
@@ -10,7 +12,7 @@ import org.scalatest.matchers.should.Matchers.*
 
 import java.sql.Connection
 import java.util.Properties
-import scala.jdk.CollectionConverters.ListHasAsScala
+import scala.List
 import scala.concurrent.Future
 import scala.language.postfixOps
 
@@ -40,10 +42,10 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     val statement = con.createStatement()
     statement.executeUpdate(query)
 
-    val createPKCmd = "use arcane; alter table dbo.MsSqlConnectorsTests add constraint pk_MsSqlConnectorsTests primary key(x);";
+    val createPKCmd = "use arcane; alter table dbo.MsSqlConnectorsTests add constraint pk_MsSqlConnectorsTests primary key(x);"
     statement.executeUpdate(createPKCmd)
 
-    val enableCtCmd = "use arcane; alter table dbo.MsSqlConnectorsTests enable change_tracking;";
+    val enableCtCmd = "use arcane; alter table dbo.MsSqlConnectorsTests enable change_tracking;"
     statement.executeUpdate(enableCtCmd)
 
     for i <- 1 to 10 do
@@ -81,10 +83,18 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   }
 
   "MsSqlConnection" should "be able to extract schema column names from the database" in withDatabase { dbInfo =>
-    val dataColumns = List("x", "y")
-    val generatedColumns = List("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ChangeTrackingVersion", "ARCANE_MERGE_KEY", "DATE_PARTITION_KEY")
     val connection = MsSqlConnection(dbInfo.connectionOptions)
     connection.getSchema map { schema =>
-      schema.fields.asScala map { f => f.getName } should contain theSameElementsAs dataColumns ++ generatedColumns
+      val fields = for column <- schema if column.isInstanceOf[Field] yield column.asInstanceOf[Field].name
+      fields should be (List("x", "SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "y", "ChangeTrackingVersion", "ARCANE_MERGE_KEY", "DATE_PARTITION_KEY"))
+    }
+  }
+
+
+  "MsSqlConnection" should "be able to extract schema column types from the database" in withDatabase { dbInfo =>
+    val connection = MsSqlConnection(dbInfo.connectionOptions)
+    connection.getSchema map { schema =>
+      val fields = for column <- schema if column.isInstanceOf[Field] yield column.asInstanceOf[Field].fieldType
+      fields should be(List(IntType, LongType, StringType, IntType, LongType, StringType, StringType))
     }
   }
