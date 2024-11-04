@@ -4,7 +4,7 @@ package models
 /**
  * Represents a row of data.
  */
-type DataRow = List[DataColumn]
+type DataRow = List[DataCell]
 
 /**
  * Represents a row of data.
