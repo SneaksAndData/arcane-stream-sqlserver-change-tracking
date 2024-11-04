@@ -3,7 +3,7 @@ package services.mssql
 
 import models.{ArcaneSchema, ArcaneType, Field}
 import services.base.{CanAdd, SchemaProvider}
-import services.mssql.MsSqlConnection.{DATE_PARTITION_KEY, UPSERT_MERGE_KEY}
+import services.mssql.MsSqlConnection.{DATE_PARTITION_KEY, UPSERT_MERGE_KEY, toArcaneType}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 
@@ -102,6 +102,13 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
         sqlSchema <- getSqlSchema(query)
     yield toSchema(sqlSchema, empty)
 
+
+  def backfill(arcaneSchema: ArcaneSchema): Future[QueryResult[LazyQueryResult.OutputType]] =
+    for query <- QueryProvider.getBackfillQuery(this)
+        runner = QueryRunner()
+        result <- runner.executeQuery(query, connection, LazyQueryResult.apply)
+    yield result
+
   private def getSqlSchema(query: String): Future[SqlSchema] = Future {
     val columns = Using.Manager { use =>
       val statement = use(connection.createStatement())
@@ -130,23 +137,6 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
       return result
     readColumns(resultSet, result ++ List((resultSet.getString(1), resultSet.getInt(2) == 1)))
 
-  private def toArcaneType(sqlType: Int): ArcaneType = sqlType match
-    case java.sql.Types.BIGINT => ArcaneType.LongType
-    case java.sql.Types.BINARY => ArcaneType.ByteArrayType
-    case java.sql.Types.BIT => ArcaneType.BooleanType
-    case java.sql.Types.CHAR => ArcaneType.StringType
-    case java.sql.Types.DATE => ArcaneType.DateType
-    case java.sql.Types.TIMESTAMP => ArcaneType.TimestampType
-    case java.sql.Types.TIMESTAMP_WITH_TIMEZONE => ArcaneType.DateTimeOffsetType
-    case java.sql.Types.DECIMAL => ArcaneType.BigDecimalType
-    case java.sql.Types.DOUBLE => ArcaneType.DoubleType
-    case java.sql.Types.INTEGER => ArcaneType.IntType
-    case java.sql.Types.FLOAT => ArcaneType.FloatType
-    case java.sql.Types.SMALLINT => ArcaneType.ShortType
-    case java.sql.Types.TIME => ArcaneType.TimeType
-    case java.sql.Types.NCHAR => ArcaneType.StringType
-    case java.sql.Types.NVARCHAR => ArcaneType.StringType
-
 object MsSqlConnection:
   /**
    * The key used to merge rows in the output table.
@@ -165,6 +155,31 @@ object MsSqlConnection:
    * @return A new Microsoft SQL Server connection.
    */
   def apply(connectionOptions: ConnectionOptions): MsSqlConnection = new MsSqlConnection(connectionOptions)
+
+  /**
+   * Converts a SQL type to an Arcane type.
+   *
+   * @param sqlType The SQL type.
+   * @return The Arcane type.
+   */
+  def toArcaneType(sqlType: Int): ArcaneType = sqlType match
+    case java.sql.Types.BIGINT => ArcaneType.LongType
+    case java.sql.Types.BINARY => ArcaneType.ByteArrayType
+    case java.sql.Types.BIT => ArcaneType.BooleanType
+    case java.sql.Types.CHAR => ArcaneType.StringType
+    case java.sql.Types.DATE => ArcaneType.DateType
+    case java.sql.Types.TIMESTAMP => ArcaneType.TimestampType
+    case java.sql.Types.TIMESTAMP_WITH_TIMEZONE => ArcaneType.DateTimeOffsetType
+    case java.sql.Types.DECIMAL => ArcaneType.BigDecimalType
+    case java.sql.Types.DOUBLE => ArcaneType.DoubleType
+    case java.sql.Types.INTEGER => ArcaneType.IntType
+    case java.sql.Types.FLOAT => ArcaneType.FloatType
+    case java.sql.Types.SMALLINT => ArcaneType.ShortType
+    case java.sql.Types.TIME => ArcaneType.TimeType
+    case java.sql.Types.NCHAR => ArcaneType.StringType
+    case java.sql.Types.NVARCHAR => ArcaneType.StringType
+    case java.sql.Types.VARCHAR => ArcaneType.StringType
+
 
 object QueryProvider:
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
@@ -209,7 +224,7 @@ object QueryProvider:
     msSqlConnection.getColumnSummaries
       .map(columnSummaries => {
         val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
-        val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
+        val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")
         QueryProvider.getAllQuery(
           msSqlConnection.connectionOptions,
           mergeExpression,
@@ -241,6 +256,15 @@ object QueryProvider:
     val nonPrimaryKeyColumns = tableColumns
       .filter((name, isPrimaryKey) => !isPrimaryKey && !Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION").contains(name))
       .map((name, _) => s"$tableAlias.[$name]")
+    (primaryKeyColumns ++ additionalColumns ++ nonPrimaryKeyColumns).mkString(",\n")
+
+  private def getChangeTrackingColumns(tableColumns: List[ColumnSummary], tableAlias: String): String =
+    val primaryKeyColumns = tableColumns.filter((_, isPrimaryKey) => isPrimaryKey).map((name, _) => s"$tableAlias.[$name]")
+    val additionalColumns = List("0 as SYS_CHANGE_VERSION", "'I' as SYS_CHANGE_OPERATION")
+    val nonPrimaryKeyColumns = tableColumns
+      .filter((name, isPrimaryKey) => !isPrimaryKey && !Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION").contains(name))
+      .map((name, _) => s"$tableAlias.[$name]")
+
     (primaryKeyColumns ++ additionalColumns ++ nonPrimaryKeyColumns).mkString(",\n")
 
   private def getChangesQuery(connectionOptions: ConnectionOptions,

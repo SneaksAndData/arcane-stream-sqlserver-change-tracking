@@ -1,4 +1,4 @@
-﻿declare @currentVersion bigint = CHANGE_TRACKING_CURRENT_VERSION()
+declare @currentVersion bigint = CHANGE_TRACKING_CURRENT_VERSION()
 
 SELECT
 {ChangeTrackingColumnsStatement},
