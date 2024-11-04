@@ -92,7 +92,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     val connector = MsSqlConnection(dbInfo.connectionOptions)
     QueryProvider.getBackfillQuery(connector) map { query =>
       query should (
-        include ("ct.SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY") and include("format(getdate(), 'yyyyMM')")
+        include ("SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY") and include("format(getdate(), 'yyyyMM')")
         )
     }
   }
