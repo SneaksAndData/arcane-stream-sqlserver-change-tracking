@@ -1,11 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import services.base.SchemaProvider
+import models.{ArcaneSchema, ArcaneType, Field}
+import services.base.{CanAdd, SchemaProvider}
 import services.mssql.MsSqlConnection.{DATE_PARTITION_KEY, UPSERT_MERGE_KEY}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
-import io.delta.kernel.types.{IntegerType, StructType}
 
 import java.sql.ResultSet
 import java.util.Properties
@@ -46,11 +46,17 @@ case class ConnectionOptions(connectionUrl: String,
                              partitionExpression: Option[String])
 
 /**
+ * Required typeclass implementation
+ */
+given CanAdd[ArcaneSchema] with
+  extension (a: ArcaneSchema) def addField(fieldName: String, fieldType: ArcaneType): ArcaneSchema = a :+ Field(fieldName, fieldType)
+
+/**
  * Represents a connection to a Microsoft SQL Server database.
  *
  * @param connectionOptions The connection options for the database.
  */
-class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoCloseable with SchemaProvider[StructType]:
+class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoCloseable with SchemaProvider[ArcaneSchema]:
   private val driver = new SQLServerDriver()
   private val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
@@ -80,14 +86,21 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   override def close(): Unit = connection.close()
 
   /**
+   * Gets an empty schema.
+   *
+   * @return An empty schema.
+   */
+  override def empty: this.SchemaType = ArcaneSchema.empty()
+
+  /**
    * Gets the schema for the data produced by Arcane.
    *
    * @return A future containing the schema for the data produced by Arcane.
    */
-  override def getSchema: Future[StructType] =
+  override def getSchema: Future[this.SchemaType] =
     for query <- QueryProvider.getSchemaQuery(this)
         sqlSchema <- getSqlSchema(query)
-    yield toSchema(sqlSchema, StructType())
+    yield toSchema(sqlSchema, empty)
 
   private def getSqlSchema(query: String): Future[SqlSchema] = Future {
     val columns = Using.Manager { use =>
@@ -102,10 +115,12 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   }
 
   @tailrec
-  private def toSchema(sqlSchema: SqlSchema, schema: StructType): StructType =
+  private def toSchema(sqlSchema: SqlSchema, schema: this.SchemaType): this.SchemaType =
     sqlSchema match
       case Nil => schema
-      case x +: xs => toSchema(xs, schema.add(x._1, IntegerType.INTEGER))
+      case x +: xs =>
+        val (name, fieldType) = x
+        toSchema(xs, schema.addField(name, toArcaneType(fieldType)))
 
   @tailrec
   private def readColumns(resultSet: ResultSet, result: List[ColumnSummary]): List[ColumnSummary] =
@@ -115,6 +130,22 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
       return result
     readColumns(resultSet, result ++ List((resultSet.getString(1), resultSet.getInt(2) == 1)))
 
+  private def toArcaneType(sqlType: Int): ArcaneType = sqlType match
+    case java.sql.Types.BIGINT => ArcaneType.LongType
+    case java.sql.Types.BINARY => ArcaneType.ByteArrayType
+    case java.sql.Types.BIT => ArcaneType.BooleanType
+    case java.sql.Types.CHAR => ArcaneType.StringType
+    case java.sql.Types.DATE => ArcaneType.DateType
+    case java.sql.Types.TIMESTAMP => ArcaneType.TimestampType
+    case java.sql.Types.TIMESTAMP_WITH_TIMEZONE => ArcaneType.DateTimeOffsetType
+    case java.sql.Types.DECIMAL => ArcaneType.BigDecimalType
+    case java.sql.Types.DOUBLE => ArcaneType.DoubleType
+    case java.sql.Types.INTEGER => ArcaneType.IntType
+    case java.sql.Types.FLOAT => ArcaneType.FloatType
+    case java.sql.Types.SMALLINT => ArcaneType.ShortType
+    case java.sql.Types.TIME => ArcaneType.TimeType
+    case java.sql.Types.NCHAR => ArcaneType.StringType
+    case java.sql.Types.NVARCHAR => ArcaneType.StringType
 
 object MsSqlConnection:
   /**
