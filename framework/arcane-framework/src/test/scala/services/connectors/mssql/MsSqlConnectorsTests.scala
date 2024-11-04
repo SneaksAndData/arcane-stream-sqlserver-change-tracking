@@ -82,6 +82,15 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     }
   }
 
+  "QueryProvider" should "generate backfill query" in withDatabase { dbInfo =>
+    val connector = MsSqlConnection(dbInfo.connectionOptions)
+    QueryProvider.getBackfillQuery(connector) map { query =>
+      query should (
+        include ("ct.SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY") and include("format(getdate(), 'yyyyMM')")
+        )
+    }
+  }
+  
   "MsSqlConnection" should "be able to extract schema column names from the database" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
     connection.getSchema map { schema =>

@@ -205,6 +205,17 @@ object QueryProvider:
       .replace("{schema}", schemaName)
       .replace("{table}", tableName)
 
+  def getBackfillQuery(msSqlConnection: MsSqlConnection): Future[MsSqlQuery] =
+    msSqlConnection.getColumnSummaries
+      .map(columnSummaries => {
+        val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
+        val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
+        QueryProvider.getAllQuery(
+          msSqlConnection.connectionOptions,
+          mergeExpression,
+          columnExpression)
+      })
+
   private def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
     cs.filter((name, isPrimaryKey) => isPrimaryKey)
       .map((name, _) => s"cast($tableAlias.[$name] as nvarchar(128))")
@@ -252,3 +263,23 @@ object QueryProvider:
       .replace("{DATE_PARTITION_EXPRESSION}", connectionOptions.partitionExpression.getOrElse(""))
       .replace("{DATE_PARTITION_KEY}", DATE_PARTITION_KEY)
       .replace("{lastId}", changeTrackingId.toString)
+
+  private def getAllQuery(connectionOptions: ConnectionOptions,
+                  mergeExpression: String,
+                  columnExpression: String): String = {
+
+    val baseQuery = connectionOptions.partitionExpression match {
+      case Some(_) => Source.fromResource("get_select_all_query_date_partitioned.sql").getLines.mkString("\n")
+      case None => Source.fromResource("get_select_all_query.sql").getLines.mkString("\n")
+    }
+
+    baseQuery
+      .replace("{dbName}", connectionOptions.databaseName)
+      .replace("{schema}", connectionOptions.schemaName)
+      .replace("{tableName}", connectionOptions.tableName)
+      .replace("{ChangeTrackingColumnsStatement}", columnExpression)
+      .replace("{MERGE_EXPRESSION}", mergeExpression)
+      .replace("{MERGE_KEY}", UPSERT_MERGE_KEY)
+      .replace("{DATE_PARTITION_EXPRESSION}", connectionOptions.partitionExpression.getOrElse(""))
+      .replace("{DATE_PARTITION_KEY}", DATE_PARTITION_KEY)
+  }
