@@ -12,7 +12,7 @@ import java.util.Properties
 import scala.annotation.tailrec
 import scala.concurrent.{Future, blocking}
 import scala.io.Source
-import scala.util.Using
+import scala.util.{Success, Failure, Try, Using}
 
 /**
  * Represents a summary of a column in a table.
@@ -100,7 +100,9 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   override def getSchema: Future[this.SchemaType] =
     for query <- QueryProvider.getSchemaQuery(this)
         sqlSchema <- getSqlSchema(query)
-    yield toSchema(sqlSchema, empty)
+    yield toSchema(sqlSchema, empty) match
+      case Success(schema) => schema
+      case Failure(exception) => throw exception
 
 
   def backfill(arcaneSchema: ArcaneSchema): Future[QueryResult[LazyQueryResult.OutputType]] =
@@ -122,12 +124,14 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   }
 
   @tailrec
-  private def toSchema(sqlSchema: SqlSchema, schema: this.SchemaType): this.SchemaType =
+  private def toSchema(sqlSchema: SqlSchema, schema: this.SchemaType): Try[this.SchemaType] =
     sqlSchema match
-      case Nil => schema
+      case Nil => Success(schema)
       case x +: xs =>
         val (name, fieldType) = x
-        toSchema(xs, schema.addField(name, toArcaneType(fieldType)))
+        toArcaneType(fieldType) match
+          case Success(arcaneType) => toSchema(xs, schema.addField(name, arcaneType))
+          case Failure(exception) => Failure[this.SchemaType](exception)
 
   @tailrec
   private def readColumns(resultSet: ResultSet, result: List[ColumnSummary]): List[ColumnSummary] =
@@ -162,23 +166,24 @@ object MsSqlConnection:
    * @param sqlType The SQL type.
    * @return The Arcane type.
    */
-  def toArcaneType(sqlType: Int): ArcaneType = sqlType match
-    case java.sql.Types.BIGINT => ArcaneType.LongType
-    case java.sql.Types.BINARY => ArcaneType.ByteArrayType
-    case java.sql.Types.BIT => ArcaneType.BooleanType
-    case java.sql.Types.CHAR => ArcaneType.StringType
-    case java.sql.Types.DATE => ArcaneType.DateType
-    case java.sql.Types.TIMESTAMP => ArcaneType.TimestampType
-    case java.sql.Types.TIMESTAMP_WITH_TIMEZONE => ArcaneType.DateTimeOffsetType
-    case java.sql.Types.DECIMAL => ArcaneType.BigDecimalType
-    case java.sql.Types.DOUBLE => ArcaneType.DoubleType
-    case java.sql.Types.INTEGER => ArcaneType.IntType
-    case java.sql.Types.FLOAT => ArcaneType.FloatType
-    case java.sql.Types.SMALLINT => ArcaneType.ShortType
-    case java.sql.Types.TIME => ArcaneType.TimeType
-    case java.sql.Types.NCHAR => ArcaneType.StringType
-    case java.sql.Types.NVARCHAR => ArcaneType.StringType
-    case java.sql.Types.VARCHAR => ArcaneType.StringType
+  def toArcaneType(sqlType: Int): Try[ArcaneType] = sqlType match
+    case java.sql.Types.BIGINT => Success(ArcaneType.LongType)
+    case java.sql.Types.BINARY => Success(ArcaneType.ByteArrayType)
+    case java.sql.Types.BIT => Success(ArcaneType.BooleanType)
+    case java.sql.Types.CHAR => Success(ArcaneType.StringType)
+    case java.sql.Types.DATE => Success(ArcaneType.DateType)
+    case java.sql.Types.TIMESTAMP => Success(ArcaneType.TimestampType)
+    case java.sql.Types.TIMESTAMP_WITH_TIMEZONE => Success(ArcaneType.DateTimeOffsetType)
+    case java.sql.Types.DECIMAL => Success(ArcaneType.BigDecimalType)
+    case java.sql.Types.DOUBLE => Success(ArcaneType.DoubleType)
+    case java.sql.Types.INTEGER => Success(ArcaneType.IntType)
+    case java.sql.Types.FLOAT => Success(ArcaneType.FloatType)
+    case java.sql.Types.SMALLINT => Success(ArcaneType.ShortType)
+    case java.sql.Types.TIME => Success(ArcaneType.TimeType)
+    case java.sql.Types.NCHAR => Success(ArcaneType.StringType)
+    case java.sql.Types.NVARCHAR => Success(ArcaneType.StringType)
+    case java.sql.Types.VARCHAR => Success(ArcaneType.StringType)
+    case _ => Failure(new IllegalArgumentException(s"Unsupported SQL type: $sqlType"))
 
 
 object QueryProvider:

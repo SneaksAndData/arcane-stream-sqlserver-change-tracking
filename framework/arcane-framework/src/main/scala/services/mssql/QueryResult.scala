@@ -1,16 +1,18 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import models.{DataColumn, DataRow}
+import models.{DataCell, DataRow}
+import services.mssql.MsSqlConnection.toArcaneType
 
 import java.sql.{ResultSet, Statement}
 import scala.annotation.tailrec
+import scala.util.{Failure, Success, Try}
 
 /**
  * Represents the result of a query to a SQL database.
  */
 trait QueryResult[Output] {
-  
+
   type OutputType = Output
 
   /**
@@ -39,7 +41,12 @@ class LazyQueryResult(statement: Statement, resultSet: ResultSet) extends QueryR
     val columns = resultSet.getMetaData.getColumnCount
     LazyList.continually(resultSet)
       .takeWhile(_.next())
-      .map(row => toDataRow(row, columns, List.empty))
+      .map(row => {
+        toDataRow(row, columns, List.empty) match {
+          case Success(dataRow) => dataRow
+          case Failure(exception) => throw exception
+        }
+      })
 
 
   /**
@@ -49,27 +56,27 @@ class LazyQueryResult(statement: Statement, resultSet: ResultSet) extends QueryR
   override def close(): Unit = statement.close()
 
   @tailrec
-  private def toDataRow(row: ResultSet, columns: Int, acc: DataRow): DataRow =
-    if columns == 0 then acc
+  private def toDataRow(row: ResultSet, columns: Int, acc: DataRow): Try[DataRow] =
+    if columns == 0 then Success(acc)
     else
       val name = row.getMetaData.getColumnName(columns)
       val value = row.getObject(columns)
       val dataType = row.getMetaData.getColumnType(columns)
-      val arcaneType = MsSqlConnection.toArcaneType(dataType)
-      toDataRow(row, columns - 1, DataColumn(name, arcaneType, value) :: acc)
-
+      toArcaneType(dataType) match
+        case Success(arcaneType) => toDataRow(row, columns - 1, DataCell(name, arcaneType, value) :: acc)
+        case Failure(exception) => Failure(exception)
 }
 
 /**
  * Companion object for [[LazyQueryResult]].
  */
 object LazyQueryResult {
-  
+
   /**
    * The output type of the query result.
    */
   type OutputType = LazyList[DataRow]
-  
+
   /**
    * Creates a new [[LazyQueryResult]] object.
    *

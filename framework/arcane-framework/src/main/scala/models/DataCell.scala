@@ -13,10 +13,10 @@ type DataRow = List[DataCell]
  * @param Type The type of the row.
  * @param value The value of the row.
  */
-case class DataColumn(name: String, Type: ArcaneType, value: Any)
+case class DataCell(name: String, Type: ArcaneType, value: Any)
 
 /**
- * Companion object for [[DataColumn]].
+ * Companion object for [[DataCell]].
  */
-object DataColumn:
-  def apply(name: String, Type: ArcaneType, value: Any): DataColumn = new DataColumn(name, Type, value)
+object DataCell:
+  def apply(name: String, Type: ArcaneType, value: Any): DataCell = new DataCell(name, Type, value)
