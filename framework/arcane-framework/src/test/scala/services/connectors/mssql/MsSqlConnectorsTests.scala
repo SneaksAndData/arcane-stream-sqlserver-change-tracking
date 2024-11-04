@@ -51,6 +51,12 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     for i <- 1 to 10 do
       val insertCmd = s"use arcane; insert into dbo.MsSqlConnectorsTests values($i, ${i+1})"
       statement.execute(insertCmd)
+    statement.close()
+
+    val updateStatement = con.createStatement()
+    for i <- 1 to 10 do
+      val insertCmd = s"use arcane; insert into dbo.MsSqlConnectorsTests values(${i * 1000}, ${i * 1000 + 1})"
+      updateStatement.execute(insertCmd)
 
 
   def removeDb(): Unit =
@@ -86,7 +92,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     val connector = MsSqlConnection(dbInfo.connectionOptions)
     QueryProvider.getBackfillQuery(connector) map { query =>
       query should (
-        include ("ct.SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY") and include("format(getdate(), 'yyyyMM')")
+        include ("SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY") and include("format(getdate(), 'yyyyMM')")
         )
     }
   }
@@ -105,5 +111,28 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     connection.getSchema map { schema =>
       val fields = for column <- schema if column.isInstanceOf[Field] yield column.fieldType
       fields should be(List(IntType, LongType, StringType, IntType, LongType, StringType, StringType))
+    }
+  }
+
+
+  "MsSqlConnection" should "return correct number of rows on backfill" in withDatabase { dbInfo =>
+    val connection = MsSqlConnection(dbInfo.connectionOptions)
+    for schema <- connection.getSchema
+        backfill <- connection.backfill(schema)
+        result = backfill.read.toList
+    yield {
+      result should have length 20
+    }
+  }
+
+
+  "MsSqlConnection" should "return correct number of columns on backfill" in withDatabase { dbInfo =>
+    val connection = MsSqlConnection(dbInfo.connectionOptions)
+    for schema <- connection.getSchema
+        backfill <- connection.backfill(schema)
+        result = backfill.read.toList
+        head = result.head
+    yield {
+      head should have length 7
     }
   }

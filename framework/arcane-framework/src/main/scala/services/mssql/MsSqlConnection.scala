@@ -3,7 +3,7 @@ package services.mssql
 
 import models.{ArcaneSchema, ArcaneType, Field}
 import services.base.{CanAdd, SchemaProvider}
-import services.mssql.MsSqlConnection.{DATE_PARTITION_KEY, UPSERT_MERGE_KEY}
+import services.mssql.MsSqlConnection.{DATE_PARTITION_KEY, UPSERT_MERGE_KEY, toArcaneType}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 
@@ -12,7 +12,7 @@ import java.util.Properties
 import scala.annotation.tailrec
 import scala.concurrent.{Future, blocking}
 import scala.io.Source
-import scala.util.Using
+import scala.util.{Success, Failure, Try, Using}
 
 /**
  * Represents a summary of a column in a table.
@@ -100,7 +100,16 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   override def getSchema: Future[this.SchemaType] =
     for query <- QueryProvider.getSchemaQuery(this)
         sqlSchema <- getSqlSchema(query)
-    yield toSchema(sqlSchema, empty)
+    yield toSchema(sqlSchema, empty) match
+      case Success(schema) => schema
+      case Failure(exception) => throw exception
+
+
+  def backfill(arcaneSchema: ArcaneSchema): Future[QueryResult[LazyQueryResult.OutputType]] =
+    for query <- QueryProvider.getBackfillQuery(this)
+        runner = QueryRunner()
+        result <- runner.executeQuery(query, connection, LazyQueryResult.apply)
+    yield result
 
   private def getSqlSchema(query: String): Future[SqlSchema] = Future {
     val columns = Using.Manager { use =>
@@ -115,12 +124,14 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   }
 
   @tailrec
-  private def toSchema(sqlSchema: SqlSchema, schema: this.SchemaType): this.SchemaType =
+  private def toSchema(sqlSchema: SqlSchema, schema: this.SchemaType): Try[this.SchemaType] =
     sqlSchema match
-      case Nil => schema
+      case Nil => Success(schema)
       case x +: xs =>
         val (name, fieldType) = x
-        toSchema(xs, schema.addField(name, toArcaneType(fieldType)))
+        toArcaneType(fieldType) match
+          case Success(arcaneType) => toSchema(xs, schema.addField(name, arcaneType))
+          case Failure(exception) => Failure[this.SchemaType](exception)
 
   @tailrec
   private def readColumns(resultSet: ResultSet, result: List[ColumnSummary]): List[ColumnSummary] =
@@ -129,23 +140,6 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
     if !hasNext then
       return result
     readColumns(resultSet, result ++ List((resultSet.getString(1), resultSet.getInt(2) == 1)))
-
-  private def toArcaneType(sqlType: Int): ArcaneType = sqlType match
-    case java.sql.Types.BIGINT => ArcaneType.LongType
-    case java.sql.Types.BINARY => ArcaneType.ByteArrayType
-    case java.sql.Types.BIT => ArcaneType.BooleanType
-    case java.sql.Types.CHAR => ArcaneType.StringType
-    case java.sql.Types.DATE => ArcaneType.DateType
-    case java.sql.Types.TIMESTAMP => ArcaneType.TimestampType
-    case java.sql.Types.TIMESTAMP_WITH_TIMEZONE => ArcaneType.DateTimeOffsetType
-    case java.sql.Types.DECIMAL => ArcaneType.BigDecimalType
-    case java.sql.Types.DOUBLE => ArcaneType.DoubleType
-    case java.sql.Types.INTEGER => ArcaneType.IntType
-    case java.sql.Types.FLOAT => ArcaneType.FloatType
-    case java.sql.Types.SMALLINT => ArcaneType.ShortType
-    case java.sql.Types.TIME => ArcaneType.TimeType
-    case java.sql.Types.NCHAR => ArcaneType.StringType
-    case java.sql.Types.NVARCHAR => ArcaneType.StringType
 
 object MsSqlConnection:
   /**
@@ -165,6 +159,32 @@ object MsSqlConnection:
    * @return A new Microsoft SQL Server connection.
    */
   def apply(connectionOptions: ConnectionOptions): MsSqlConnection = new MsSqlConnection(connectionOptions)
+
+  /**
+   * Converts a SQL type to an Arcane type.
+   *
+   * @param sqlType The SQL type.
+   * @return The Arcane type.
+   */
+  def toArcaneType(sqlType: Int): Try[ArcaneType] = sqlType match
+    case java.sql.Types.BIGINT => Success(ArcaneType.LongType)
+    case java.sql.Types.BINARY => Success(ArcaneType.ByteArrayType)
+    case java.sql.Types.BIT => Success(ArcaneType.BooleanType)
+    case java.sql.Types.CHAR => Success(ArcaneType.StringType)
+    case java.sql.Types.DATE => Success(ArcaneType.DateType)
+    case java.sql.Types.TIMESTAMP => Success(ArcaneType.TimestampType)
+    case java.sql.Types.TIMESTAMP_WITH_TIMEZONE => Success(ArcaneType.DateTimeOffsetType)
+    case java.sql.Types.DECIMAL => Success(ArcaneType.BigDecimalType)
+    case java.sql.Types.DOUBLE => Success(ArcaneType.DoubleType)
+    case java.sql.Types.INTEGER => Success(ArcaneType.IntType)
+    case java.sql.Types.FLOAT => Success(ArcaneType.FloatType)
+    case java.sql.Types.SMALLINT => Success(ArcaneType.ShortType)
+    case java.sql.Types.TIME => Success(ArcaneType.TimeType)
+    case java.sql.Types.NCHAR => Success(ArcaneType.StringType)
+    case java.sql.Types.NVARCHAR => Success(ArcaneType.StringType)
+    case java.sql.Types.VARCHAR => Success(ArcaneType.StringType)
+    case _ => Failure(new IllegalArgumentException(s"Unsupported SQL type: $sqlType"))
+
 
 object QueryProvider:
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
@@ -209,7 +229,7 @@ object QueryProvider:
     msSqlConnection.getColumnSummaries
       .map(columnSummaries => {
         val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
-        val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
+        val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")
         QueryProvider.getAllQuery(
           msSqlConnection.connectionOptions,
           mergeExpression,
@@ -241,6 +261,15 @@ object QueryProvider:
     val nonPrimaryKeyColumns = tableColumns
       .filter((name, isPrimaryKey) => !isPrimaryKey && !Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION").contains(name))
       .map((name, _) => s"$tableAlias.[$name]")
+    (primaryKeyColumns ++ additionalColumns ++ nonPrimaryKeyColumns).mkString(",\n")
+
+  private def getChangeTrackingColumns(tableColumns: List[ColumnSummary], tableAlias: String): String =
+    val primaryKeyColumns = tableColumns.filter((_, isPrimaryKey) => isPrimaryKey).map((name, _) => s"$tableAlias.[$name]")
+    val additionalColumns = List("0 as SYS_CHANGE_VERSION", "'I' as SYS_CHANGE_OPERATION")
+    val nonPrimaryKeyColumns = tableColumns
+      .filter((name, isPrimaryKey) => !isPrimaryKey && !Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION").contains(name))
+      .map((name, _) => s"$tableAlias.[$name]")
+
     (primaryKeyColumns ++ additionalColumns ++ nonPrimaryKeyColumns).mkString(",\n")
 
   private def getChangesQuery(connectionOptions: ConnectionOptions,
