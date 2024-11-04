@@ -6,7 +6,14 @@ package models
  */
 type ArcaneSchema = Seq[Field]
 
+/**
+ * Companion object for ArcaneSchema.
+ */
 object ArcaneSchema:
+  /**
+   * Creates an empty ArcaneSchema.
+   * @return An empty ArcaneSchema.
+   */
   def empty(): ArcaneSchema = Seq.empty
 
 
