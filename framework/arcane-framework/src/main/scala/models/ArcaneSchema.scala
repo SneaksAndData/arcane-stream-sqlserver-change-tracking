@@ -4,17 +4,11 @@ package models
 /**
  * ArcaneSchema is a type alias for a sequence of fields or structs.
  */
-type ArcaneSchema = Seq[Field|Struct]
+type ArcaneSchema = Seq[Field]
 
 object ArcaneSchema:
   def empty(): ArcaneSchema = Seq.empty
 
-
-/**
- * Struct is a case class that represents a struct in Arcane.
- * @param fields The fields of the struct.
- */
-case class Struct(fields: ArcaneSchema)
 
 /**
  * Types of fields in ArcaneSchema.
