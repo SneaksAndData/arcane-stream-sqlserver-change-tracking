@@ -307,7 +307,7 @@ object QueryProvider:
         val lookBackTime = Instant.now().minusSeconds(lookBackRange.getSeconds)
         val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
         val formattedTime = formatter.format(LocalDateTime.ofInstant(lookBackTime, ZoneOffset.UTC))
-        s"SELECT commit_ts FROM $databaseName.sys.dm_tran_commit_table WHERE commit_time > '$formattedTime'"
+        s"SELECT MIN(commit_ts) FROM $databaseName.sys.dm_tran_commit_table WHERE commit_time > '$formattedTime'"
       case _ => s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_ts > $version"
   }
 
