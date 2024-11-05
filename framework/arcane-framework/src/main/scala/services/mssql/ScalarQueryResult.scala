@@ -9,6 +9,10 @@ import java.sql.{ResultSet, Statement}
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
+/**
+ * Callback function that converts a result set to a result.
+ * @tparam Result The type of the result.
+ */
 type ResultConverter[Result] = ResultSet => Result
 
 /**

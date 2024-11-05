@@ -95,6 +95,12 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
         result <- runner.executeQuery(query, connection, LazyQueryResult.apply)
     yield result
 
+  /**
+   * Gets the changes in the database since the given version.
+   * @param latestVersion The version to start from.
+   * @param lookBackInterval The look back interval for the query.
+   * @return A future containing the changes in the database since the given version and the latest observed version.
+   */
   def getChanges(latestVersion: Long, lookBackInterval: Duration): Future[(QueryResult[LazyQueryResult.OutputType], Long)] =
     val query = QueryProvider.getChangeTrackingVersionQuery(connectionOptions.databaseName, latestVersion, lookBackInterval)
     val queryRunner = QueryRunner()
@@ -287,6 +293,14 @@ object QueryProvider:
           columnExpression)
       })
 
+  /**
+   * Gets the query that retrieves the change tracking version for the Microsoft SQL Server database.
+   *
+   * @param databaseName The name of the database.
+   * @param version The version to start from.
+   * @param lookBackRange The look back range for the query.
+   * @return The change tracking version query for the Microsoft SQL Server database.
+   */
   def getChangeTrackingVersionQuery(databaseName: String, version: Long, lookBackRange: Duration): MsSqlQuery = {
     version match
       case 0 =>
@@ -294,7 +308,6 @@ object QueryProvider:
         val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
         val formattedTime = formatter.format(LocalDateTime.ofInstant(lookBackTime, ZoneOffset.UTC))
         s"SELECT commit_ts FROM $databaseName.sys.dm_tran_commit_table WHERE commit_time > '$formattedTime'"
-//          "select cast(1 as bigint)"
       case _ => s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_ts > $version"
   }
 

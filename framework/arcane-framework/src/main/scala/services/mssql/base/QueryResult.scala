@@ -6,6 +6,9 @@ package services.mssql.base
  */
 trait QueryResult[Output] {
 
+  /**
+   * The output type of the query result.
+   */
   type OutputType = Output
 
   /**
