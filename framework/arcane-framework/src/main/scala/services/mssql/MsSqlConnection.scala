@@ -5,6 +5,7 @@ import models.{ArcaneSchema, ArcaneType, Field}
 import services.base.{CanAdd, SchemaProvider}
 import services.mssql.MsSqlConnection.{DATE_PARTITION_KEY, UPSERT_MERGE_KEY, toArcaneType}
 import services.mssql.base.QueryResult
+import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 

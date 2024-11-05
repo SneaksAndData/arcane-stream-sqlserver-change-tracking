@@ -1,9 +1,10 @@
 package com.sneaksanddata.arcane.framework
-package services.mssql
+package services.mssql.query
 
 import models.{DataCell, DataRow}
 import services.mssql.MsSqlConnection.toArcaneType
 import services.mssql.base.{QueryResult, ResultSetOwner}
+import services.mssql.query.LazyQueryResult
 
 import java.sql.{ResultSet, Statement}
 import scala.annotation.tailrec

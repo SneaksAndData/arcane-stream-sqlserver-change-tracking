@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.mssql
+package services.mssql.query
 
 import models.{DataCell, DataRow}
 import services.mssql.MsSqlConnection.toArcaneType
