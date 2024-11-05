@@ -3,7 +3,7 @@ package services.connectors.mssql
 
 import models.ArcaneType.{IntType, LongType, StringType}
 import models.Field
-import services.mssql.{ConnectionOptions, MsSqlConnection, QueryProvider}
+import services.mssql.{ConnectionOptions, MsSqlConnection, QueryProvider, QueryRunner}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import org.scalatest.*
@@ -11,6 +11,7 @@ import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.*
 
 import java.sql.Connection
+import java.time.Duration
 import java.util.Properties
 import scala.List
 import scala.concurrent.Future
@@ -20,6 +21,7 @@ case class TestConnectionInfo(connectionOptions: ConnectionOptions, connection: 
 
 class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
+  private implicit val queryRunner: QueryRunner = QueryRunner()
   val connectionUrl = "jdbc:sqlserver://localhost;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC"
 
   def createDb(): TestConnectionInfo =
@@ -114,7 +116,6 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     }
   }
 
-
   "MsSqlConnection" should "return correct number of rows on backfill" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
     for schema <- connection.getSchema
@@ -125,7 +126,6 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     }
   }
 
-
   "MsSqlConnection" should "return correct number of columns on backfill" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
     for schema <- connection.getSchema
@@ -134,5 +134,26 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         head = result.head
     yield {
       head should have length 7
+    }
+  }
+
+  "MsSqlConnection" should "return correct number of rows on getChanges" in withDatabase { dbInfo =>
+    val connection = MsSqlConnection(dbInfo.connectionOptions)
+    for schema <- connection.getSchema
+        result <- connection.getChanges(0, Duration.ofDays(1))
+        (columns, _ ) = result
+        changedData = columns.read.toList
+    yield {
+      changedData should have length 20
+    }
+  }
+
+  "MsSqlConnection" should "update latest version when changes received" in withDatabase { dbInfo =>
+    val connection = MsSqlConnection(dbInfo.connectionOptions)
+    for schema <- connection.getSchema
+        result <- connection.getChanges(0, Duration.ofDays(1))
+        (_, latestVersion) = result
+    yield {
+      latestVersion should be > 0L
     }
   }

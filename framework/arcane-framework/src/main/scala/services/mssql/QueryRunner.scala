@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
+import services.mssql.base.QueryResult
+
 import java.sql.{Connection, ResultSet, Statement}
 import scala.concurrent.{Future, blocking}
 

@@ -4,15 +4,18 @@ package services.mssql
 import models.{ArcaneSchema, ArcaneType, Field}
 import services.base.{CanAdd, SchemaProvider}
 import services.mssql.MsSqlConnection.{DATE_PARTITION_KEY, UPSERT_MERGE_KEY, toArcaneType}
+import services.mssql.base.QueryResult
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 
 import java.sql.ResultSet
+import java.time.format.DateTimeFormatter
+import java.time.{Duration, Instant, LocalDateTime, ZoneOffset}
 import java.util.Properties
 import scala.annotation.tailrec
 import scala.concurrent.{Future, blocking}
 import scala.io.Source
-import scala.util.{Success, Failure, Try, Using}
+import scala.util.{Failure, Success, Try, Using}
 
 /**
  * Represents a summary of a column in a table.
@@ -60,7 +63,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   private val driver = new SQLServerDriver()
   private val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
-
+  private implicit val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
   /**
    * Gets the column summaries for the table in the database.
@@ -79,6 +82,37 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
       }
       result.get
     }
+
+  /**
+   * Run a backfill query on the database.
+   *
+   * @param arcaneSchema The schema for the data produced by Arcane.
+   * @return A future containing the result of the backfill.
+   */
+  def backfill(arcaneSchema: ArcaneSchema)(using queryRunner: QueryRunner): Future[QueryResult[LazyQueryResult.OutputType]] =
+    for query <- QueryProvider.getBackfillQuery(this)
+        result <- queryRunner.executeQuery(query, connection, LazyQueryResult.apply)
+    yield result
+
+  /**
+   * Gets the changes in the database since the given version.
+   * @param latestVersion The version to start from.
+   * @param lookBackInterval The look back interval for the query.
+   * @return A future containing the changes in the database since the given version and the latest observed version.
+   */
+  def getChanges(latestVersion: Long, lookBackInterval: Duration)(using queryRunner: QueryRunner): Future[(QueryResult[LazyQueryResult.OutputType], Long)] =
+    val query = QueryProvider.getChangeTrackingVersionQuery(connectionOptions.databaseName, latestVersion, lookBackInterval)
+
+    for versionResult <- queryRunner.executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
+        version = versionResult.read.getOrElse(0L)
+        changesQuery <- QueryProvider.getChangesQuery(this, version)
+        result <- queryRunner.executeQuery(changesQuery, connection, LazyQueryResult.apply)
+    yield (result, version)
+
+  private def readChangeTrackingVersion(resultSet: ResultSet): Long =
+    resultSet.getMetaData.getColumnType(1) match
+      case java.sql.Types.BIGINT => resultSet.getLong(1)
+      case _ => throw new IllegalArgumentException(s"Invalid column type for change tracking version: ${resultSet.getMetaData.getColumnType(1)}, expected BIGINT")
 
   /**
    * Closes the connection to the database.
@@ -103,13 +137,6 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
     yield toSchema(sqlSchema, empty) match
       case Success(schema) => schema
       case Failure(exception) => throw exception
-
-
-  def backfill(arcaneSchema: ArcaneSchema): Future[QueryResult[LazyQueryResult.OutputType]] =
-    for query <- QueryProvider.getBackfillQuery(this)
-        runner = QueryRunner()
-        result <- runner.executeQuery(query, connection, LazyQueryResult.apply)
-    yield result
 
   private def getSqlSchema(query: String): Future[SqlSchema] = Future {
     val columns = Using.Manager { use =>
@@ -210,6 +237,26 @@ object QueryProvider:
       })
 
   /**
+   * Gets the changes query for the Microsoft SQL Server database.
+   * @param msSqlConnection The connection to the database.
+   * @param fromVersion The version to start from.
+   * @return A future containing the changes query for the Microsoft SQL Server database.
+   */
+  def getChangesQuery(msSqlConnection: MsSqlConnection, fromVersion: Long): Future[MsSqlQuery] =
+    msSqlConnection.getColumnSummaries
+      .map(columnSummaries => {
+        val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
+        val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
+        val matchStatement = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
+        QueryProvider.getChangesQuery(
+          msSqlConnection.connectionOptions,
+          mergeExpression,
+          columnExpression,
+          matchStatement,
+          fromVersion)
+      })
+
+  /**
    * Gets the column summaries query for the Microsoft SQL Server database.
    *
    * @param schemaName   The name of the schema.
@@ -225,6 +272,11 @@ object QueryProvider:
       .replace("{schema}", schemaName)
       .replace("{table}", tableName)
 
+  /**
+   * Gets the changes query for the Microsoft SQL Server database.
+   * @param msSqlConnection The connection to the database.
+   * @return A future containing the changes query for the Microsoft SQL Server database.
+   */
   def getBackfillQuery(msSqlConnection: MsSqlConnection): Future[MsSqlQuery] =
     msSqlConnection.getColumnSummaries
       .map(columnSummaries => {
@@ -235,6 +287,23 @@ object QueryProvider:
           mergeExpression,
           columnExpression)
       })
+
+  /**
+   * Gets the query that retrieves the change tracking version for the Microsoft SQL Server database.
+   *
+   * @param databaseName The name of the database.
+   * @param version The version to start from.
+   * @param lookBackRange The look back range for the query.
+   * @return The change tracking version query for the Microsoft SQL Server database.
+   */
+  def getChangeTrackingVersionQuery(databaseName: String, version: Long, lookBackRange: Duration)(using formatter: DateTimeFormatter): MsSqlQuery = {
+    version match
+      case 0 =>
+        val lookBackTime = Instant.now().minusSeconds(lookBackRange.getSeconds)
+        val formattedTime = formatter.format(LocalDateTime.ofInstant(lookBackTime, ZoneOffset.UTC))
+        s"SELECT MIN(commit_ts) FROM $databaseName.sys.dm_tran_commit_table WHERE commit_time > '$formattedTime'"
+      case _ => s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_ts > $version"
+  }
 
   private def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
     cs.filter((name, isPrimaryKey) => isPrimaryKey)

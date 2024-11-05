@@ -3,26 +3,12 @@ package services.mssql
 
 import models.{DataCell, DataRow}
 import services.mssql.MsSqlConnection.toArcaneType
+import services.mssql.base.{QueryResult, ResultSetOwner}
 
 import java.sql.{ResultSet, Statement}
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
-/**
- * Represents the result of a query to a SQL database.
- */
-trait QueryResult[Output] {
-
-  type OutputType = Output
-
-  /**
-   * Reads the result of the SQL query mapped to an output type.
-   *
-   * @return The result of the query.
-   */
-  def read: OutputType
-
-}
 
 /**
  * Lazy-list based implementation of [[QueryResult]].
@@ -30,7 +16,7 @@ trait QueryResult[Output] {
  * @param statement The statement used to execute the query.
  * @param resultSet The result set of the query.
  */
-class LazyQueryResult(statement: Statement, resultSet: ResultSet) extends QueryResult[LazyList[DataRow]] with AutoCloseable {
+class LazyQueryResult(protected val statement: Statement, resultSet: ResultSet) extends QueryResult[LazyList[DataRow]] with ResultSetOwner:
 
   /**
    * Reads the result of the query.
@@ -48,13 +34,6 @@ class LazyQueryResult(statement: Statement, resultSet: ResultSet) extends QueryR
         }
       })
 
-
-  /**
-   * Closes the statement and the result set owned by this object.
-   * When a Statement object is closed, its current ResultSet object, if one exists, is also closed.
-   */
-  override def close(): Unit = statement.close()
-
   @tailrec
   private def toDataRow(row: ResultSet, columns: Int, acc: DataRow): Try[DataRow] =
     if columns == 0 then Success(acc)
@@ -65,7 +44,6 @@ class LazyQueryResult(statement: Statement, resultSet: ResultSet) extends QueryR
       toArcaneType(dataType) match
         case Success(arcaneType) => toDataRow(row, columns - 1, DataCell(name, arcaneType, value) :: acc)
         case Failure(exception) => Failure(exception)
-}
 
 /**
  * Companion object for [[LazyQueryResult]].
