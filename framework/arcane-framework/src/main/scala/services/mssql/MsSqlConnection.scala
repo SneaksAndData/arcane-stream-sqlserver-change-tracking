@@ -63,6 +63,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   private val driver = new SQLServerDriver()
   private val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
+  private implicit val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
   /**
    * Gets the column summaries for the table in the database.
@@ -295,11 +296,10 @@ object QueryProvider:
    * @param lookBackRange The look back range for the query.
    * @return The change tracking version query for the Microsoft SQL Server database.
    */
-  def getChangeTrackingVersionQuery(databaseName: String, version: Long, lookBackRange: Duration): MsSqlQuery = {
+  def getChangeTrackingVersionQuery(databaseName: String, version: Long, lookBackRange: Duration)(using formatter: DateTimeFormatter): MsSqlQuery = {
     version match
       case 0 =>
         val lookBackTime = Instant.now().minusSeconds(lookBackRange.getSeconds)
-        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
         val formattedTime = formatter.format(LocalDateTime.ofInstant(lookBackTime, ZoneOffset.UTC))
         s"SELECT MIN(commit_ts) FROM $databaseName.sys.dm_tran_commit_table WHERE commit_time > '$formattedTime'"
       case _ => s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_ts > $version"
