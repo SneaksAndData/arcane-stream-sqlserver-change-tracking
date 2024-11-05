@@ -3,7 +3,7 @@ package services.connectors.mssql
 
 import models.ArcaneType.{IntType, LongType, StringType}
 import models.Field
-import services.mssql.{ConnectionOptions, MsSqlConnection, QueryProvider}
+import services.mssql.{ConnectionOptions, MsSqlConnection, QueryProvider, QueryRunner}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import org.scalatest.*
@@ -21,6 +21,7 @@ case class TestConnectionInfo(connectionOptions: ConnectionOptions, connection: 
 
 class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
+  private implicit val queryRunner: QueryRunner = QueryRunner()
   val connectionUrl = "jdbc:sqlserver://localhost;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC"
 
   def createDb(): TestConnectionInfo =

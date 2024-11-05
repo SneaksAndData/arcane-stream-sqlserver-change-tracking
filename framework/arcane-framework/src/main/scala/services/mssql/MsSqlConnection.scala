@@ -64,7 +64,6 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   private val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
-
   /**
    * Gets the column summaries for the table in the database.
    *
@@ -89,10 +88,9 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @param arcaneSchema The schema for the data produced by Arcane.
    * @return A future containing the result of the backfill.
    */
-  def backfill(arcaneSchema: ArcaneSchema): Future[QueryResult[LazyQueryResult.OutputType]] =
+  def backfill(arcaneSchema: ArcaneSchema)(using queryRunner: QueryRunner): Future[QueryResult[LazyQueryResult.OutputType]] =
     for query <- QueryProvider.getBackfillQuery(this)
-        runner = QueryRunner()
-        result <- runner.executeQuery(query, connection, LazyQueryResult.apply)
+        result <- queryRunner.executeQuery(query, connection, LazyQueryResult.apply)
     yield result
 
   /**
@@ -101,23 +99,19 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @param lookBackInterval The look back interval for the query.
    * @return A future containing the changes in the database since the given version and the latest observed version.
    */
-  def getChanges(latestVersion: Long, lookBackInterval: Duration): Future[(QueryResult[LazyQueryResult.OutputType], Long)] =
+  def getChanges(latestVersion: Long, lookBackInterval: Duration)(using queryRunner: QueryRunner): Future[(QueryResult[LazyQueryResult.OutputType], Long)] =
     val query = QueryProvider.getChangeTrackingVersionQuery(connectionOptions.databaseName, latestVersion, lookBackInterval)
-    val queryRunner = QueryRunner()
 
-    for versionResult <- queryRunner.executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply[Long](st, rs, readChangeTrackingVersion))
+    for versionResult <- queryRunner.executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
         version = versionResult.read.getOrElse(0L)
         changesQuery <- QueryProvider.getChangesQuery(this, version)
         result <- queryRunner.executeQuery(changesQuery, connection, LazyQueryResult.apply)
     yield (result, version)
 
   private def readChangeTrackingVersion(resultSet: ResultSet): Long =
-    val javaType = resultSet.getMetaData.getColumnType(1)
-    if  javaType == java.sql.Types.BIGINT then
-      val bd = resultSet.getLong(1)
-      bd
-    else
-      throw new IllegalArgumentException(s"Invalid column type for change tracking version: $javaType, expected BIGINT")
+    resultSet.getMetaData.getColumnType(1) match
+      case java.sql.Types.BIGINT => resultSet.getLong(1)
+      case _ => throw new IllegalArgumentException(s"Invalid column type for change tracking version: ${resultSet.getMetaData.getColumnType(1)}, expected BIGINT")
 
   /**
    * Closes the connection to the database.
@@ -307,7 +301,7 @@ object QueryProvider:
         val lookBackTime = Instant.now().minusSeconds(lookBackRange.getSeconds)
         val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
         val formattedTime = formatter.format(LocalDateTime.ofInstant(lookBackTime, ZoneOffset.UTC))
-        s"SELECT commit_ts FROM $databaseName.sys.dm_tran_commit_table WHERE commit_time > '$formattedTime'"
+        s"SELECT MIN(commit_ts) FROM $databaseName.sys.dm_tran_commit_table WHERE commit_time > '$formattedTime'"
       case _ => s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_ts > $version"
   }
 
