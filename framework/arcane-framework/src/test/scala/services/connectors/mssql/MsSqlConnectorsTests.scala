@@ -140,7 +140,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   "MsSqlConnection" should "return correct number of rows on getChanges" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
     for schema <- connection.getSchema
-        result <- connection.getChanges(0, Duration.ofDays(1))
+        result <- connection.getChanges(None, Duration.ofDays(1))
         (columns, _ ) = result
         changedData = columns.read.toList
     yield {
@@ -151,7 +151,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   "MsSqlConnection" should "update latest version when changes received" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
     for schema <- connection.getSchema
-        result <- connection.getChanges(0, Duration.ofDays(1))
+        result <- connection.getChanges(None, Duration.ofDays(1))
         (_, latestVersion) = result
     yield {
       latestVersion should be > 0L
