@@ -97,16 +97,16 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
 
   /**
    * Gets the changes in the database since the given version.
-   * @param latestVersion The version to start from.
+   * @param maybeLatestVersion The version to start from.
    * @param lookBackInterval The look back interval for the query.
    * @return A future containing the changes in the database since the given version and the latest observed version.
    */
-  def getChanges(latestVersion: Long, lookBackInterval: Duration)(using queryRunner: QueryRunner): Future[(QueryResult[LazyQueryResult.OutputType], Long)] =
-    val query = QueryProvider.getChangeTrackingVersionQuery(connectionOptions.databaseName, latestVersion, lookBackInterval)
+  def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration)(using queryRunner: QueryRunner): Future[(QueryResult[LazyQueryResult.OutputType], Long)] =
+    val query = QueryProvider.getChangeTrackingVersionQuery(connectionOptions.databaseName, maybeLatestVersion, lookBackInterval)
 
     for versionResult <- queryRunner.executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
-        version = versionResult.read.getOrElse(0L)
-        changesQuery <- QueryProvider.getChangesQuery(this, version)
+        version = versionResult.read.getOrElse(maybeLatestVersion.getOrElse(0L))
+        changesQuery <- QueryProvider.getChangesQuery(this, version - 1)
         result <- queryRunner.executeQuery(changesQuery, connection, LazyQueryResult.apply)
     yield (result, version)
 
@@ -293,17 +293,17 @@ object QueryProvider:
    * Gets the query that retrieves the change tracking version for the Microsoft SQL Server database.
    *
    * @param databaseName The name of the database.
-   * @param version The version to start from.
+   * @param maybeVersion The version to start from.
    * @param lookBackRange The look back range for the query.
    * @return The change tracking version query for the Microsoft SQL Server database.
    */
-  def getChangeTrackingVersionQuery(databaseName: String, version: Long, lookBackRange: Duration)(using formatter: DateTimeFormatter): MsSqlQuery = {
-    version match
-      case 0 =>
+  def getChangeTrackingVersionQuery(databaseName: String, maybeVersion: Option[Long], lookBackRange: Duration)(using formatter: DateTimeFormatter): MsSqlQuery = {
+    maybeVersion match
+      case None =>
         val lookBackTime = Instant.now().minusSeconds(lookBackRange.getSeconds)
         val formattedTime = formatter.format(LocalDateTime.ofInstant(lookBackTime, ZoneOffset.UTC))
         s"SELECT MIN(commit_ts) FROM $databaseName.sys.dm_tran_commit_table WHERE commit_time > '$formattedTime'"
-      case _ => s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_ts > $version"
+      case Some(version) => s"SELECT MIN(commit_ts) FROM $databaseName.sys.dm_tran_commit_table WHERE commit_ts > $version"
   }
 
   private def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
