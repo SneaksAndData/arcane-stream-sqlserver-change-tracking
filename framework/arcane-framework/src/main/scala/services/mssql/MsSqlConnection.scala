@@ -248,13 +248,12 @@ object QueryProvider:
         val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
         val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
         val matchStatement = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
-        val query = QueryProvider.getChangesQuery(
+        QueryProvider.getChangesQuery(
           msSqlConnection.connectionOptions,
           mergeExpression,
           columnExpression,
           matchStatement,
           fromVersion)
-        query
       })
 
   /**
