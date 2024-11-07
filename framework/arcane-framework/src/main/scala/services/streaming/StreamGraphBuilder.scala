@@ -16,10 +16,8 @@ import scala.util.{Failure, Try}
 
 
 given HasVersion[VersionedBatch] with
-  extension (result: VersionedBatch)
-    def getLatestVersion: Option[Long] =
-      val (queryResult, version) = result
-
+  private val partial: PartialFunction[VersionedBatch, Option[Long]] =
+    case (queryResult, version: Long) =>
       // If the database response is empty, we can't extract the version from it and return the old version.
       queryResult.read.headOption match
         case None => Some(version)
@@ -31,6 +29,9 @@ given HasVersion[VersionedBatch] with
             case Nil => Failure(new UnsupportedOperationException("No ChangeTrackingVersion found in row."))
             case version :: _ => Try(version.value.asInstanceOf[Long])
           dataVersion.toOption
+
+  extension (result: VersionedBatch)
+    def getLatestVersion: Option[Long] = partial.applyOrElse(result, (_: VersionedBatch) => None)
 
 
 
