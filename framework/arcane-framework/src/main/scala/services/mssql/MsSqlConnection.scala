@@ -112,9 +112,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
 
   private def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
     resultSet.getMetaData.getColumnType(1) match
-      case java.sql.Types.BIGINT =>
-        val ver = resultSet.getObject(1)
-          Option(ver).flatMap(v => Some(v.asInstanceOf[Long]))
+      case java.sql.Types.BIGINT => Option(resultSet.getObject(1)).flatMap(v => Some(v.asInstanceOf[Long]))
       case _ => throw new IllegalArgumentException(s"Invalid column type for change tracking version: ${resultSet.getMetaData.getColumnType(1)}, expected BIGINT")
 
   /**
