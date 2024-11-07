@@ -84,8 +84,8 @@ class StreamGraphBuilderTests extends flatspec.AsyncFlatSpec with Matchers:
 
     Unsafe.unsafe { implicit unsafe => runtime.unsafe.runToFuture(zio) } flatMap { list =>
       list should have size 3 // 3 batches of changes
-      list map (_.size) should contain theSameElementsAs List(9, 0, 0) // rows changes in each batch
-      list.head.size should be (9) // 7 fields in the first row
+      list map (_.size) should contain theSameElementsAs List(9, 0, 0) // only first batch has data
+      list.head.size should be (9) // 7 fields in the first batch
     }
   }
 

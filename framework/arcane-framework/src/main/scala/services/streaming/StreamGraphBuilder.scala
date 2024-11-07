@@ -37,20 +37,26 @@ given HasVersion[VersionedBatch] with
 class StreamGraphBuilder(msSqlConnection: MsSqlConnection) {
   implicit val queryRunner: QueryRunner = QueryRunner()
 
+  /**
+   * Builds a stream that reads the changes from the database.
+   *
+   * @param isCancelled The service that determines if the stream should be cancelled.
+   * @return The stream that reads the changes from the database.
+   */
   def build(isCancelled: StreamLifetimeService): ZStream[Any, Throwable, OutputType] = ZStream.unfoldZIO(None) { previousVersion =>
     isCancelled.cancelled match
       case true => ZIO.succeed(None)
       case false => continueStream(previousVersion)
   }
 
-  def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(OutputType, Option[Long])]] =
+  private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(OutputType, Option[Long])]] =
     requestChanges(previousVersion, Duration.ofDays(1)) map { versionedBatch  =>
       val latestVersion = versionedBatch.getLatestVersion
       val (queryResult, _) = versionedBatch
       Some(queryResult.read, latestVersion)
     }
-  
-  def requestChanges(previousVersion: Option[Long], lookBackInterval: Duration): Task[VersionedBatch] =
+
+  private def requestChanges(previousVersion: Option[Long], lookBackInterval: Duration): Task[VersionedBatch] =
     ZIO.fromFuture(_ => msSqlConnection.getChanges(previousVersion, lookBackInterval))
 
 }
