@@ -3,7 +3,8 @@ package services.connectors.mssql
 
 import models.ArcaneType.{IntType, LongType, StringType}
 import models.Field
-import services.mssql.{ConnectionOptions, MsSqlConnection, QueryProvider, QueryRunner}
+import services.mssql.query.QueryRunner
+import services.mssql.{ConnectionOptions, MsSqlConnection, QueryProvider}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import org.scalatest.*

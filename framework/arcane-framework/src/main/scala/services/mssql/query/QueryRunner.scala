@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
-package services.mssql
+package services.mssql.query
 
+import services.mssql.MsSqlQuery
 import services.mssql.base.QueryResult
 
 import java.sql.{Connection, ResultSet, Statement}
