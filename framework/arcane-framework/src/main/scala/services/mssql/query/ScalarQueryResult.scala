@@ -14,7 +14,7 @@ import scala.util.{Failure, Success, Try}
  * Callback function that converts a result set to a result.
  * @tparam Result The type of the result.
  */
-type ResultConverter[Result] = ResultSet => Result
+type ResultConverter[Result] = ResultSet => Option[Result]
 
 /**
  * Implementation of the [[QueryResult]] trait that reads the scalar result of a query.
@@ -34,7 +34,7 @@ class ScalarQueryResult[Result](val statement: Statement, resultSet: ResultSet, 
     resultSet.getMetaData.getColumnCount match
       case 1 =>
         if resultSet.next() then
-          Some(resultConverter(resultSet))
+          resultConverter(resultSet)
         else
           None
       case _ => None

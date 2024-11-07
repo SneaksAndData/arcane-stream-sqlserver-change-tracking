@@ -3,7 +3,7 @@ package services.mssql
 
 import models.{ArcaneSchema, ArcaneType, Field}
 import services.base.{CanAdd, SchemaProvider}
-import services.mssql.MsSqlConnection.{DATE_PARTITION_KEY, UPSERT_MERGE_KEY, toArcaneType}
+import services.mssql.MsSqlConnection.{DATE_PARTITION_KEY, UPSERT_MERGE_KEY, VersionedBatch, toArcaneType}
 import services.mssql.base.QueryResult
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 
@@ -101,18 +101,20 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @param lookBackInterval The look back interval for the query.
    * @return A future containing the changes in the database since the given version and the latest observed version.
    */
-  def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration)(using queryRunner: QueryRunner): Future[(QueryResult[LazyQueryResult.OutputType], Long)] =
+  def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration)(using queryRunner: QueryRunner): Future[VersionedBatch] =
     val query = QueryProvider.getChangeTrackingVersionQuery(connectionOptions.databaseName, maybeLatestVersion, lookBackInterval)
 
     for versionResult <- queryRunner.executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
-        version = versionResult.read.getOrElse(maybeLatestVersion.getOrElse(0L))
+        version = versionResult.read.getOrElse(Long.MaxValue)
         changesQuery <- QueryProvider.getChangesQuery(this, version - 1)
         result <- queryRunner.executeQuery(changesQuery, connection, LazyQueryResult.apply)
     yield (result, version)
 
-  private def readChangeTrackingVersion(resultSet: ResultSet): Long =
+  private def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
     resultSet.getMetaData.getColumnType(1) match
-      case java.sql.Types.BIGINT => resultSet.getLong(1)
+      case java.sql.Types.BIGINT =>
+        val ver = resultSet.getObject(1)
+          Option(ver).flatMap(v => Some(v.asInstanceOf[Long]))
       case _ => throw new IllegalArgumentException(s"Invalid column type for change tracking version: ${resultSet.getMetaData.getColumnType(1)}, expected BIGINT")
 
   /**
@@ -212,6 +214,11 @@ object MsSqlConnection:
     case java.sql.Types.NVARCHAR => Success(ArcaneType.StringType)
     case java.sql.Types.VARCHAR => Success(ArcaneType.StringType)
     case _ => Failure(new IllegalArgumentException(s"Unsupported SQL type: $sqlType"))
+
+  /**
+   * Represents a versioned batch of data.
+   */
+  type VersionedBatch = (QueryResult[LazyQueryResult.OutputType], Long)
 
 
 object QueryProvider:
