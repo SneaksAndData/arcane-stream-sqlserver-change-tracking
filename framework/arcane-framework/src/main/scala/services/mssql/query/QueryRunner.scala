@@ -13,14 +13,14 @@ import scala.concurrent.{Future, blocking}
  * cursor.
  *
  */
-class QueryRunner:
+class QueryRunner[Output, QueryResultType <: QueryResult[Output]]:
   
   /**
    * A factory for creating a QueryResult object from a statement and a result set.
    *
    * @tparam Output The type of the output of the query.
    */
-  private type ResultFactory[Output] = (Statement, ResultSet) => QueryResult[Output]
+  private type ResultFactory = (Statement, ResultSet) => QueryResultType
   
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
@@ -33,7 +33,7 @@ class QueryRunner:
    * @param connection The connection to execute the query on.
    * @return The result of the query.
    */
-  def executeQuery[Result](query: MsSqlQuery, connection: Connection, resultFactory: ResultFactory[Result]): Future[QueryResult[Result]] =
+  def executeQuery(query: MsSqlQuery, connection: Connection, resultFactory: ResultFactory): Future[QueryResultType] =
     Future {
     val statement = connection.createStatement()
     val resultSet = blocking {
@@ -44,4 +44,5 @@ class QueryRunner:
 
 
 object QueryRunner:
-  def apply(): QueryRunner = new QueryRunner()
+  def apply[O, T <: QueryResult[O]](): QueryRunner[O, T] = new QueryRunner[O, T]()
+  

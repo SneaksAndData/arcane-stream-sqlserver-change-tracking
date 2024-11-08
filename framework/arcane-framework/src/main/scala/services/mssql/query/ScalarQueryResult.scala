@@ -39,7 +39,6 @@ class ScalarQueryResult[Result](val statement: Statement, resultSet: ResultSet, 
           None
       case _ => None
 
-
 /**
  * Companion object for [[LazyQueryResult]].
  */

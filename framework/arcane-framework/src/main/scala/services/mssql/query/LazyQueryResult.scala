@@ -3,7 +3,7 @@ package services.mssql.query
 
 import models.{DataCell, DataRow}
 import services.mssql.MsSqlConnection.toArcaneType
-import services.mssql.base.{QueryResult, ResultSetOwner}
+import services.mssql.base.{CanPeekHead, QueryResult, ResultSetOwner}
 
 import java.sql.{ResultSet, Statement}
 import scala.annotation.tailrec
@@ -16,7 +16,8 @@ import scala.util.{Failure, Success, Try}
  * @param statement The statement used to execute the query.
  * @param resultSet The result set of the query.
  */
-class LazyQueryResult(protected val statement: Statement, resultSet: ResultSet) extends QueryResult[LazyList[DataRow]] with ResultSetOwner:
+class LazyQueryResult(protected val statement: Statement, resultSet: ResultSet, eagerHead: List[DataRow]) extends QueryResult[LazyList[DataRow]]
+  with ResultSetOwner with CanPeekHead[LazyList[DataRow]]:
 
   /**
    * Reads the result of the query.
@@ -25,7 +26,7 @@ class LazyQueryResult(protected val statement: Statement, resultSet: ResultSet) 
    */
   override def read: this.OutputType =
     val columns = resultSet.getMetaData.getColumnCount
-    LazyList.continually(resultSet)
+    eagerHead.to(LazyList) #::: LazyList.continually(resultSet)
       .takeWhile(_.next())
       .map(row => {
         toDataRow(row, columns, List.empty) match {
@@ -33,6 +34,14 @@ class LazyQueryResult(protected val statement: Statement, resultSet: ResultSet) 
           case Failure(exception) => throw exception
         }
       })
+
+  /**
+   * Peeks the head of the result of the SQL query mapped to an output type.
+   *
+   * @return The head of the result of the query.
+   */
+  def peekHead: QueryResult[this.OutputType] & CanPeekHead[this.OutputType] =
+    new LazyQueryResult(statement, resultSet, read.headOption.toList)
 
   @tailrec
   private def toDataRow(row: ResultSet, columns: Int, acc: DataRow): Try[DataRow] =
@@ -62,5 +71,5 @@ object LazyQueryResult {
    * @param resultSet The result set of the query.
    * @return The new [[LazyQueryResult]] object.
    */
-  def apply(statement: Statement, resultSet: ResultSet): LazyQueryResult = new LazyQueryResult(statement, resultSet)
+  def apply(statement: Statement, resultSet: ResultSet): LazyQueryResult = new LazyQueryResult(statement, resultSet, List.empty)
 }

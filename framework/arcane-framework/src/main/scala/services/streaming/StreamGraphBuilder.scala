@@ -5,7 +5,7 @@ import models.DataCell
 import services.mssql.MsSqlConnection
 import services.mssql.MsSqlConnection.VersionedBatch
 import services.mssql.query.LazyQueryResult.OutputType
-import services.mssql.query.QueryRunner
+import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 import services.streaming.base.{HasVersion, StreamLifetimeService}
 
 import zio.stream.ZStream
@@ -36,7 +36,8 @@ given HasVersion[VersionedBatch] with
 
 
 class StreamGraphBuilder(msSqlConnection: MsSqlConnection) {
-  implicit val queryRunner: QueryRunner = QueryRunner()
+  implicit val dataQueryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult] = QueryRunner()
+  implicit val versionQueryRunner: QueryRunner[Option[Long], ScalarQueryResult[Long]] = QueryRunner()
 
   /**
    * Builds a stream that reads the changes from the database.
