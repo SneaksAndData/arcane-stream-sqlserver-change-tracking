@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming
 
+import models.ArcaneType.{IntType, StringType}
+import models.DataCell
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 import services.mssql.{ConnectionOptions, MsSqlConnection}
 import services.streaming.base.StreamLifetimeService
@@ -9,7 +11,6 @@ import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import org.scalatest.*
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.*
-import zio.stream.ZSink
 import zio.{Runtime, Unsafe}
 
 import java.sql.Connection
@@ -44,7 +45,7 @@ class StreamGraphBuilderTests extends flatspec.AsyncFlatSpec with Matchers:
         Some("format(getdate(), 'yyyyMM')")), con)
 
   def insertData(con: Connection, tableName: String): Unit =
-    val sql = s"use arcane; insert into dbo.$tableName values(?, ?)";
+    val sql = s"use arcane; insert into dbo.$tableName values(?, ?)"
     Using(con.prepareStatement(sql)) { insertStatement =>
       for i <- 0 to 9 do
         insertStatement.setInt(1, i)
@@ -123,6 +124,34 @@ class StreamGraphBuilderTests extends flatspec.AsyncFlatSpec with Matchers:
     }
   }
 
+  // The unit test validates that the streaming graph for MS SQL Server can read deletions.
+  // The test starts an asynchronous stream that reads changes from the database.
+  // While the stream is running, the test inserts two rows into the database.
+  // When the deletion statement is executed, the insertion event (x = 8888, SYS_CHANGE_OPERATION = "I")
+  // is deleted from the database
+  // We are expecting that the stream will return only the one deletion event (x = 8888, SYS_CHANGE_OPERATION = "D").
+  // and only one insertion event (x = 9999, SYS_CHANGE_OPERATION = "I").
+  // No insertion event (x = 8888, SYS_CHANGE_OPERATION = "I") should be returned.
+  // This test was ported from .NET to Scala without significant changes.
+  "StreamGraph" should "get deletes" in withEmptyTable("StreamGraphBuilderTests") { dbInfo =>
+
+    val streamGraphBuilder = new StreamGraphBuilder(MsSqlConnection(dbInfo.connectionOptions))
+    val stream = streamGraphBuilder.build(TestStreamLifetimeService.withMaxQueries(5)).map(_.toList).runCollect()
+    val fut = Unsafe.unsafe { implicit unsafe => runtime.unsafe.runToFuture(stream) }
+
+    val updateStatement = dbInfo.connection.createStatement()
+    updateStatement.execute(s"use arcane; insert into dbo.StreamGraphBuilderTests values(8888, 9999)")
+    updateStatement.execute(s"use arcane; insert into dbo.StreamGraphBuilderTests values(9999, 9999)")
+
+    updateStatement.execute("use arcane; delete from dbo.StreamGraphBuilderTests where x=8888")
+
+    fut map { list =>
+      list.head.size should be (2)
+      list.head.last should contain allOf(DataCell("x", IntType, 9999), DataCell("SYS_CHANGE_OPERATION", StringType, "I"))
+      list.head.head should contain allOf(DataCell("x", IntType, 8888), DataCell("SYS_CHANGE_OPERATION", StringType, "D"))
+    }
+  }
+
 class TestStreamLifetimeService(maxQueries: Int, callback: Int => Any) extends StreamLifetimeService:
   var counter = 0
   override def cancelled: Boolean =
@@ -131,6 +160,9 @@ class TestStreamLifetimeService(maxQueries: Int, callback: Int => Any) extends S
     counter > maxQueries
 
 object TestStreamLifetimeService:
+
+  def withMaxQueries(maxQueries: Int) = new TestStreamLifetimeService(maxQueries, _ => ())
+
   def apply(maxQueries: Int) = new TestStreamLifetimeService(maxQueries, _ => ())
 
   def apply(maxQueries: Int, callback: Int => Any) = new TestStreamLifetimeService(maxQueries, callback)
