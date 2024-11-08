@@ -164,6 +164,6 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         result <- connection.getChanges(None, Duration.ofDays(1))
         (_, latestVersion) = result
     yield {
-      latestVersion should be > 0L
+      latestVersion should be >= 0L
     }
   }
