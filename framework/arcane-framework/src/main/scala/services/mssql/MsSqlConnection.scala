@@ -4,7 +4,7 @@ package services.mssql
 import models.{ArcaneSchema, ArcaneType, Field}
 import services.base.{CanAdd, SchemaProvider}
 import services.mssql.MsSqlConnection.{DATE_PARTITION_KEY, UPSERT_MERGE_KEY, VersionedBatch, toArcaneType}
-import services.mssql.base.QueryResult
+import services.mssql.base.{CanPeekHead, QueryResult}
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
@@ -90,7 +90,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @param arcaneSchema The schema for the data produced by Arcane.
    * @return A future containing the result of the backfill.
    */
-  def backfill(arcaneSchema: ArcaneSchema)(using queryRunner: QueryRunner): Future[QueryResult[LazyQueryResult.OutputType]] =
+  def backfill(arcaneSchema: ArcaneSchema)(using queryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult]): Future[QueryResult[LazyQueryResult.OutputType]] =
     for query <- QueryProvider.getBackfillQuery(this)
         result <- queryRunner.executeQuery(query, connection, LazyQueryResult.apply)
     yield result
@@ -101,14 +101,16 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @param lookBackInterval The look back interval for the query.
    * @return A future containing the changes in the database since the given version and the latest observed version.
    */
-  def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration)(using queryRunner: QueryRunner): Future[VersionedBatch] =
+  def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration)
+                (using queryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult],
+                 versionQueryRunner: QueryRunner[Option[Long], ScalarQueryResult[Long]]): Future[VersionedBatch] =
     val query = QueryProvider.getChangeTrackingVersionQuery(connectionOptions.databaseName, maybeLatestVersion, lookBackInterval)
 
-    for versionResult <- queryRunner.executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
+    for versionResult <- versionQueryRunner.executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
         version = versionResult.read.getOrElse(Long.MaxValue)
         changesQuery <- QueryProvider.getChangesQuery(this, version - 1)
         result <- queryRunner.executeQuery(changesQuery, connection, LazyQueryResult.apply)
-    yield (result, version)
+    yield MsSqlConnection.ensureHead((result, maybeLatestVersion.getOrElse(0)))
 
   private def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
     resultSet.getMetaData.getColumnType(1) match
@@ -216,8 +218,15 @@ object MsSqlConnection:
   /**
    * Represents a versioned batch of data.
    */
-  type VersionedBatch = (QueryResult[LazyQueryResult.OutputType], Long)
+  type VersionedBatch = (QueryResult[LazyQueryResult.OutputType] & CanPeekHead[LazyQueryResult.OutputType], Long)
 
+  /**
+   * Ensures that the head of the result (if any) saved and cannot be lost
+   * This is required to let the head function work properly.
+   */
+  private def ensureHead(result: VersionedBatch): VersionedBatch =
+    val (queryResult, version) = result
+    (queryResult.peekHead, version)
 
 object QueryProvider:
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
