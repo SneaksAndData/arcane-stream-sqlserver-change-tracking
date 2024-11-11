@@ -7,10 +7,12 @@ package services.streaming.base
  */
 trait HasVersion[Data] {
 
+  type VersionType
+
   /**
    * Gets the latest version of the data.
    *
    * @return The latest version of the data.
    */
-  extension (a: Data) def getLatestVersion: Option[Long]
+  extension (a: Data) def getLatestVersion: VersionType
 }

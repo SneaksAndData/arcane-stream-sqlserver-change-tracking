@@ -3,15 +3,16 @@ package services.streaming
 
 import models.ArcaneType.{IntType, StringType}
 import models.DataCell
+import services.mssql.MsSqlConnection.VersionedBatch
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
-import services.mssql.{ConnectionOptions, MsSqlConnection}
-import services.streaming.base.StreamLifetimeService
+import services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider}
+import services.streaming.base.{StreamLifetimeService, VersionedDataProvider}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import org.scalatest.*
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.*
-import zio.{Runtime, Unsafe}
+import zio.{Runtime, ULayer, Unsafe, ZIO, ZLayer}
 
 import java.sql.Connection
 import java.util.Properties
@@ -29,73 +30,8 @@ class StreamGraphBuilderTests extends flatspec.AsyncFlatSpec with Matchers:
   private val connectionUrl = "jdbc:sqlserver://localhost;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC;databaseName=arcane"
   private val runtime = Runtime.default
 
-  def createDb(tableName: String): TestConnectionInfo =
-    val dr = new SQLServerDriver()
-    val con = dr.connect(connectionUrl, new Properties())
-    val query = "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'arcane') BEGIN CREATE DATABASE arcane; alter database Arcane set CHANGE_TRACKING = ON (CHANGE_RETENTION = 2 DAYS, AUTO_CLEANUP = ON); END;"
-    val statement = con.createStatement()
-    statement.execute(query)
-    createTable(con, tableName)
-    TestConnectionInfo(
-      ConnectionOptions(
-        connectionUrl,
-        "arcane",
-        "dbo",
-        "StreamGraphBuilderTests",
-        Some("format(getdate(), 'yyyyMM')")), con)
-
-  def insertData(con: Connection, tableName: String): Unit =
-    val sql = s"use arcane; insert into dbo.$tableName values(?, ?)"
-    Using(con.prepareStatement(sql)) { insertStatement =>
-      for i <- 0 to 9 do
-        insertStatement.setInt(1, i)
-        insertStatement.setInt(2, i + 1)
-        insertStatement.addBatch()
-        insertStatement.clearParameters()
-      insertStatement.executeBatch()
-    }
-
-  def createTable(con: Connection, tableName: String): Unit =
-    val query = s"use arcane; drop table if exists dbo.$tableName; create table dbo.StreamGraphBuilderTests(x int not null, y int)"
-    val statement = con.createStatement()
-    statement.executeUpdate(query)
-
-    val createPKCmd = s"use arcane; alter table dbo.$tableName add constraint pk_StreamGraphBuilderTests primary key(x);"
-    statement.executeUpdate(createPKCmd)
-
-    val enableCtCmd = s"use arcane; alter table dbo.$tableName enable change_tracking;"
-    statement.executeUpdate(enableCtCmd)
-    statement.close()
-
-
-  def removeDb(): Unit =
-    val query = "DROP table if exists arcane.dbo.StreamGraphBuilderTests"
-    val dr = new SQLServerDriver()
-    val con = dr.connect(connectionUrl, new Properties())
-    val statement = con.createStatement()
-    statement.execute(query)
-
-
-  def withFreshTable(tableName: String)(test: TestConnectionInfo => Future[Assertion]): Future[Assertion] =
-    removeDb()
-    val conn = createDb(tableName)
-    insertData(conn.connection, tableName)
-    test(conn)
-
-  def withEmptyTable(tableName: String)(test: TestConnectionInfo => Future[Assertion]): Future[Assertion] =
-    removeDb()
-    val conn = createDb(tableName)
-    test(conn)
-
   "StreamGraph" should "not duplicate data on the first iteration" in withFreshTable("StreamGraphBuilderTests") { dbInfo =>
-    val streamGraphBuilder = new StreamGraphBuilder(MsSqlConnection(dbInfo.connectionOptions))
-
-    val lifetime = TestStreamLifetimeService(3)
-
-    val stream = streamGraphBuilder.build(lifetime).map(_.toList)
-    val zio = stream.runCollect
-
-    Unsafe.unsafe { implicit unsafe => runtime.unsafe.runToFuture(zio) } flatMap { list =>
+    runStream(dbInfo, TestStreamLifetimeService(3)) flatMap { list =>
       list should have size 3 // 3 batches of changes
       list map (_.size) should contain theSameElementsAs List(10, 0, 0) // only first batch has data
       list.head.size should be (10) // 7 fields in the first batch
@@ -103,7 +39,6 @@ class StreamGraphBuilderTests extends flatspec.AsyncFlatSpec with Matchers:
   }
 
   "StreamGraph" should "be able to generate changes stream" in withFreshTable("StreamGraphBuilderTests") { dbInfo =>
-    val streamGraphBuilder = new StreamGraphBuilder(MsSqlConnection(dbInfo.connectionOptions))
 
     val lifetime = TestStreamLifetimeService(3, counter => {
       // Skip first iteration since lifetime service is called before the first iteration
@@ -114,10 +49,7 @@ class StreamGraphBuilderTests extends flatspec.AsyncFlatSpec with Matchers:
           updateStatement.execute(insertCmd)
     })
 
-    val stream = streamGraphBuilder.build(lifetime).map(_.toList)
-    val zio = stream.runCollect
-
-    Unsafe.unsafe { implicit unsafe => runtime.unsafe.runToFuture(zio) } flatMap { list  =>
+    runStream(dbInfo, lifetime) flatMap { list  =>
       list must have size 3 // 3 batches of changes
       list map(_.size) must contain only 10 // rows changes in each batch
       list.flatMap(_.map(_.size)) must contain only 7 // 7 fields in each row
@@ -135,22 +67,100 @@ class StreamGraphBuilderTests extends flatspec.AsyncFlatSpec with Matchers:
   // This test was ported from .NET to Scala without significant changes.
   "StreamGraph" should "get deletes" in withEmptyTable("StreamGraphBuilderTests") { dbInfo =>
 
-    val streamGraphBuilder = new StreamGraphBuilder(MsSqlConnection(dbInfo.connectionOptions))
-    val stream = streamGraphBuilder.build(TestStreamLifetimeService.withMaxQueries(5)).map(_.toList).runCollect()
-    val fut = Unsafe.unsafe { implicit unsafe => runtime.unsafe.runToFuture(stream) }
-
     val updateStatement = dbInfo.connection.createStatement()
     updateStatement.execute(s"use arcane; insert into dbo.StreamGraphBuilderTests values(8888, 9999)")
     updateStatement.execute(s"use arcane; insert into dbo.StreamGraphBuilderTests values(9999, 9999)")
 
     updateStatement.execute("use arcane; delete from dbo.StreamGraphBuilderTests where x=8888")
 
-    fut map { list =>
+    runStream(dbInfo, TestStreamLifetimeService(5)) map { list =>
       list.head.size should be (2)
       list.head.last should contain allOf(DataCell("x", IntType, 9999), DataCell("SYS_CHANGE_OPERATION", StringType, "I"))
       list.head.head should contain allOf(DataCell("x", IntType, 8888), DataCell("SYS_CHANGE_OPERATION", StringType, "D"))
     }
   }
+
+  /** Creates and runs a stream that reads changes from the database */
+  private def runStream(dbInfo: TestConnectionInfo, streamLifetimeService: StreamLifetimeService) =
+    val container = services.provide(
+      ZLayer.succeed(MsSqlConnection(dbInfo.connectionOptions)),
+      MsSqlDataProvider.layer,
+      ZLayer.succeed(streamLifetimeService)
+    )
+    Unsafe.unsafe { implicit unsafe =>
+      val stream = runtime.unsafe.run(container).getOrThrowFiberFailure()
+      runtime.unsafe.runToFuture(stream.create.runCollect)
+    }
+
+
+  /** Service container builder */
+  private def services =
+    for {
+      dp <- ZIO.service[VersionedDataProvider[Long, VersionedBatch]]
+      sls <- ZIO.service[StreamLifetimeService]
+    } yield new VersionedDataGraphBuilder(dp, sls)
+
+  /// Helper methods
+
+  private def createDb(tableName: String): TestConnectionInfo =
+    val dr = new SQLServerDriver()
+    val con = dr.connect(connectionUrl, new Properties())
+    val query = "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'arcane') BEGIN CREATE DATABASE arcane; alter database Arcane set CHANGE_TRACKING = ON (CHANGE_RETENTION = 2 DAYS, AUTO_CLEANUP = ON); END;"
+    val statement = con.createStatement()
+    statement.execute(query)
+    createTable(con, tableName)
+    TestConnectionInfo(
+      ConnectionOptions(
+        connectionUrl,
+        "arcane",
+        "dbo",
+        "StreamGraphBuilderTests",
+        Some("format(getdate(), 'yyyyMM')")), con)
+
+  private def insertData(con: Connection, tableName: String): Unit =
+    val sql = s"use arcane; insert into dbo.$tableName values(?, ?)"
+    Using(con.prepareStatement(sql)) { insertStatement =>
+      for i <- 0 to 9 do
+        insertStatement.setInt(1, i)
+        insertStatement.setInt(2, i + 1)
+        insertStatement.addBatch()
+        insertStatement.clearParameters()
+      insertStatement.executeBatch()
+    }
+
+  private def createTable(con: Connection, tableName: String): Unit =
+    val query = s"use arcane; drop table if exists dbo.$tableName; create table dbo.StreamGraphBuilderTests(x int not null, y int)"
+    val statement = con.createStatement()
+    statement.executeUpdate(query)
+
+    val createPKCmd = s"use arcane; alter table dbo.$tableName add constraint pk_StreamGraphBuilderTests primary key(x);"
+    statement.executeUpdate(createPKCmd)
+
+    val enableCtCmd = s"use arcane; alter table dbo.$tableName enable change_tracking;"
+    statement.executeUpdate(enableCtCmd)
+    statement.close()
+
+
+  private def removeTable(): Unit =
+    val query = "DROP table if exists arcane.dbo.StreamGraphBuilderTests"
+    val dr = new SQLServerDriver()
+    val con = dr.connect(connectionUrl, new Properties())
+    val statement = con.createStatement()
+    statement.execute(query)
+
+
+  private def withFreshTable(tableName: String)(test: TestConnectionInfo => Future[Assertion]): Future[Assertion] =
+    removeTable()
+    val conn = createDb(tableName)
+    insertData(conn.connection, tableName)
+    test(conn)
+
+
+  private def withEmptyTable(tableName: String)(test: TestConnectionInfo => Future[Assertion]): Future[Assertion] =
+    removeTable()
+    val conn = createDb(tableName)
+    test(conn)
+
 
 class TestStreamLifetimeService(maxQueries: Int, callback: Int => Any) extends StreamLifetimeService:
   var counter = 0
