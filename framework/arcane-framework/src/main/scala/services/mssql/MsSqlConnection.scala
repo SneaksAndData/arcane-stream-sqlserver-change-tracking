@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import models.{ArcaneSchema, ArcaneType, Field}
+import models.{ArcaneSchema, ArcaneType, DataRow, Field}
 import services.base.{CanAdd, SchemaProvider}
 import services.mssql.MsSqlConnection.{DATE_PARTITION_KEY, UPSERT_MERGE_KEY, VersionedBatch, toArcaneType}
 import services.mssql.base.{CanPeekHead, QueryResult}
@@ -215,10 +215,11 @@ object MsSqlConnection:
     case java.sql.Types.VARCHAR => Success(ArcaneType.StringType)
     case _ => Failure(new IllegalArgumentException(s"Unsupported SQL type: $sqlType"))
 
+  type DataBatch = QueryResult[LazyQueryResult.OutputType] & CanPeekHead[LazyQueryResult.OutputType] 
   /**
    * Represents a versioned batch of data.
    */
-  type VersionedBatch = (QueryResult[LazyQueryResult.OutputType] & CanPeekHead[LazyQueryResult.OutputType], Long)
+  type VersionedBatch = (DataBatch, Long)
 
   /**
    * Ensures that the head of the result (if any) saved and cannot be lost
