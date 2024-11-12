@@ -26,8 +26,9 @@ class IcebergS3CatalogWriter(
                               warehouse: String,
                               catalogUri: String,
                               additionalProperties: Map[String, String],
-                              schema: ArcaneSchema
-                        ) extends CatalogWriter[RESTCatalog, Table] with S3CatalogFileIO:
+                              s3CatalogFileIO: S3CatalogFileIO,
+                              schema: Schema
+                        ) extends CatalogWriter[RESTCatalog, Table]:
 
   private def createTable(name: String, schema: Schema): Future[Table] =
     val tableId = TableIdentifier.of(namespace, name)
@@ -35,7 +36,7 @@ class IcebergS3CatalogWriter(
     Future(catalog.createTable(tableId, schema, PartitionSpec.unpartitioned()))
 
   private def rowToRecord(row: DataRow)(implicit tbl: Table): GenericRecord =
-    val record = GenericRecord.create(tbl.schema())
+    val record = GenericRecord.create(schema)
     val rowMap = row.map { cell => cell.name -> cell.value }.toMap
     record.copy(rowMap.asJava)
 
@@ -65,13 +66,7 @@ class IcebergS3CatalogWriter(
       }
     }
 
-
-  override val endpoint: String = ???
-  override protected val accessKeyId: String = ???
-  override protected val secretAccessKey: String = ???
-  override protected val region: String = ???
-
-  
+ 
   override def write(data: Iterable[DataRow], name: String): Future[Table] =
     createTable(name, schema).flatMap(appendData(data))
 
@@ -80,18 +75,31 @@ class IcebergS3CatalogWriter(
     CatalogProperties.WAREHOUSE_LOCATION -> warehouse,
     CatalogProperties.URI -> catalogUri,
     CatalogProperties.CATALOG_IMPL -> "org.apache.iceberg.rest.RESTCatalog",
-    CatalogProperties.FILE_IO_IMPL -> implClass,
-    S3FileIOProperties.ENDPOINT -> endpoint,
-    S3FileIOProperties.PATH_STYLE_ACCESS -> pathStyleEnabled,
-    S3FileIOProperties.ACCESS_KEY_ID -> accessKeyId,
-    S3FileIOProperties.SECRET_ACCESS_KEY -> secretAccessKey,
+    CatalogProperties.FILE_IO_IMPL -> s3CatalogFileIO.implClass,
+    S3FileIOProperties.ENDPOINT -> s3CatalogFileIO.endpoint,
+    S3FileIOProperties.PATH_STYLE_ACCESS -> s3CatalogFileIO.region,
+    S3FileIOProperties.ACCESS_KEY_ID -> s3CatalogFileIO.accessKeyId,
+    S3FileIOProperties.SECRET_ACCESS_KEY -> s3CatalogFileIO.secretAccessKey,
   ) ++ additionalProperties
 
   override implicit val catalogName: String = java.util.UUID.randomUUID.toString
 
-  def initialize(): Unit =
+  def initialize(): IcebergS3CatalogWriter =
     catalog.initialize(catalogName, catalogProperties.asJava)
+    this
+    
 
   override def delete(tableName: String): Future[Unit] =
     val tableId = TableIdentifier.of(namespace, tableName)
     Future(catalog.dropTable(tableId))
+
+
+object IcebergS3CatalogWriter:
+  def apply(namespace: String, warehouse: String, catalogUri: String, additionalProperties: Map[String, String], s3CatalogFileIO: S3CatalogFileIO, schema: ArcaneSchema): IcebergS3CatalogWriter = new IcebergS3CatalogWriter(
+    namespace = namespace,
+    warehouse = warehouse,
+    catalogUri = catalogUri,
+    additionalProperties = additionalProperties, 
+    s3CatalogFileIO = s3CatalogFileIO, 
+    schema = schema
+  ).initialize()
