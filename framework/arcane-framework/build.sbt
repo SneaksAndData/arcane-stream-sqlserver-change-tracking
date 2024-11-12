@@ -25,8 +25,8 @@ lazy val root = (project in file("."))
     libraryDependencies += "org.apache.iceberg" % "iceberg-core" % "1.7.0" % "runtime",
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-parquet
     libraryDependencies += "org.apache.iceberg" % "iceberg-parquet" % "1.7.0",
-
-
+    // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-aws
+    libraryDependencies += "org.apache.iceberg" % "iceberg-aws" % "1.7.0",
 
         // Test dependencies
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,

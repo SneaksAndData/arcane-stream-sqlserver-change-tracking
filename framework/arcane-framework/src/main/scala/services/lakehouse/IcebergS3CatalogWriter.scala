@@ -4,10 +4,10 @@ package services.lakehouse
 import models.{ArcaneSchema, DataRow}
 import services.lakehouse.SchemaConversions.*
 
+import org.apache.iceberg.aws.s3.S3FileIOProperties
 import org.apache.iceberg.catalog.TableIdentifier
-import org.apache.iceberg.{DataFile, Schema, Table}
+import org.apache.iceberg.{CatalogProperties, DataFile, PartitionSpec, Schema, Table}
 import org.apache.iceberg.rest.RESTCatalog
-import org.apache.iceberg.PartitionSpec
 import org.apache.iceberg.data.GenericRecord
 import org.apache.iceberg.data.parquet.GenericParquetWriter
 import org.apache.iceberg.parquet.Parquet
@@ -21,13 +21,13 @@ import scala.util.{Failure, Success, Try}
 
 
 // https://www.tabular.io/blog/java-api-part-3/
-class IcebergCatalogWriter(
-                          namespace: String,
-                          warehouse: String,
-                          uri: String,
-                          additionalProperties: Map[String, String],
-                          schema: ArcaneSchema
-                        ) extends CatalogWriter[RESTCatalog, Table]:
+class IcebergS3CatalogWriter(
+                              namespace: String,
+                              warehouse: String,
+                              catalogUri: String,
+                              additionalProperties: Map[String, String],
+                              schema: ArcaneSchema
+                        ) extends CatalogWriter[RESTCatalog, Table] with S3CatalogFileIO:
 
   private def createTable(name: String, schema: Schema): Future[Table] =
     val tableId = TableIdentifier.of(namespace, name)
@@ -65,19 +65,33 @@ class IcebergCatalogWriter(
       }
     }
 
+
+  override val endpoint: String = ???
+  override protected val accessKeyId: String = ???
+  override protected val secretAccessKey: String = ???
+  override protected val region: String = ???
+
+  
   override def write(data: Iterable[DataRow], name: String): Future[Table] =
     createTable(name, schema).flatMap(appendData(data))
 
   override implicit val catalog: RESTCatalog = new RESTCatalog()
   override implicit val catalogProperties: Map[String, String] = Map(
-    "warehouse" -> warehouse,
-    "uri" -> uri
+    CatalogProperties.WAREHOUSE_LOCATION -> warehouse,
+    CatalogProperties.URI -> catalogUri,
+    CatalogProperties.CATALOG_IMPL -> "org.apache.iceberg.rest.RESTCatalog",
+    CatalogProperties.FILE_IO_IMPL -> implClass,
+    S3FileIOProperties.ENDPOINT -> endpoint,
+    S3FileIOProperties.PATH_STYLE_ACCESS -> pathStyleEnabled,
+    S3FileIOProperties.ACCESS_KEY_ID -> accessKeyId,
+    S3FileIOProperties.SECRET_ACCESS_KEY -> secretAccessKey,
   ) ++ additionalProperties
 
   override implicit val catalogName: String = java.util.UUID.randomUUID.toString
 
   def initialize(): Unit =
-    //catalog.setConf(org.apache.hadoop.conf.Configuration())
     catalog.initialize(catalogName, catalogProperties.asJava)
 
-  override def delete(tableName: String): Future[Unit] = ???
+  override def delete(tableName: String): Future[Unit] =
+    val tableId = TableIdentifier.of(namespace, tableName)
+    Future(catalog.dropTable(tableId))
