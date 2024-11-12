@@ -1,7 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.lakehouse
 
-import models.DataRow
+import models.{ArcaneSchema, DataRow}
+import services.lakehouse.SchemaConversions.*
 
 import org.apache.iceberg.catalog.TableIdentifier
 import org.apache.iceberg.{DataFile, Schema, Table}
@@ -10,20 +11,23 @@ import org.apache.iceberg.PartitionSpec
 import org.apache.iceberg.data.GenericRecord
 import org.apache.iceberg.data.parquet.GenericParquetWriter
 import org.apache.iceberg.parquet.Parquet
-import org.apache.iceberg.relocated.com.google.common.collect.{ImmutableList, ImmutableMap}
+import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList
 
 import java.util.UUID
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
+import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
 
+
 // https://www.tabular.io/blog/java-api-part-3/
-class IcebergTableWriter(
+class IcebergCatalogWriter(
                           namespace: String,
                           warehouse: String,
                           uri: String,
-                          additionalProperties: Map[String, String]
-                        ) extends CatalogWriter[RESTCatalog, Table, Schema]:
+                          additionalProperties: Map[String, String],
+                          schema: ArcaneSchema
+                        ) extends CatalogWriter[RESTCatalog, Table]:
 
   private def createTable(name: String, schema: Schema): Future[Table] =
     val tableId = TableIdentifier.of(namespace, name)
@@ -35,37 +39,33 @@ class IcebergTableWriter(
     val rowMap = row.map { cell => cell.name -> cell.value }.toMap
     record.copy(rowMap.asJava)
 
-  private def appendData(data: List[DataRow])(implicit tbl: Table): Future[Table] = Future {
+  private def appendData(data: Iterable[DataRow])(implicit tbl: Table): Future[Table] = Future {
       val appendTran = tbl.newTransaction()
       // create iceberg records
       val records = data.map(rowToRecord).foldLeft(ImmutableList.builder[GenericRecord]) {
         (builder, record) => builder.add(record)
       }.build()
       val file = tbl.io.newOutputFile(tbl.location + "/" + UUID.randomUUID.toString)
-      val dataWriter =
-        Parquet.writeData(file)
+      val dataWriter = Parquet.writeData(file)
           .schema(tbl.schema())
           .createWriterFunc(GenericParquetWriter.buildWriter)
           .overwrite()
           .withSpec(PartitionSpec.unpartitioned())
-          .build();
-      Try(
-        for (record <- records.asScala) {
-          dataWriter.write(record)
-        }).map {
-        case Success(_) =>
+          .build[GenericRecord]()
+
+      Try(for (record <- records.asScala) { dataWriter.write(record) }) match {
+        case Success(writer) =>
           appendTran.newFastAppend().appendFile(dataWriter.toDataFile).commit()
           dataWriter.close()
           appendTran.commitTransaction()
+          tbl
         case Failure(ex) =>
           dataWriter.close()
           throw ex
       }
-    
-      tbl
     }
 
-  override def write(data: List[DataRow], schema: Schema, name: String): Future[Table] = 
+  override def write(data: Iterable[DataRow], name: String): Future[Table] =
     createTable(name, schema).flatMap(appendData(data))
 
   override implicit val catalog: RESTCatalog = new RESTCatalog()
@@ -76,4 +76,8 @@ class IcebergTableWriter(
 
   override implicit val catalogName: String = java.util.UUID.randomUUID.toString
 
-  def initialize(): Unit = catalog.initialize(catalogName, catalogProperties.asJava)
+  def initialize(): Unit =
+    //catalog.setConf(org.apache.hadoop.conf.Configuration())
+    catalog.initialize(catalogName, catalogProperties.asJava)
+
+  override def delete(tableName: String): Future[Unit] = ???
