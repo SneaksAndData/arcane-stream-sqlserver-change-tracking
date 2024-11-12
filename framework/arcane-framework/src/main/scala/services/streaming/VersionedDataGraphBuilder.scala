@@ -5,10 +5,10 @@ import models.DataRow
 import models.settings.VersionedDataGraphBuilderSettings
 import services.mssql.MsSqlConnection.{DataBatch, VersionedBatch}
 import services.mssql.given_HasVersion_VersionedBatch
-import services.mssql.query.LazyQueryResult.OutputType
-import services.streaming.base.{BatchProcessor, StreamGraphBuilder, StreamLifetimeService, VersionedDataProvider}
+import services.streaming.base.{BatchProcessor, StreamGraphBuilder, VersionedDataProvider}
+import com.sneaksanddata.arcane.framework.services.app.base.StreamLifetimeService
 
-import zio.stream.ZStream
+import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, ZIO, ZLayer}
 
 /**
@@ -22,14 +22,26 @@ class VersionedDataGraphBuilder(VersionedDataGraphBuilderSettings: VersionedData
                                 versionedDataProvider: VersionedDataProvider[Long, VersionedBatch],
                                 streamLifetimeService: StreamLifetimeService,
                                 batchProcessor: BatchProcessor[DataBatch, Chunk[DataRow]])
-  extends StreamGraphBuilder[OutputType, Chunk[DataRow]]:
-  
+  extends StreamGraphBuilder:
+
+  override type StreamElementType = Chunk[DataRow]
+
   /**
    * Builds a stream that reads the changes from the database.
    *
    * @return The stream that reads the changes from the database.
    */
-  override def create: ZStream[Any, Throwable, Chunk[DataRow]] = this.createStream.via(this.batchProcessor.process)
+  override def create: ZStream[Any, Throwable, StreamElementType] = this.createStream.via(this.batchProcessor.process)
+
+  /**
+   * Creates a ZStream for the stream graph.
+   *
+   * @return ZStream (stream source for the stream graph).
+   */
+  override def consume: ZSink[Nothing, Throwable, StreamElementType, Any, Unit]  =
+  ZSink.foreach[Nothing, Throwable, StreamElementType] { e =>
+    zio.Console.printLine(s"Received ${e.size}")
+  }
 
   private def createStream = ZStream.unfoldZIO(versionedDataProvider.firstVersion) { previousVersion =>
       if streamLifetimeService.cancelled then ZIO.succeed(None) else continueStream(previousVersion)
@@ -54,7 +66,7 @@ object VersionedDataGraphBuilder:
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.
    */
-  val layer: ZLayer[GraphBuilderLayerTypes, Nothing, StreamGraphBuilder[OutputType, Chunk[DataRow]]] =
+  val layer: ZLayer[GraphBuilderLayerTypes, Nothing, StreamGraphBuilder] =
     ZLayer {
       for {
         sss <- ZIO.service[VersionedDataGraphBuilderSettings]
