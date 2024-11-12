@@ -4,7 +4,7 @@ package services.mssql.base
 /**
  * Represents the result of a query to a SQL database.
  */
-trait QueryResult[Output]:
+trait QueryResult[Output] extends AutoCloseable: 
 
   /**
    * The output type of the query result.
@@ -16,7 +16,7 @@ trait QueryResult[Output]:
    *
    * @return The result of the query.
    */
-  def read: OutputType
+  def read: Output
 
 /**
  * Represents a query result that can peek the head of the result.

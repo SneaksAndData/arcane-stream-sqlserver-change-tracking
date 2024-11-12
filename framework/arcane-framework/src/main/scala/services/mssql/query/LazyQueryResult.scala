@@ -17,7 +17,7 @@ import scala.util.{Failure, Success, Try}
  * @param resultSet The result set of the query.
  */
 class LazyQueryResult(protected val statement: Statement, resultSet: ResultSet, eagerHead: List[DataRow]) extends QueryResult[LazyList[DataRow]]
-  with ResultSetOwner with CanPeekHead[LazyList[DataRow]]:
+   with CanPeekHead[LazyList[DataRow]] with ResultSetOwner:
 
   /**
    * Reads the result of the query.
