@@ -22,11 +22,21 @@ lazy val root = (project in file("."))
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-api
     libraryDependencies += "org.apache.iceberg" % "iceberg-api" % "1.7.0",
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-core
-    libraryDependencies += "org.apache.iceberg" % "iceberg-core" % "1.7.0" % "runtime",
+    libraryDependencies += "org.apache.iceberg" % "iceberg-core" % "1.7.0",
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-parquet
     libraryDependencies += "org.apache.iceberg" % "iceberg-parquet" % "1.7.0",
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-aws
     libraryDependencies += "org.apache.iceberg" % "iceberg-aws" % "1.7.0",
+    // https://mvnrepository.com/artifact/software.amazon.awssdk/auth
+    libraryDependencies += "software.amazon.awssdk" % "auth" % "2.25.27",
+    // https://mvnrepository.com/artifact/software.amazon.awssdk/http-auth-aws
+    libraryDependencies += "software.amazon.awssdk" % "http-auth-aws" % "2.29.9",
+    // https://mvnrepository.com/artifact/software.amazon.awssdk/sts
+    libraryDependencies += "software.amazon.awssdk" % "sts" % "2.29.9",
+    // https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-common
+    libraryDependencies += "org.apache.hadoop" % "hadoop-common" % "3.4.1",
+
+
 
         // Test dependencies
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,

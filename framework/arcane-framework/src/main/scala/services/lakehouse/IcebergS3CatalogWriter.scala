@@ -27,13 +27,18 @@ class IcebergS3CatalogWriter(
                               catalogUri: String,
                               additionalProperties: Map[String, String],
                               s3CatalogFileIO: S3CatalogFileIO,
+                              locationOverride: String,
                               schema: Schema
                         ) extends CatalogWriter[RESTCatalog, Table]:
 
   private def createTable(name: String, schema: Schema): Future[Table] =
     val tableId = TableIdentifier.of(namespace, name)
     // TODO: add support for partition spec
-    Future(catalog.createTable(tableId, schema, PartitionSpec.unpartitioned()))
+    Future({
+      val baseTable = catalog.createTable(tableId, schema, PartitionSpec.unpartitioned())
+      baseTable.updateLocation().setLocation(locationOverride + "/" + name).commit()
+      baseTable
+    })
 
   private def rowToRecord(row: DataRow)(implicit tbl: Table): GenericRecord =
     val record = GenericRecord.create(schema)
@@ -46,7 +51,7 @@ class IcebergS3CatalogWriter(
       val records = data.map(rowToRecord).foldLeft(ImmutableList.builder[GenericRecord]) {
         (builder, record) => builder.add(record)
       }.build()
-      val file = tbl.io.newOutputFile(tbl.location + "/" + UUID.randomUUID.toString)
+      val file = tbl.io.newOutputFile(tbl.location() + "/" + UUID.randomUUID.toString)
       val dataWriter = Parquet.writeData(file)
           .schema(tbl.schema())
           .createWriterFunc(GenericParquetWriter.buildWriter)
@@ -56,8 +61,8 @@ class IcebergS3CatalogWriter(
 
       Try(for (record <- records.asScala) { dataWriter.write(record) }) match {
         case Success(writer) =>
-          appendTran.newFastAppend().appendFile(dataWriter.toDataFile).commit()
           dataWriter.close()
+          appendTran.newFastAppend().appendFile(dataWriter.toDataFile).commit()
           appendTran.commitTransaction()
           tbl
         case Failure(ex) =>
@@ -95,11 +100,12 @@ class IcebergS3CatalogWriter(
 
 
 object IcebergS3CatalogWriter:
-  def apply(namespace: String, warehouse: String, catalogUri: String, additionalProperties: Map[String, String], s3CatalogFileIO: S3CatalogFileIO, schema: ArcaneSchema): IcebergS3CatalogWriter = new IcebergS3CatalogWriter(
+  def apply(namespace: String, warehouse: String, catalogUri: String, additionalProperties: Map[String, String], s3CatalogFileIO: S3CatalogFileIO, locationOverride: String, schema: ArcaneSchema): IcebergS3CatalogWriter = new IcebergS3CatalogWriter(
     namespace = namespace,
     warehouse = warehouse,
     catalogUri = catalogUri,
     additionalProperties = additionalProperties, 
-    s3CatalogFileIO = s3CatalogFileIO, 
+    s3CatalogFileIO = s3CatalogFileIO,
+    locationOverride = locationOverride,
     schema = schema
   ).initialize()
