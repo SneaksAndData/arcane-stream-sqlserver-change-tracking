@@ -19,12 +19,9 @@ private class StreamRunnerServiceImpl(builder: StreamGraphBuilder, lifetimeServi
    *
    * @return A ZIO effect that represents the stream.
    */
-  def run: ZIO[Nothing, Throwable, Unit] = builder.create.run(builder.consume)
-
-  /**
-   * Stops the stream.
-   */
-  def stop(): Unit = lifetimeService.cancel()
+  def run: ZIO[Nothing, Throwable, Unit] = 
+    lifetimeService.start()
+    builder.create.run(builder.consume)
 
 /**
  * The companion object for the StreamRunnerServiceImpl class.

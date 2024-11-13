@@ -17,10 +17,3 @@ trait StreamRunnerService:
     * @return A ZIO effect that represents the stream.
     */
   def run: ZIO[Nothing, Throwable, Unit]
-
-  /**
-    * Stops the stream.
-    */
-  def stop(): Unit
-
-  

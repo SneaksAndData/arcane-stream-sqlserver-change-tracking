@@ -1,8 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package services.app
 
-import com.sneaksanddata.arcane.framework.services.app.base.{InterruptionToken, StreamLifetimeService}
+import services.app.base.{InterruptionToken, StreamLifetimeService}
 
+/**
+ * A service that manages the lifetime of a stream on a POSIX-compliant system.
+ */
 class PosixStreamLifetimeService extends StreamLifetimeService with InterruptionToken:
 
   @volatile
@@ -25,7 +28,10 @@ class PosixStreamLifetimeService extends StreamLifetimeService with Interruption
    * Cancels the stream.
    */
   def cancel(): Unit = this.isCancelled = true
-
+  
+  /**
+   * Starts watching for interruptions.
+   */
   def start() :Unit = sys.addShutdownHook({
     this.isInterrupted = true
     cancel()
