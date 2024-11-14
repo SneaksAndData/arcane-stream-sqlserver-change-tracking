@@ -7,9 +7,10 @@ import models.{DataCell, DataRow}
 import services.mssql.MsSqlConnection.{DataBatch, VersionedBatch}
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 import services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider}
-import services.streaming.base.{BatchProcessor, LazyListGroupingProcessor, StreamLifetimeService, VersionedDataProvider}
+import services.streaming.base.{BatchProcessor, LazyListGroupingProcessor, VersionedDataProvider}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
+import com.sneaksanddata.arcane.framework.services.app.base.StreamLifetimeService
 import org.scalatest.*
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.*
@@ -191,6 +192,10 @@ class TestStreamLifetimeService(maxQueries: Int, callback: Int => Any) extends S
     callback(counter)
     counter += 1
     counter > maxQueries
+
+  override def cancel(): Unit = ()
+
+  override def start(): Unit = ()
 
 object TestStreamLifetimeService:
 
