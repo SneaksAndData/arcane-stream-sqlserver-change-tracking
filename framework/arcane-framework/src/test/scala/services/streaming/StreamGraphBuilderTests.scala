@@ -4,13 +4,13 @@ package services.streaming
 import models.ArcaneType.{IntType, StringType}
 import models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
 import models.{DataCell, DataRow}
+import services.app.base.StreamLifetimeService
 import services.mssql.MsSqlConnection.{DataBatch, VersionedBatch}
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 import services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider}
-import services.streaming.base.{BatchProcessor, LazyListGroupingProcessor, VersionedDataProvider}
+import services.streaming.base.{BatchProcessor, VersionedDataProvider}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
-import com.sneaksanddata.arcane.framework.services.app.base.StreamLifetimeService
 import org.scalatest.*
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.*
@@ -106,7 +106,7 @@ class StreamGraphBuilderTests extends flatspec.AsyncFlatSpec with Matchers:
       MsSqlDataProvider.layer,
       ZLayer.succeed(streamLifetimeService),
       ZLayer.succeed(testGroupingSettings.getOrElse(new TestGroupingSettings(Duration.ofSeconds(1), 10))),
-      ZLayer.succeed(new TestVersionedDataGraphBuilderSettings(Duration.ofSeconds(1))),
+      ZLayer.succeed(new TestVersionedDataGraphBuilderSettings(Duration.ofSeconds(1), Duration.ofMillis(1))),
       LazyListGroupingProcessor.layer,
     )
     Unsafe.unsafe { implicit unsafe =>
@@ -208,4 +208,6 @@ object TestStreamLifetimeService:
 
 class TestGroupingSettings(val groupingInterval: Duration, val rowsPerGroup: Int) extends GroupingSettings
 
-class TestVersionedDataGraphBuilderSettings(override val lookBackInterval: Duration) extends VersionedDataGraphBuilderSettings
+class TestVersionedDataGraphBuilderSettings(override val lookBackInterval: Duration,
+                                            override val changeCaptureInterval: Duration)
+  extends VersionedDataGraphBuilderSettings

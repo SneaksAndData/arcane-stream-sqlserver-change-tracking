@@ -12,4 +12,9 @@ trait VersionedDataGraphBuilderSettings {
    * The interval to look back for changes if the version is empty.
    */
   val lookBackInterval: Duration
+
+  /**
+   * The interval to look back for changes if the version is empty.
+   */
+  val changeCaptureInterval: Duration
 }

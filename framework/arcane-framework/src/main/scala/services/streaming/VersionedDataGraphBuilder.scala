@@ -9,17 +9,18 @@ import services.mssql.given_HasVersion_VersionedBatch
 import services.streaming.base.{BatchProcessor, StreamGraphBuilder, VersionedDataProvider}
 
 import org.slf4j.{Logger, LoggerFactory}
+import zio.stream.ZPipeline.mapZIO
 import zio.stream.{ZSink, ZStream}
-import zio.{Chunk, ZIO, ZLayer}
+import zio.{Chunk, Schedule, ZIO, ZLayer}
 
 /**
  * The stream graph builder that reads the changes from the database.
- * @param VersionedDataGraphBuilderSettings The settings for the stream source.
+ * @param versionedDataGraphBuilderSettings The settings for the stream source.
  * @param versionedDataProvider The versioned data provider.
  * @param streamLifetimeService The stream lifetime service.
  * @param batchProcessor The batch processor.
  */
-class VersionedDataGraphBuilder(VersionedDataGraphBuilderSettings: VersionedDataGraphBuilderSettings,
+class VersionedDataGraphBuilder(versionedDataGraphBuilderSettings: VersionedDataGraphBuilderSettings,
                                 versionedDataProvider: VersionedDataProvider[Long, VersionedBatch],
                                 streamLifetimeService: StreamLifetimeService,
                                 batchProcessor: BatchProcessor[DataBatch, Chunk[DataRow]])
@@ -46,12 +47,17 @@ class VersionedDataGraphBuilder(VersionedDataGraphBuilderSettings: VersionedData
     ZIO.unit
   }
 
-  private def createStream = ZStream.unfoldZIO(versionedDataProvider.firstVersion) { previousVersion =>
-      if streamLifetimeService.cancelled then ZIO.succeed(None) else continueStream(previousVersion)
-  }
+  private def createStream = ZStream
+    .unfoldZIO(versionedDataProvider.firstVersion) { previousVersion =>
+      if streamLifetimeService.cancelled then
+        ZIO.succeed(None)
+      else
+        continueStream(previousVersion)
+    }
+    .schedule(Schedule.spaced(versionedDataGraphBuilderSettings.changeCaptureInterval))
 
   private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(DataBatch, Option[Long])]] =
-    versionedDataProvider.requestChanges(previousVersion, VersionedDataGraphBuilderSettings.lookBackInterval) map { versionedBatch  =>
+    versionedDataProvider.requestChanges(previousVersion, versionedDataGraphBuilderSettings.lookBackInterval) map { versionedBatch  =>
       logger.info(s"Received versioned batch: ${versionedBatch.getLatestVersion}")
       val latestVersion = versionedBatch.getLatestVersion
       val (queryResult, _) = versionedBatch
