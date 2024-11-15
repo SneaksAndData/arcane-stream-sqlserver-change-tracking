@@ -44,9 +44,10 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
   implicit val specEncoder: JsonEncoder[StreamSpec] = DeriveJsonEncoder.gen[StreamSpec]
   implicit val contextEncoder: JsonEncoder[SqlServerChangeTrackingStreamContext] = DeriveJsonEncoder.gen[SqlServerChangeTrackingStreamContext]
 
-  override val groupingInterval: Duration = java.time.Duration.ofSeconds(spec.groupingIntervalSeconds)
   override val rowsPerGroup: Int = spec.rowsPerGroup
-  override val lookBackInterval: Duration = java.time.Duration.ofSeconds(spec.lookBackInterval)
+  override val lookBackInterval: Duration = Duration.ofSeconds(spec.lookBackInterval)
+  override val changeCaptureInterval: Duration = Duration.ofSeconds(spec.changeCaptureIntervalSeconds)
+  override val groupingInterval: Duration = Duration.ofSeconds(spec.groupingIntervalSeconds)
 
   @jsonExclude
   val connectionString: String = sys.env("ARCANE.STREAM.SQL_SERVER_CHANGE_TRACKING__ARCANE_CONNECTION_STRING")

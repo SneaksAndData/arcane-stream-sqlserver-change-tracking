@@ -1,10 +1,12 @@
 package com.sneaksanddata.arcane.framework
-package services.streaming.base
+package services.streaming
 
 import models.DataRow
 import models.settings.GroupingSettings
 import services.mssql.MsSqlConnection.DataBatch
+import services.streaming.base.BatchProcessor
 
+import org.slf4j.{Logger, LoggerFactory}
 import zio.stream.ZPipeline
 import zio.{Chunk, ZIO, ZLayer}
 
@@ -15,7 +17,7 @@ import scala.util.{Try, Using}
  * The batch processor implementation that converts a lazy DataBatch to a Chunk of DataRow.
  * @param groupingSettings The grouping settings.
  */
-class LazyListGroupingProcessor(groupingSettings: GroupingSettings) extends BatchProcessor[DataBatch, Chunk[DataRow]] {
+class LazyListGroupingProcessor(groupingSettings: GroupingSettings) extends BatchProcessor[DataBatch, Chunk[DataRow]]:
 
   /**
    * Processes the incoming data.
@@ -30,7 +32,6 @@ class LazyListGroupingProcessor(groupingSettings: GroupingSettings) extends Batc
       .groupedWithin(groupingSettings.rowsPerGroup, groupingSettings.groupingInterval)
 
   private def readBatch(dataBatch: DataBatch): Try[List[DataRow]] = Using(dataBatch) { data => data.read.toList }
-}
 
 /**
  * The companion object for the LazyOutputDataProcessor class.
