@@ -1,0 +1,42 @@
+version: '3.3'
+
+services:
+  mssql:
+    container_name: sql-server
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: always
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "tMIxN11yGZgMC"
+    ports:
+      - "1433:1433"
+  setup:
+    container_name: integration-setup
+    image: mcr.microsoft.com/mssql-tools
+    depends_on:
+      - mssql
+    restart: "no"
+    volumes:
+      - ./:/app
+    entrypoint:
+      - "bash"
+      - "-c"
+      - |
+        while ! /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -Q "SELECT 1"; do
+          sleep 1
+        done
+        /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -i /app/integration-tests.sql
+  insert_changes:
+    container_name: insert-data
+    image: mcr.microsoft.com/mssql-tools
+    depends_on:
+      - setup
+    entrypoint:
+      - "bash"
+      - "-c"
+      - |
+        while true; do 
+          /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -Q "INSERT INTO IntegrationTests.dbo.TestTable (Id, Name) VALUES (ABS(CHECKSUM(NewId())) % 14000, 'Name' + CAST(RAND() as nvarchar(50)))";
+          sleep 5;
+        done
+        

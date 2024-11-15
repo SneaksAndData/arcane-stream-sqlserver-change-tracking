@@ -8,6 +8,7 @@ import services.mssql.base.{CanPeekHead, QueryResult}
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
+import zio.{ZIO, ZLayer}
 
 import java.sql.ResultSet
 import java.time.format.DateTimeFormatter
@@ -189,6 +190,16 @@ object MsSqlConnection:
    * @return A new Microsoft SQL Server connection.
    */
   def apply(connectionOptions: ConnectionOptions): MsSqlConnection = new MsSqlConnection(connectionOptions)
+
+  /**
+   * The ZLayer that creates the MsSqlDataProvider.
+   */
+  val layer: ZLayer[ConnectionOptions, Nothing, MsSqlConnection] =
+    ZLayer.scoped {
+      ZIO.fromAutoCloseable{
+        for connectionOptions <- ZIO.service[ConnectionOptions] yield MsSqlConnection(connectionOptions)
+      }
+    }
 
   /**
    * Converts a SQL type to an Arcane type.

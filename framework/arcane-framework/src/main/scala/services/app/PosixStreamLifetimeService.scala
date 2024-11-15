@@ -3,6 +3,8 @@ package services.app
 
 import services.app.base.{InterruptionToken, StreamLifetimeService}
 
+import zio.ZLayer
+
 /**
  * A service that manages the lifetime of a stream on a POSIX-compliant system.
  */
@@ -37,3 +39,11 @@ class PosixStreamLifetimeService extends StreamLifetimeService with Interruption
     cancel()
   })
 
+
+object PosixStreamLifetimeService:
+
+  /**
+   * The ZLayer for the POSIX stream lifetime service.
+   */
+  val layer: ZLayer[Any, Nothing, StreamLifetimeService & InterruptionToken] =
+    ZLayer.succeed(new PosixStreamLifetimeService)

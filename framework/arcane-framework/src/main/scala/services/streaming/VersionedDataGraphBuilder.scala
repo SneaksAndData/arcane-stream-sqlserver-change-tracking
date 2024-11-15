@@ -3,11 +3,12 @@ package services.streaming
 
 import models.DataRow
 import models.settings.VersionedDataGraphBuilderSettings
+import services.app.base.StreamLifetimeService
 import services.mssql.MsSqlConnection.{DataBatch, VersionedBatch}
 import services.mssql.given_HasVersion_VersionedBatch
 import services.streaming.base.{BatchProcessor, StreamGraphBuilder, VersionedDataProvider}
-import com.sneaksanddata.arcane.framework.services.app.base.StreamLifetimeService
 
+import org.slf4j.{Logger, LoggerFactory}
 import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, ZIO, ZLayer}
 
@@ -24,6 +25,7 @@ class VersionedDataGraphBuilder(VersionedDataGraphBuilderSettings: VersionedData
                                 batchProcessor: BatchProcessor[DataBatch, Chunk[DataRow]])
   extends StreamGraphBuilder:
 
+  private val logger: Logger = LoggerFactory.getLogger(classOf[VersionedDataGraphBuilder])
   override type StreamElementType = Chunk[DataRow]
 
   /**
@@ -38,9 +40,10 @@ class VersionedDataGraphBuilder(VersionedDataGraphBuilderSettings: VersionedData
    *
    * @return ZStream (stream source for the stream graph).
    */
-  override def consume: ZSink[Nothing, Throwable, StreamElementType, Any, Unit]  =
-  ZSink.foreach[Nothing, Throwable, StreamElementType] { e =>
-    zio.Console.printLine(s"Received ${e.size}")
+  override def consume: ZSink[Any, Throwable, StreamElementType, Any, Unit]  =
+  ZSink.foreach { e =>
+    logger.info(s"Received ${e.size} rows from the streaming source")
+    ZIO.unit
   }
 
   private def createStream = ZStream.unfoldZIO(versionedDataProvider.firstVersion) { previousVersion =>
@@ -49,8 +52,10 @@ class VersionedDataGraphBuilder(VersionedDataGraphBuilderSettings: VersionedData
 
   private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(DataBatch, Option[Long])]] =
     versionedDataProvider.requestChanges(previousVersion, VersionedDataGraphBuilderSettings.lookBackInterval) map { versionedBatch  =>
+      logger.info(s"Received versioned batch: ${versionedBatch.getLatestVersion}")
       val latestVersion = versionedBatch.getLatestVersion
       val (queryResult, _) = versionedBatch
+      logger.info(s"Latest version: ${versionedBatch.getLatestVersion}")
       Some(queryResult, latestVersion)
     }
 
