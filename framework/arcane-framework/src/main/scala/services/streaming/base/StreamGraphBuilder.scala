@@ -19,12 +19,12 @@ trait StreamGraphBuilder {
    *
    * @return ZStream (stream source for the stream graph).
    */
-  def create: ZStream[Nothing, Throwable, StreamElementType]
+  def create: ZStream[Any, Throwable, StreamElementType]
 
   /**
    * Creates a ZStream for the stream graph.
    *
    * @return ZStream (stream source for the stream graph).
    */
-  def consume: ZSink[Nothing, Throwable, StreamElementType, Any, Unit]
+  def consume: ZSink[Any, Throwable, StreamElementType, Any, Unit]
 }
