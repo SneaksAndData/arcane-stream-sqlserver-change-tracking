@@ -27,17 +27,17 @@ class IcebergS3CatalogWriter(
                               catalogUri: String,
                               additionalProperties: Map[String, String],
                               s3CatalogFileIO: S3CatalogFileIO,
-                              locationOverride: String,
-                              schema: Schema
+                              schema: Schema,
+                              locationOverride: Option[String] = None,
                         ) extends CatalogWriter[RESTCatalog, Table]:
 
   private def createTable(name: String, schema: Schema): Future[Table] =
     val tableId = TableIdentifier.of(namespace, name)
     // TODO: add support for partition spec
     Future({
-      val baseTable = catalog.createTable(tableId, schema, PartitionSpec.unpartitioned())
-      baseTable.updateLocation().setLocation(locationOverride + "/" + name).commit()
-      baseTable
+      locationOverride match
+        case Some(newLocation) => catalog.createTable(tableId, schema, PartitionSpec.unpartitioned(), newLocation + "/" + name, Map().asJava)
+        case None => catalog.createTable(tableId, schema, PartitionSpec.unpartitioned())
     })
 
   private def rowToRecord(row: DataRow)(implicit tbl: Table): GenericRecord =
@@ -60,7 +60,7 @@ class IcebergS3CatalogWriter(
           .build[GenericRecord]()
 
       Try(for (record <- records.asScala) { dataWriter.write(record) }) match {
-        case Success(writer) =>
+        case Success(_) =>
           dataWriter.close()
           appendTran.newFastAppend().appendFile(dataWriter.toDataFile).commit()
           appendTran.commitTransaction()
@@ -100,7 +100,7 @@ class IcebergS3CatalogWriter(
 
 
 object IcebergS3CatalogWriter:
-  def apply(namespace: String, warehouse: String, catalogUri: String, additionalProperties: Map[String, String], s3CatalogFileIO: S3CatalogFileIO, locationOverride: String, schema: ArcaneSchema): IcebergS3CatalogWriter = new IcebergS3CatalogWriter(
+  def apply(namespace: String, warehouse: String, catalogUri: String, additionalProperties: Map[String, String], s3CatalogFileIO: S3CatalogFileIO, schema: ArcaneSchema, locationOverride: Option[String]): IcebergS3CatalogWriter = new IcebergS3CatalogWriter(
     namespace = namespace,
     warehouse = warehouse,
     catalogUri = catalogUri,
