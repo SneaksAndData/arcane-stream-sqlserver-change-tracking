@@ -22,11 +22,11 @@ class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
     val writer = IcebergS3CatalogWriter(
       "test",
       "polaris",
-      catalogUri = sys.env.getOrElse("ARCANE.FRAMEWORK__S3_CATALOG_URI", ""),
+      catalogUri = "https://freglay-polaris.snowflakecomputing.com/polaris/api/catalog",
       additionalProperties = IcebergCatalogCredential.oAuth2Properties,
       s3CatalogFileIO = s3CatalogFileIO,
       schema = Seq(Field(name = "colA", fieldType = IntType), Field(name = "colB", fieldType = StringType)),
-      locationOverride = "s3://some-bucket/test"
+      locationOverride = Some("s3://esd-snowflake-polaris-production/test")
     )
     val rows = Seq(List(
       DataCell(name = "colA", Type = IntType, value = 1), DataCell(name = "colB", Type = StringType, value = "abc"),
