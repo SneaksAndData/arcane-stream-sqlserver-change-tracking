@@ -10,3 +10,25 @@ services:
       SA_PASSWORD: "tMIxN11yGZgMC"
     ports:
       - "1433:1433"
+# https://github.com/databricks/docker-spark-iceberg/blob/main/docker-compose.yml
+# note there is no publicly available image for Polaris yet
+# follow guidelines from https://github.com/apache/polaris?tab=readme-ov-file#more-build-and-run-options to build one
+  polaris:
+    container_name: polaris
+    image: localhost:5001/polaris:latest
+    restart: always
+    ports:
+      - "8181:8181"
+      - "8182:8182"
+  minio:
+    container_name: minio
+    image: quay.io/minio/minio
+    restart: always
+    command:
+      - server
+      - /data
+      - "--console-address"
+      - ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
