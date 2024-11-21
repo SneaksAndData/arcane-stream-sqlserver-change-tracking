@@ -82,7 +82,7 @@ class IcebergS3CatalogWriter(
     CatalogProperties.CATALOG_IMPL -> "org.apache.iceberg.rest.RESTCatalog",
     CatalogProperties.FILE_IO_IMPL -> s3CatalogFileIO.implClass,
     S3FileIOProperties.ENDPOINT -> s3CatalogFileIO.endpoint,
-    S3FileIOProperties.PATH_STYLE_ACCESS -> s3CatalogFileIO.region,
+    S3FileIOProperties.PATH_STYLE_ACCESS -> "true",
     S3FileIOProperties.ACCESS_KEY_ID -> s3CatalogFileIO.accessKeyId,
     S3FileIOProperties.SECRET_ACCESS_KEY -> s3CatalogFileIO.secretAccessKey,
   ) ++ additionalProperties
