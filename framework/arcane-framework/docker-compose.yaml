@@ -61,6 +61,9 @@ services:
     container_name: polaris
     image: localhost:5001/polaris:latest
     restart: always
+    depends_on:
+      prepare_buckets:
+        condition: service_completed_successfully
     networks:
       mesh:
         ipv4_address: 10.1.0.4
@@ -84,13 +87,9 @@ services:
     networks:
       mesh:
         ipv4_address: 10.1.0.5
-#    depends_on:
-#      polaris:
-#        condition: service_healthy
-#      minio:
-#        condition: service_healthy
-#      prepare_buckets:
-#        condition: service_completed_successfully
+    depends_on:
+      polaris:
+        condition: service_healthy
     volumes:
       - ./create-polaris-catalog.sh:/create-polaris-catalog.sh
     command: ["/bin/sh", "/create-polaris-catalog.sh"]

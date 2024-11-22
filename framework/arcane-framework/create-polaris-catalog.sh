@@ -52,17 +52,6 @@ curl -i -X POST -H "Authorization: Bearer $PRINCIPAL_TOKEN" -H 'Accept: applicat
         "properties": {}
       }'
 
-# create principal
-curl -i -X POST -H "Authorization: Bearer $PRINCIPAL_TOKEN" -H 'Accept: application/json' -H 'Content-Type: application/json' \
-  http://10.1.0.4:8181/api/management/v1/principals \
-  -d '{
-        "principal": {
-          "name": "admin",
-          "clientId": "polaris-admin",
-          "properties": {}
-        },
-        "credentialRotationRequired": false
-      }'
 # create principal role
 curl -i -X POST -H "Authorization: Bearer $PRINCIPAL_TOKEN" -H 'Accept: application/json' -H 'Content-Type: application/json' \
   http://10.1.0.4:8181/api/management/v1/principal-roles \
@@ -83,7 +72,7 @@ curl -i -X POST -H "Authorization: Bearer $PRINCIPAL_TOKEN" -H 'Accept: applicat
 
 # assign principal role
 curl -i -X PUT -H "Authorization: Bearer $PRINCIPAL_TOKEN" -H 'Accept: application/json' -H 'Content-Type: application/json' \
-  http://10.1.0.4:8181/api/management/v1/principals/admin/principal-roles \
+  http://10.1.0.4:8181/api/management/v1/principals/root/principal-roles \
   -d '{
         "principalRole": {
           "name": "admin"
