@@ -59,7 +59,7 @@ services:
   # follow guidelines from https://github.com/apache/polaris?tab=readme-ov-file#more-build-and-run-options to build one
   polaris:
     container_name: polaris
-    image: localhost:5001/polaris:latest
+    image: ghcr.io/sneaksanddata/apache-polaris:latest
     restart: always
     depends_on:
       prepare_buckets:
