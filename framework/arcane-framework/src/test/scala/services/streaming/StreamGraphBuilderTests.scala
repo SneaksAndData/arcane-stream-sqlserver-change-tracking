@@ -2,19 +2,24 @@ package com.sneaksanddata.arcane.framework
 package services.streaming
 
 import models.ArcaneType.{IntType, StringType}
-import models.DataCell
-import services.mssql.MsSqlConnection.VersionedBatch
+import models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
+import models.{DataCell, DataRow}
+import services.app.base.StreamLifetimeService
+import services.mssql.MsSqlConnection.{DataBatch, VersionedBatch}
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 import services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider}
-import services.streaming.base.{StreamLifetimeService, VersionedDataProvider}
+import services.streaming.base.{BatchProcessor, VersionedDataProvider}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import org.scalatest.*
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.*
-import zio.{Runtime, ULayer, Unsafe, ZIO, ZLayer}
+import org.scalatest.prop.TableDrivenPropertyChecks.forAll
+import org.scalatest.prop.Tables.Table
+import zio.{Chunk, FiberFailure, Runtime, ULayer, Unsafe, ZIO, ZLayer}
 
 import java.sql.Connection
+import java.time.Duration
 import java.util.Properties
 import scala.List
 import scala.concurrent.Future
@@ -32,8 +37,8 @@ class StreamGraphBuilderTests extends flatspec.AsyncFlatSpec with Matchers:
 
   "StreamGraph" should "not duplicate data on the first iteration" in withFreshTable("StreamGraphBuilderTests") { dbInfo =>
     runStream(dbInfo, TestStreamLifetimeService(3)) flatMap { list =>
-      list should have size 3 // 3 batches of changes
-      list map (_.size) should contain theSameElementsAs List(10, 0, 0) // only first batch has data
+      list should have size 1 // 3 batches of changes
+      list map (_.size) should contain theSameElementsAs List(10) // only first batch has data
       list.head.size should be (10) // 7 fields in the first batch
     }
   }
@@ -80,12 +85,29 @@ class StreamGraphBuilderTests extends flatspec.AsyncFlatSpec with Matchers:
     }
   }
 
+  private val failingTestCases = Table(
+    // First tuple defines column names
+    ("duration", "groupingInterval", "expected"),
+
+    (Duration.ofSeconds(1), 0, "requirement failed: Rows per group must be greater than 0")
+  )
+
+  forAll (failingTestCases) { (duration: Duration, groupingInterval: Int, expectedMessage: String) =>
+    "StreamGraph" should "fail if change capture interval is empty" in withEmptyTable("StreamGraphBuilderTests") { dbInfo =>
+      val thrown = the [FiberFailure] thrownBy runStream(dbInfo, TestStreamLifetimeService(5), Some(new TestGroupingSettings(duration, groupingInterval)))
+      thrown.getCause().getMessage should be (expectedMessage)
+    }
+  }
+
   /** Creates and runs a stream that reads changes from the database */
-  private def runStream(dbInfo: TestConnectionInfo, streamLifetimeService: StreamLifetimeService) =
+  private def runStream(dbInfo: TestConnectionInfo, streamLifetimeService: StreamLifetimeService, testGroupingSettings: Option[TestGroupingSettings] = None) =
     val container = services.provide(
       ZLayer.succeed(MsSqlConnection(dbInfo.connectionOptions)),
       MsSqlDataProvider.layer,
-      ZLayer.succeed(streamLifetimeService)
+      ZLayer.succeed(streamLifetimeService),
+      ZLayer.succeed(testGroupingSettings.getOrElse(new TestGroupingSettings(Duration.ofSeconds(1), 10))),
+      ZLayer.succeed(new TestVersionedDataGraphBuilderSettings(Duration.ofSeconds(1), Duration.ofMillis(1))),
+      LazyListGroupingProcessor.layer,
     )
     Unsafe.unsafe { implicit unsafe =>
       val stream = runtime.unsafe.run(container).getOrThrowFiberFailure()
@@ -96,9 +118,11 @@ class StreamGraphBuilderTests extends flatspec.AsyncFlatSpec with Matchers:
   /** Service container builder */
   private def services =
     for {
+      sss <- ZIO.service[VersionedDataGraphBuilderSettings]
       dp <- ZIO.service[VersionedDataProvider[Long, VersionedBatch]]
       sls <- ZIO.service[StreamLifetimeService]
-    } yield new VersionedDataGraphBuilder(dp, sls)
+      bp <- ZIO.service[BatchProcessor[DataBatch, Chunk[DataRow]]]
+    } yield new VersionedDataGraphBuilder(sss, dp, sls, bp)
 
   /// Helper methods
 
@@ -169,6 +193,10 @@ class TestStreamLifetimeService(maxQueries: Int, callback: Int => Any) extends S
     counter += 1
     counter > maxQueries
 
+  override def cancel(): Unit = ()
+
+  override def start(): Unit = ()
+
 object TestStreamLifetimeService:
 
   def withMaxQueries(maxQueries: Int) = new TestStreamLifetimeService(maxQueries, _ => ())
@@ -176,3 +204,10 @@ object TestStreamLifetimeService:
   def apply(maxQueries: Int) = new TestStreamLifetimeService(maxQueries, _ => ())
 
   def apply(maxQueries: Int, callback: Int => Any) = new TestStreamLifetimeService(maxQueries, callback)
+
+
+class TestGroupingSettings(val groupingInterval: Duration, val rowsPerGroup: Int) extends GroupingSettings
+
+class TestVersionedDataGraphBuilderSettings(override val lookBackInterval: Duration,
+                                            override val changeCaptureInterval: Duration)
+  extends VersionedDataGraphBuilderSettings
