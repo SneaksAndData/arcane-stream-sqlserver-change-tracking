@@ -94,7 +94,7 @@ class IcebergS3CatalogWriter(
     this
     
 
-  override def delete(tableName: String): Future[Unit] =
+  override def delete(tableName: String): Future[Boolean] =
     val tableId = TableIdentifier.of(namespace, tableName)
     Future(catalog.dropTable(tableId))
 

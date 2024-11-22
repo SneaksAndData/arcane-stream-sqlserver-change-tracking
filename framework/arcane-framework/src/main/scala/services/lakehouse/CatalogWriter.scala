@@ -31,4 +31,4 @@ trait CatalogWriter[CatalogImpl, TableImpl]:
 
   def initialize(): CatalogWriter[CatalogImpl, TableImpl]
   def write(data: Iterable[DataRow], name: String): Future[TableImpl]
-  def delete(tableName: String): Future[Unit]
+  def delete(tableName: String): Future[Boolean]
