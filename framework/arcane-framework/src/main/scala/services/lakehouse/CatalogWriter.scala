@@ -5,9 +5,16 @@ import models.{ArcaneSchema, DataRow}
 
 import scala.concurrent.Future
 
+
+/**
+ * CatalogFileIO marks a class that holds implementation of a filesystem used by the catalog
+ */
 sealed trait CatalogFileIO:
   val implClass: String
 
+/**
+ * S3CatalogFileIO implements S3-based filesystem when used by a catalog
+ */
 trait S3CatalogFileIO extends CatalogFileIO:
   override val implClass: String = "org.apache.iceberg.aws.s3.S3FileIO"
   val endpoint: String
@@ -17,6 +24,9 @@ trait S3CatalogFileIO extends CatalogFileIO:
   val secretAccessKey: String
   val region: String
 
+/**
+ * Singleton for S3CatalogFileIO
+ */
 object S3CatalogFileIO extends S3CatalogFileIO:
   override val accessKeyId: String = scala.util.Properties.envOrElse("ARCANE_FRAMEWORK__S3_CATALOG_ACCESS_KEY_ID", "")
   override val secretAccessKey: String = scala.util.Properties.envOrElse("ARCANE_FRAMEWORK__S3_CATALOG_SECRET_ACCESS_KEY", "")

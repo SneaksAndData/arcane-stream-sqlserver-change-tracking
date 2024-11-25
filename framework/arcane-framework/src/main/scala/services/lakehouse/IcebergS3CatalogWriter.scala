@@ -51,7 +51,7 @@ class IcebergS3CatalogWriter(
       val records = data.map(rowToRecord).foldLeft(ImmutableList.builder[GenericRecord]) {
         (builder, record) => builder.add(record)
       }.build()
-      val file = s"${tbl.io.newOutputFile(tbl.location()}/${UUID.randomUUID.toString)}
+      val file = tbl.io.newOutputFile(s"${tbl.location()}/${UUID.randomUUID.toString}")
       val dataWriter = Parquet.writeData(file)
           .schema(tbl.schema())
           .createWriterFunc(GenericParquetWriter.buildWriter)
@@ -82,7 +82,7 @@ class IcebergS3CatalogWriter(
     CatalogProperties.CATALOG_IMPL -> "org.apache.iceberg.rest.RESTCatalog",
     CatalogProperties.FILE_IO_IMPL -> s3CatalogFileIO.implClass,
     S3FileIOProperties.ENDPOINT -> s3CatalogFileIO.endpoint,
-    S3FileIOProperties.PATH_STYLE_ACCESS -> "true",
+    S3FileIOProperties.PATH_STYLE_ACCESS -> s3CatalogFileIO.pathStyleEnabled,
     S3FileIOProperties.ACCESS_KEY_ID -> s3CatalogFileIO.accessKeyId,
     S3FileIOProperties.SECRET_ACCESS_KEY -> s3CatalogFileIO.secretAccessKey,
   ) ++ additionalProperties

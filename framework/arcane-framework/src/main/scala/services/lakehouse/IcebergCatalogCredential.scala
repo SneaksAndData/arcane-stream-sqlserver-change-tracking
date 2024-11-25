@@ -9,6 +9,9 @@ private trait IcebergCatalogCredential:
   val oauth2Scope: String
   val oauth2InitToken: String
 
+/**
+ * Singleton holding information required by Iceberg REST Catalog Auth API
+ */
 object IcebergCatalogCredential extends IcebergCatalogCredential:
   override val credential: String = sys.env.getOrElse("ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_ID", "") + ":" + sys.env.getOrElse("ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_SECRET", "")
   override val oauth2Uri: String = sys.env.get("ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_URI") match

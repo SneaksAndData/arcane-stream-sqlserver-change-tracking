@@ -10,6 +10,9 @@ import org.apache.iceberg.types.Types
 import scala.language.implicitConversions
 import scala.jdk.CollectionConverters.*
 
+/**
+ * Implicit conversions from ArcaneType to Iceberg schema types
+ */
 object SchemaConversions:
   implicit def toIcebergType(arcaneType: ArcaneType): org.apache.iceberg.types.Type = arcaneType match
     case IntType => Types.IntegerType.get()
