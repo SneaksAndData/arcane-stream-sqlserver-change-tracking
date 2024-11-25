@@ -28,7 +28,7 @@ jobs:
         uses: docker/setup-buildx-action@v3.7.1
         with:
           use: true
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6.9.0
@@ -36,4 +36,4 @@ jobs:
           context: .
           push: true
           tags: ghcr.io/sneaksanddata/apache-polaris:latest
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
