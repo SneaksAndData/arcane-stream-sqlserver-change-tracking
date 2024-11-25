@@ -51,7 +51,7 @@ class IcebergS3CatalogWriter(
       val records = data.map(rowToRecord).foldLeft(ImmutableList.builder[GenericRecord]) {
         (builder, record) => builder.add(record)
       }.build()
-      val file = tbl.io.newOutputFile(tbl.location() + "/" + UUID.randomUUID.toString)
+      val file = s"${tbl.io.newOutputFile(tbl.location()}/${UUID.randomUUID.toString)}
       val dataWriter = Parquet.writeData(file)
           .schema(tbl.schema())
           .createWriterFunc(GenericParquetWriter.buildWriter)
