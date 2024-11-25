@@ -10,10 +10,16 @@ private trait IcebergCatalogCredential:
   val oauth2InitToken: String
 
 object IcebergCatalogCredential extends IcebergCatalogCredential:
-  override val credential: String = sys.env.getOrElse("ARCANE.FRAMEWORK__S3_CATALOG_AUTH_CLIENT_ID", "") + ":" + sys.env.getOrElse("ARCANE.FRAMEWORK__S3_CATALOG_AUTH_CLIENT_SECRET", "")
-  override val oauth2Uri: String = sys.env.getOrElse("ARCANE.FRAMEWORK__S3_CATALOG_AUTH_CLIENT_URI", "")
-  override val oauth2Scope: String = sys.env.getOrElse("ARCANE.FRAMEWORK__S3_CATALOG_AUTH_SCOPE", "")
-  override val oauth2InitToken: String = sys.env.getOrElse("ARCANE.FRAMEWORK__S3_CATALOG_AUTH_INIT_TOKEN", "")
+  override val credential: String = sys.env.getOrElse("ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_ID", "") + ":" + sys.env.getOrElse("ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_SECRET", "")
+  override val oauth2Uri: String = sys.env.get("ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_URI") match
+    case Some(uri) => uri
+    case None => throw InstantiationError("ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_URI environment variable is not set")
+
+  override val oauth2Scope: String = sys.env.get("ARCANE_FRAMEWORK__S3_CATALOG_AUTH_SCOPE") match
+    case Some(scope) => scope
+    case None => throw InstantiationError("ARCANE_FRAMEWORK__S3_CATALOG_AUTH_SCOPE environment variable is not set")
+
+  override val oauth2InitToken: String = sys.env.getOrElse("ARCANE_FRAMEWORK__S3_CATALOG_AUTH_INIT_TOKEN", "")
 
   final val oAuth2Properties: Map[String, String] =
     if oauth2InitToken != "" then Map(

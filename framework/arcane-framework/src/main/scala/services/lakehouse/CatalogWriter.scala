@@ -18,10 +18,10 @@ trait S3CatalogFileIO extends CatalogFileIO:
   val region: String
 
 object S3CatalogFileIO extends S3CatalogFileIO:
-  override val accessKeyId: String = scala.util.Properties.envOrElse("ARCANE.FRAMEWORK__S3_CATALOG_ACCESS_KEY_ID", "")
-  override val secretAccessKey: String = scala.util.Properties.envOrElse("ARCANE.FRAMEWORK__S3_CATALOG_SECRET_ACCESS_KEY", "")
-  override val endpoint: String = scala.util.Properties.envOrElse("ARCANE.FRAMEWORK__S3_CATALOG_ENDPOINT", "")
-  override val region: String = scala.util.Properties.envOrElse("ARCANE.FRAMEWORK__S3_CATALOG_REGION", "us-east-1")
+  override val accessKeyId: String = scala.util.Properties.envOrElse("ARCANE_FRAMEWORK__S3_CATALOG_ACCESS_KEY_ID", "")
+  override val secretAccessKey: String = scala.util.Properties.envOrElse("ARCANE_FRAMEWORK__S3_CATALOG_SECRET_ACCESS_KEY", "")
+  override val endpoint: String = scala.util.Properties.envOrElse("ARCANE_FRAMEWORK__S3_CATALOG_ENDPOINT", "")
+  override val region: String = scala.util.Properties.envOrElse("ARCANE_FRAMEWORK__S3_CATALOG_REGION", "us-east-1")
 
 trait CatalogWriter[CatalogImpl, TableImpl]:
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global

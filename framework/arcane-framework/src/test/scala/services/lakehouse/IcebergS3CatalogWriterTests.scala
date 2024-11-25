@@ -14,15 +14,6 @@ import org.scalatest.matchers.should.Matchers.*
 import java.util.UUID
 import scala.concurrent.Future
 
-/*
-TODO: document needed env settings
-export ARCANE.FRAMEWORK__S3_CATALOG_ACCESS_KEY_ID=minioadmin
-export ARCANE.FRAMEWORK__S3_CATALOG_SECRET_ACCESS_KEY=minioadmin
-export ARCANE.FRAMEWORK__S3_CATALOG_AUTH_INIT_TOKEN=principal:root;realm:default-realm
-export ARCANE.FRAMEWORK__S3_CATALOG_AUTH_CLIENT_URI=http://localhost:8181/api/catalog/v1/oauth/tokens
-export ARCANE.FRAMEWORK__S3_CATALOG_AUTH_SCOPE=PRINCIPAL_ROLE:ALL
-export ARCANE.FRAMEWORK__S3_CATALOG_ENDPOINT=http://localhost:9000
- */
 class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   private val s3CatalogFileIO = S3CatalogFileIO
