@@ -68,20 +68,37 @@ class VersionedDataGraphBuilder(versionedDataGraphBuilderSettings: VersionedData
  * The companion object for the VersionedDataGraphBuilder class.
  */
 object VersionedDataGraphBuilder:
-  type GraphBuilderLayerTypes = VersionedDataProvider[Long, VersionedBatch]
+  type Environment = VersionedDataProvider[Long, VersionedBatch]
     & StreamLifetimeService
     & BatchProcessor[DataBatch, Chunk[DataRow]]
     & VersionedDataGraphBuilderSettings
 
   /**
-   * The ZLayer that creates the VersionedDataGraphBuilder.
+   * Creates a new instance of the BackfillDataGraphBuilder class.
+   *
+   * @param versionedDataProvider  The backfill data provider.
+   * @param streamLifetimeService The stream lifetime service.
+   * @param batchProcessor        The batch processor.
+   * @return A new instance of the BackfillDataGraphBuilder class.
    */
-  val layer: ZLayer[GraphBuilderLayerTypes, Nothing, VersionedDataGraphBuilder] =
-    ZLayer {
-      for {
-        sss <- ZIO.service[VersionedDataGraphBuilderSettings]
-        dp <- ZIO.service[VersionedDataProvider[Long, VersionedBatch]]
-        ls <- ZIO.service[StreamLifetimeService]
-        bp <- ZIO.service[BatchProcessor[DataBatch, Chunk[DataRow]]]
-      } yield new VersionedDataGraphBuilder(sss, dp, ls, bp)
-    }
+  def apply(versionedDataGraphBuilderSettings: VersionedDataGraphBuilderSettings,
+             versionedDataProvider: VersionedDataProvider[Long, VersionedBatch],
+            streamLifetimeService: StreamLifetimeService,
+            batchProcessor: BatchProcessor[DataBatch, Chunk[DataRow]]): VersionedDataGraphBuilder =
+    new VersionedDataGraphBuilder(versionedDataGraphBuilderSettings, versionedDataProvider, streamLifetimeService, batchProcessor)
+
+  /**
+   * Creates a new instance of the BackfillDataGraphBuilder using services provided by ZIO Environment.
+   *
+   * @return A new instance of the BackfillDataGraphBuilder class.
+   */
+  def apply(): ZIO[Environment, Nothing, VersionedDataGraphBuilder] =
+    for
+      _ <- ZIO.log("Running in streaming mode")
+      sss <- ZIO.service[VersionedDataGraphBuilderSettings]
+      dp <- ZIO.service[VersionedDataProvider[Long, VersionedBatch]]
+      ls <- ZIO.service[StreamLifetimeService]
+      bp <- ZIO.service[BatchProcessor[DataBatch, Chunk[DataRow]]]
+    yield VersionedDataGraphBuilder(sss, dp, ls, bp)
+    
+
