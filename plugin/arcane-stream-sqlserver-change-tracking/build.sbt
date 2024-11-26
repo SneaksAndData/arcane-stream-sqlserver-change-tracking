@@ -1,7 +1,5 @@
 import sbt.Keys.libraryDependencies
 
-import scala.language.postfixOps
-
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / trackInternalDependencies := TrackLevel.TrackIfMissing
 ThisBuild / exportJars := true
