@@ -16,7 +16,7 @@ trait StreamContext:
   /**
    * True if the stream is running in backfill mode.
    */
-  def IsBackfilling: Boolean = sys.env.getOrElse("STREAM CONTEXT__BACKFILL", "false").toLowerCase() == "true"
+  def IsBackfilling: Boolean = sys.env.getOrElse("STREAMCONTEXT__BACKFILL", "false").toLowerCase() == "true"
 
   /**
    * Kind of the stream

@@ -35,14 +35,14 @@ class BackfillDataGraphBuilder(backfillDataProvider: BackfillDataProvider,
  * The companion object for the VersionedDataGraphBuilder class.
  */
 object BackfillDataGraphBuilder:
-  private type GraphBuilderLayerTypes = BackfillDataProvider
+  type GraphBuilderLayerTypes = BackfillDataProvider
     & StreamLifetimeService
     & BatchProcessor[BackFillBatch, Chunk[DataRow]]
 
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.
    */
-  val layer: ZLayer[GraphBuilderLayerTypes, Nothing, StreamGraphBuilder] =
+  val layer: ZLayer[GraphBuilderLayerTypes, Nothing, BackfillDataGraphBuilder] =
     ZLayer {
       for {
         dp <- ZIO.service[BackfillDataProvider]

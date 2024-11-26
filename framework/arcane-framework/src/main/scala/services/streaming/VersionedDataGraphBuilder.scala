@@ -68,7 +68,7 @@ class VersionedDataGraphBuilder(versionedDataGraphBuilderSettings: VersionedData
  * The companion object for the VersionedDataGraphBuilder class.
  */
 object VersionedDataGraphBuilder:
-  private type GraphBuilderLayerTypes = VersionedDataProvider[Long, VersionedBatch]
+  type GraphBuilderLayerTypes = VersionedDataProvider[Long, VersionedBatch]
     & StreamLifetimeService
     & BatchProcessor[DataBatch, Chunk[DataRow]]
     & VersionedDataGraphBuilderSettings
@@ -76,7 +76,7 @@ object VersionedDataGraphBuilder:
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.
    */
-  val layer: ZLayer[GraphBuilderLayerTypes, Nothing, StreamGraphBuilder] =
+  val layer: ZLayer[GraphBuilderLayerTypes, Nothing, VersionedDataGraphBuilder] =
     ZLayer {
       for {
         sss <- ZIO.service[VersionedDataGraphBuilderSettings]
