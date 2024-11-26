@@ -26,6 +26,10 @@ lazy val plugin = (project in file("."))
         // Removes duplicate files from META-INF
         // Mostly io.netty.versions.properties, license files, INDEX.LIST, MANIFEST.MF, etc.
         case PathList("META-INF", _) => MergeStrategy.discard
+        case PathList("NOTICE", _) => MergeStrategy.discard
+
+        // for javax.activation.SecuritySupport$3.class take the first one
+        case PathList("javax/activation/SecuritySupport$3.class", _) => MergeStrategy.first
 
         // For other files we use the default strategy (deduplicate)
         case x => MergeStrategy.deduplicate
