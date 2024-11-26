@@ -9,6 +9,7 @@ import services.mssql.MsSqlConnection.{DataBatch, VersionedBatch}
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 import services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider}
 import services.streaming.base.{BatchProcessor, VersionedDataProvider}
+import utils.{TestConnectionInfo, TestGroupingSettings, TestStreamLifetimeService}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import org.scalatest.*
