@@ -17,7 +17,7 @@ class BackfillDataGraphBuilder(backfillDataProvider: BackfillDataProvider,
 
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[BackfillDataGraphBuilder])
-  
+
   override type StreamElementType = Chunk[DataRow]
 
   override def create: ZStream[Any, Throwable, StreamElementType] =
@@ -30,12 +30,14 @@ class BackfillDataGraphBuilder(backfillDataProvider: BackfillDataProvider,
       logger.info(s"Received ${e.size} rows from the streaming source")
       ZIO.unit
     }
-    
+
 /**
  * The companion object for the VersionedDataGraphBuilder class.
  */
 object BackfillDataGraphBuilder:
-  private type GraphBuilderLayerTypes = BackfillDataProvider & StreamLifetimeService & BatchProcessor[BackFillBatch, Chunk[DataRow]]
+  private type GraphBuilderLayerTypes = BackfillDataProvider
+    & StreamLifetimeService
+    & BatchProcessor[BackFillBatch, Chunk[DataRow]]
 
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.

@@ -129,7 +129,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   "MsSqlConnection" should "return correct number of rows on backfill" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
     for schema <- connection.getSchema
-        backfill <- connection.backfill(schema)
+        backfill <- connection.backfill
         result = backfill.read.toList
     yield {
       result should have length 20
@@ -139,7 +139,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   "MsSqlConnection" should "return correct number of columns on backfill" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
     for schema <- connection.getSchema
-        backfill <- connection.backfill(schema)
+        backfill <- connection.backfill
         result = backfill.read.toList
         head = result.head
     yield {
