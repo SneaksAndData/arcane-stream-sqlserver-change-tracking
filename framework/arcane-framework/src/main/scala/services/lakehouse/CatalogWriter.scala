@@ -17,11 +17,23 @@ sealed trait CatalogFileIO:
  */
 trait S3CatalogFileIO extends CatalogFileIO:
   override val implClass: String = "org.apache.iceberg.aws.s3.S3FileIO"
+  /**
+   * S3 endpoint to use with this IO implementation
+   */
   val endpoint: String
 
   val pathStyleEnabled = "true"
+  /**
+   * Static access key identifier to use with this IO implementation
+   */
   val accessKeyId: String
+  /**
+   * Static secret access key to use with this IO implementation
+   */
   val secretAccessKey: String
+  /**
+   * S3 region to use with this IO implementation
+   */
   val region: String
 
 /**
@@ -39,6 +51,31 @@ trait CatalogWriter[CatalogImpl, TableImpl]:
   implicit val catalogProperties: Map[String, String]
   implicit val catalogName: String
 
+  /**
+   * Initialize the catalog connection
+   * @return CatalogWriter instance ready to perform data operations
+   */
   def initialize(): CatalogWriter[CatalogImpl, TableImpl]
+
+  /**
+   * Creates a table published to the configured Catalog from the data provided.
+   * @param data Rows to append to the table
+   * @param name Name for the table in the catalog
+   * @return Reference to the created table
+   */
   def write(data: Iterable[DataRow], name: String): Future[TableImpl]
+
+  /**
+   * Deletes the specified table from the catalog
+   * @param tableName Table to delete
+   * @return true if successful, false otherwise
+   */
   def delete(tableName: String): Future[Boolean]
+
+  /**
+   * Appends provided rows to the table.
+   * @param data Rows to append
+   * @param name Table to append to
+   * @return Reference to the updated table
+   */
+  def append(data: Iterable[DataRow], name: String): Future[TableImpl]

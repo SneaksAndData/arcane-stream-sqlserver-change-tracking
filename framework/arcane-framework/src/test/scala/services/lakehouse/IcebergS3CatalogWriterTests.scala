@@ -59,3 +59,21 @@ class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
       _ should equal(true)
     }
   }
+
+  it should "create a table and then append rows to it" in {
+    val tblName = UUID.randomUUID.toString
+    val initialData = Seq(List(
+      DataCell(name = "colA", Type = IntType, value = 1), DataCell(name = "colB", Type = StringType, value = "abc"),
+    ))
+    val appendData = Seq(List(
+      DataCell(name = "colA", Type = IntType, value = 2), DataCell(name = "colB", Type = StringType, value = "def"),
+    ))
+    icebergWriter.write(
+      data = initialData,
+      name = tblName
+    ).flatMap { _ => icebergWriter.append(appendData, tblName) }.map {
+      // expect 2 data transactions: append initialData, append appendData
+      // table creation has no data so no data snapshot there
+      _.currentSnapshot().sequenceNumber() should equal(2)
+    }
+  }

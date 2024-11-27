@@ -45,7 +45,7 @@ class IcebergS3CatalogWriter(
     val rowMap = row.map { cell => cell.name -> cell.value }.toMap
     record.copy(rowMap.asJava)
 
-  private def appendData(data: Iterable[DataRow])(implicit tbl: Table): Future[Table] = Future {
+  private def appendData(data: Iterable[DataRow], isTargetEmpty: Boolean)(implicit tbl: Table): Future[Table] = Future {
       val appendTran = tbl.newTransaction()
       // create iceberg records
       val records = data.map(rowToRecord).foldLeft(ImmutableList.builder[GenericRecord]) {
@@ -62,7 +62,11 @@ class IcebergS3CatalogWriter(
       Try(for (record <- records.asScala) { dataWriter.write(record) }) match {
         case Success(_) =>
           dataWriter.close()
-          appendTran.newFastAppend().appendFile(dataWriter.toDataFile).commit()
+
+          // only use fast append for the case when table is empty
+          if isTargetEmpty then appendTran.newFastAppend().appendFile(dataWriter.toDataFile).commit()
+          else appendTran.newAppend().appendFile(dataWriter.toDataFile).commit()
+
           appendTran.commitTransaction()
           tbl
         case Failure(ex) =>
@@ -70,10 +74,9 @@ class IcebergS3CatalogWriter(
           throw ex
       }
     }
-
- 
+  
   override def write(data: Iterable[DataRow], name: String): Future[Table] =
-    createTable(name, schema).flatMap(appendData(data))
+    createTable(name, schema).flatMap(appendData(data, true))
 
   override implicit val catalog: RESTCatalog = new RESTCatalog()
   override implicit val catalogProperties: Map[String, String] = Map(
@@ -92,12 +95,14 @@ class IcebergS3CatalogWriter(
   def initialize(): IcebergS3CatalogWriter =
     catalog.initialize(catalogName, catalogProperties.asJava)
     this
-    
-
+  
   override def delete(tableName: String): Future[Boolean] =
     val tableId = TableIdentifier.of(namespace, tableName)
     Future(catalog.dropTable(tableId))
 
+  def append(data: Iterable[DataRow], name: String): Future[Table] =
+    val tableId = TableIdentifier.of(namespace, name)
+    Future(catalog.loadTable(tableId)).flatMap(appendData(data, false))
 
 object IcebergS3CatalogWriter:
   def apply(namespace: String, warehouse: String, catalogUri: String, additionalProperties: Map[String, String], s3CatalogFileIO: S3CatalogFileIO, schema: ArcaneSchema, locationOverride: Option[String]): IcebergS3CatalogWriter = new IcebergS3CatalogWriter(
