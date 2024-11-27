@@ -1,12 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package services.consumers
 
+import java.sql.Connection
 import scala.concurrent.Future
 
-trait SqlConsumer[StagedBatch]:
-  def mergeBatch(batch: StagedBatch): Future[StagedBatch]
-  def archiveBatch(batch: StagedBatch): Future[Unit]
+trait SqlConsumer[Batch <: StagedBatch]:
+  implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   
-//object SqlServerConsumer extends SqlConsumer[SqlServerStagedBatch]
-//val s = SqlConsumer[SqlServerStagedBatch]
-  // s.mergeBatch(SqlServerStagedBatch(...))
+  def mergeBatch(batch: Batch)(implicit sqlConnection: Connection): Future[Batch]
+  def archiveBatch(batch: Batch)(implicit sqlConnection: Connection): Future[Unit]

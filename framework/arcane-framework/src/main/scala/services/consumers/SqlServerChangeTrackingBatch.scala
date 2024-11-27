@@ -1,7 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.consumers
 
-case class SqlServerChangeTrackingBatch(name: String, isBackfill: Boolean, columns: List[String], partitionValues: Map[String, List[String]], mergeKey: String) extends StagedBatch:
+import java.sql.ResultSet
+
+case class SqlServerChangeTrackingBatch(name: String, isBackfill: Boolean, columns: List[String], partitionValues: Map[String, List[String]], mergeKey: String, batchResult: ResultSet = null) extends StagedBatch:
 
   private def mergeDeleteCondition(): String = s"$SOURCE_ALIAS.SYS_CHANGE_OPERATION = 'D'"
 
