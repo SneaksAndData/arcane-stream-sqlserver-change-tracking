@@ -34,6 +34,9 @@ lazy val root = (project in file("."))
     libraryDependencies += "software.amazon.awssdk" % "sts" % "2.29.9",
     // https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-common
     libraryDependencies += "org.apache.hadoop" % "hadoop-common" % "3.4.1",
+    // https://mvnrepository.com/artifact/io.trino/trino-jdbc
+    libraryDependencies += "io.trino" % "trino-jdbc" % "465",
+
 
 
 
