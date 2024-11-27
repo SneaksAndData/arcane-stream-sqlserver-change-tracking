@@ -16,8 +16,8 @@ trait StagedBatch:
    * Alias for the target (output) table in all queries
    */
   final val TARGET_ALIAS: String = "t_o"
-  
-  
+
+
   val name: String
   val isBackfill: Boolean
   val columns: List[String]
@@ -27,3 +27,4 @@ trait StagedBatch:
   def mergeMatchCondition(): String
   def mergeValueSet(): String
   def mergeInsertCondition(): String
+  def reduceBatchQuery(): String
