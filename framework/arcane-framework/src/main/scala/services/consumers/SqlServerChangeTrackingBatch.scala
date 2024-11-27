@@ -1,13 +1,13 @@
 package com.sneaksanddata.arcane.framework
 package services.consumers
 
-case class SqlServerChangeTrackingBatch(name: String, isBackfill: Boolean, columns: List[String], partitionValues: Map[String, List[String]], mergeKey: String) extends StagedBatch with BatchCanUpdate with BatchCanDelete:
+case class SqlServerChangeTrackingBatch(name: String, isBackfill: Boolean, columns: List[String], partitionValues: Map[String, List[String]], mergeKey: String) extends StagedBatch:
 
-  override def mergeDeleteCondition(): String = s"$SOURCE_ALIAS.SYS_CHANGE_OPERATION = 'D'"
+  private def mergeDeleteCondition(): String = s"$SOURCE_ALIAS.SYS_CHANGE_OPERATION = 'D'"
 
-  override def mergeInsertCondition(): String = s"$SOURCE_ALIAS.SYS_CHANGE_OPERATION != 'D'"
+  private def mergeInsertCondition(): String = s"$SOURCE_ALIAS.SYS_CHANGE_OPERATION != 'D'"
 
-  override def mergeMatchCondition(): String =
+  private def mergeMatchCondition(): String =
     def generateInClause(content: String, partName: String): String =
       s"$TARGET_ALIAS.$partName IN ($content)"
 
@@ -17,11 +17,29 @@ case class SqlServerChangeTrackingBatch(name: String, isBackfill: Boolean, colum
       case partExpr if partExpr.nonEmpty => s"$baseCondition AND ${partExpr.mkString(" AND ")}"
       case _ => baseCondition
 
-  override def mergeUpdateCondition(): String =
+  private def mergeUpdateCondition(): String =
     s"$SOURCE_ALIAS.SYS_CHANGE_OPERATION != 'D' AND $SOURCE_ALIAS.SYS_CHANGE_VERSION > $TARGET_ALIAS.SYS_CHANGE_VERSION"
 
-  override def mergeValueSet(): String =
+  private def mergeValueSet(): String =
     columns.map(col => s"$SOURCE_ALIAS.$col").mkString(",\n")
+
+  override def applyBatchQuery(): String =
+    val columnList = columns.map(col => s"$col").mkString(",")
+    val columnSet = columns.map(col => s"$col = $SOURCE_ALIAS.$col").mkString(",\n")
+    if isBackfill then
+      s"""
+         |INSERT OVERWRITE $name
+         |${reduceBatchQuery()}
+         |""".stripMargin
+    else
+      s"""
+         |MERGE INTO $name $TARGET_ALIAS
+         |USING (${reduceBatchQuery()}) $SOURCE_ALIAS
+         |ON ${mergeMatchCondition()}
+         |WHEN MATCHED AND ${mergeDeleteCondition()} THEN DELETE
+         |WHEN MATCHED AND ${mergeUpdateCondition()} THEN UPDATE SET $columnSet
+         |WHEN NOT MATCHED AND ${mergeInsertCondition()} THEN INSERT ($columnList) VALUES (${mergeValueSet()})
+         |""".stripMargin
 
   override def reduceBatchQuery(): String =
     if isBackfill then
@@ -40,6 +58,7 @@ FROM $name AS $SOURCE_ALIAS inner join VERSIONS as v
       s"""
 SELECT * FROM $name AS $SOURCE_ALIAS WHERE $SOURCE_ALIAS.SYS_CHANGE_OPERATION != 'D'
 """.stripMargin
+
 
 object SqlServerChangeTrackingBatch:
   def apply(name: String, isBackfill: Boolean, columns: List[String], partitionValues: Map[String, List[String]], mergeKey: String): SqlServerChangeTrackingBatch =

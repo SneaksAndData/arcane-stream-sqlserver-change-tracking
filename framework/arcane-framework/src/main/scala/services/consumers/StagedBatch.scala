@@ -1,12 +1,6 @@
 package com.sneaksanddata.arcane.framework
 package services.consumers
 
-trait BatchCanDelete:
-  def mergeDeleteCondition(): String
-
-trait BatchCanUpdate:
-  def mergeUpdateCondition(): String
-
 trait StagedBatch:
   /**
    * Alias for the batch table in all queries
@@ -24,7 +18,5 @@ trait StagedBatch:
   val partitionValues: Map[String, List[String]]
   val mergeKey: String
 
-  def mergeMatchCondition(): String
-  def mergeValueSet(): String
-  def mergeInsertCondition(): String
   def reduceBatchQuery(): String
+  def applyBatchQuery(): String
