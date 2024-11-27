@@ -3,7 +3,7 @@ package services.streaming
 
 import models.DataRow
 import services.app.base.StreamLifetimeService
-import services.mssql.MsSqlConnection.BackFillBatch
+import services.mssql.MsSqlConnection.BackfillBatch
 import services.streaming.base.{BackfillDataProvider, BatchProcessor, StreamGraphBuilder}
 
 import org.slf4j.{Logger, LoggerFactory}
@@ -12,7 +12,7 @@ import zio.{Chunk, ZIO}
 
 class BackfillDataGraphBuilder(backfillDataProvider: BackfillDataProvider,
                                streamLifetimeService: StreamLifetimeService,
-                               batchProcessor: BatchProcessor[BackFillBatch, Chunk[DataRow]])
+                               batchProcessor: BatchProcessor[BackfillBatch, Chunk[DataRow]])
   extends StreamGraphBuilder:
 
 
@@ -21,7 +21,7 @@ class BackfillDataGraphBuilder(backfillDataProvider: BackfillDataProvider,
   override type StreamElementType = Chunk[DataRow]
 
   override def create: ZStream[Any, Throwable, StreamElementType] =
-    ZStream.fromZIO(backfillDataProvider.provideData)
+    ZStream.fromZIO(backfillDataProvider.requestBackfill)
     .takeUntil(_ => streamLifetimeService.cancelled)
     .via(batchProcessor.process)
 
@@ -37,7 +37,7 @@ class BackfillDataGraphBuilder(backfillDataProvider: BackfillDataProvider,
 object BackfillDataGraphBuilder:
   type Environment = BackfillDataProvider
     & StreamLifetimeService
-    & BatchProcessor[BackFillBatch, Chunk[DataRow]]
+    & BatchProcessor[BackfillBatch, Chunk[DataRow]]
 
   /**
    * Creates a new instance of the BackfillDataGraphBuilder class.
@@ -49,7 +49,7 @@ object BackfillDataGraphBuilder:
    */
   def apply(backfillDataProvider: BackfillDataProvider,
               streamLifetimeService: StreamLifetimeService,
-              batchProcessor: BatchProcessor[BackFillBatch, Chunk[DataRow]]): BackfillDataGraphBuilder =
+              batchProcessor: BatchProcessor[BackfillBatch, Chunk[DataRow]]): BackfillDataGraphBuilder =
       new BackfillDataGraphBuilder(backfillDataProvider, streamLifetimeService, batchProcessor)
 
   /**
@@ -62,6 +62,6 @@ object BackfillDataGraphBuilder:
       _ <- ZIO.log("Running in backfill mode")
       dp <- ZIO.service[BackfillDataProvider]
       ls <- ZIO.service[StreamLifetimeService]
-      bp <- ZIO.service[BatchProcessor[BackFillBatch, Chunk[DataRow]]]
+      bp <- ZIO.service[BatchProcessor[BackfillBatch, Chunk[DataRow]]]
     yield BackfillDataGraphBuilder(dp, ls, bp)
 

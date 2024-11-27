@@ -26,6 +26,8 @@ class LazyListGroupingProcessor(groupingSettings: GroupingSettings) extends Batc
    */
   def process: ZPipeline[Any, Throwable, DataBatch, Chunk[DataRow]] = ZPipeline
       .map(this.readBatch)
+      // We use here unsafe get because we need to throw an exception if the data is not available.
+      // Otherwise, we can get inconsistent data in the stream.
       .map(tryDataRow => tryDataRow.get)
       .map(list => Chunk.fromIterable(list))
       .flattenChunks
@@ -43,7 +45,9 @@ object LazyListGroupingProcessor:
    */
   val layer: ZLayer[GroupingSettings, Nothing, LazyListGroupingProcessor] =
     ZLayer {
-      for settings <- ZIO.service[GroupingSettings] yield LazyListGroupingProcessor(settings)
+      for
+        settings <- ZIO.service[GroupingSettings]
+      yield LazyListGroupingProcessor(settings)
     }
 
   def apply(groupingSettings: GroupingSettings): LazyListGroupingProcessor =

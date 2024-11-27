@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import services.mssql.MsSqlConnection.BackFillBatch
+import services.mssql.MsSqlConnection.BackfillBatch
 
 import zio.Task
 
@@ -15,4 +15,4 @@ trait BackfillDataProvider:
    *
    * @return A task that represents the backfill data.
    */
-  def provideData: Task[BackFillBatch]
+  def requestBackfill: Task[BackfillBatch]

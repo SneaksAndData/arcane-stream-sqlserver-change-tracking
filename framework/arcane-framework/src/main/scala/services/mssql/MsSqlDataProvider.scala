@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import services.mssql.MsSqlConnection.{BackFillBatch, VersionedBatch}
+import services.mssql.MsSqlConnection.{BackfillBatch, VersionedBatch}
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 import services.streaming.base.{BackfillDataProvider, HasVersion, VersionedDataProvider}
 
@@ -45,7 +45,7 @@ class MsSqlDataProvider(msSqlConnection: MsSqlConnection) extends VersionedDataP
   override def requestChanges(previousVersion: Option[Long], lookBackInterval: Duration): Task[VersionedBatch] =
     ZIO.fromFuture(_ => msSqlConnection.getChanges(previousVersion, lookBackInterval))
     
-  override def provideData: Task[BackFillBatch] = ZIO.fromFuture(_ => msSqlConnection.backfill)
+  override def requestBackfill: Task[BackfillBatch] = ZIO.fromFuture(_ => msSqlConnection.backfill)
 
 /**
  * The companion object for the MsSqlDataProvider class.

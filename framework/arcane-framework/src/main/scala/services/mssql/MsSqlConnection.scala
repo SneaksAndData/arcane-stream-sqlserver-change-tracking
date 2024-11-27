@@ -3,7 +3,7 @@ package services.mssql
 
 import models.{ArcaneSchema, ArcaneType, DataRow, Field}
 import services.base.{CanAdd, SchemaProvider}
-import services.mssql.MsSqlConnection.{BackFillBatch, DATE_PARTITION_KEY, UPSERT_MERGE_KEY, VersionedBatch, toArcaneType}
+import services.mssql.MsSqlConnection.{BackfillBatch, DATE_PARTITION_KEY, UPSERT_MERGE_KEY, VersionedBatch, toArcaneType}
 import services.mssql.base.{CanPeekHead, QueryResult}
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 
@@ -90,7 +90,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    *
    * @return A future containing the result of the backfill.
    */
-  def backfill(using queryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult]): Future[BackFillBatch] =
+  def backfill(using queryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult]): Future[BackfillBatch] =
     for query <- QueryProvider.getBackfillQuery(this)
         result <- queryRunner.executeQuery(query, connection, LazyQueryResult.apply)
     yield result
@@ -235,7 +235,7 @@ object MsSqlConnection:
    * Since the data is not versioned, the version is always 0,
    * and we don't need to be able to peek the head of the result.
    */
-  type BackFillBatch = QueryResult[LazyQueryResult.OutputType]
+  type BackfillBatch = QueryResult[LazyQueryResult.OutputType]
 
   /**
    * Represents a versioned batch of data.
