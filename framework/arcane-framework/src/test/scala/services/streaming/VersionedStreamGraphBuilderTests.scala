@@ -9,6 +9,7 @@ import services.mssql.MsSqlConnection.{DataBatch, VersionedBatch}
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 import services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider}
 import services.streaming.base.{BatchProcessor, VersionedDataProvider}
+import utils.{TestConnectionInfo, TestGroupingSettings, TestStreamLifetimeService}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import org.scalatest.*
@@ -26,9 +27,7 @@ import scala.concurrent.Future
 import scala.language.postfixOps
 import scala.util.Using
 
-case class TestConnectionInfo(connectionOptions: ConnectionOptions, connection: Connection)
-
-class StreamGraphBuilderTests extends flatspec.AsyncFlatSpec with Matchers:
+class VersionedStreamGraphBuilderTests extends flatspec.AsyncFlatSpec with Matchers:
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   private implicit val dataQueryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult] = QueryRunner()
   private implicit val versionQueryRunner: QueryRunner[Option[Long], ScalarQueryResult[Long]] = QueryRunner()
@@ -44,7 +43,6 @@ class StreamGraphBuilderTests extends flatspec.AsyncFlatSpec with Matchers:
   }
 
   "StreamGraph" should "be able to generate changes stream" in withFreshTable("StreamGraphBuilderTests") { dbInfo =>
-
     val lifetime = TestStreamLifetimeService(3, counter => {
       // Skip first iteration since lifetime service is called before the first iteration
       if counter > 0 then
@@ -186,27 +184,7 @@ class StreamGraphBuilderTests extends flatspec.AsyncFlatSpec with Matchers:
     test(conn)
 
 
-class TestStreamLifetimeService(maxQueries: Int, callback: Int => Any) extends StreamLifetimeService:
-  var counter = 0
-  override def cancelled: Boolean =
-    callback(counter)
-    counter += 1
-    counter > maxQueries
 
-  override def cancel(): Unit = ()
-
-  override def start(): Unit = ()
-
-object TestStreamLifetimeService:
-
-  def withMaxQueries(maxQueries: Int) = new TestStreamLifetimeService(maxQueries, _ => ())
-
-  def apply(maxQueries: Int) = new TestStreamLifetimeService(maxQueries, _ => ())
-
-  def apply(maxQueries: Int, callback: Int => Any) = new TestStreamLifetimeService(maxQueries, callback)
-
-
-class TestGroupingSettings(val groupingInterval: Duration, val rowsPerGroup: Int) extends GroupingSettings
 
 class TestVersionedDataGraphBuilderSettings(override val lookBackInterval: Duration,
                                             override val changeCaptureInterval: Duration)

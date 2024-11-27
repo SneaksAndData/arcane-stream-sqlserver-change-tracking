@@ -1,13 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import zio.stream.ZStream
-import zio.stream.ZSink
+import zio.stream.{ZSink, ZStream}
 
 /**
  * A trait that represents a stream graph builder.
  */
-trait StreamGraphBuilder {
+trait StreamGraphBuilder:
 
   /**
    * The type of the stream element produced by the source and consumed by the sink.
@@ -27,4 +26,3 @@ trait StreamGraphBuilder {
    * @return ZStream (stream source for the stream graph).
    */
   def consume: ZSink[Any, Throwable, StreamElementType, Any, Unit]
-}

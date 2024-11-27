@@ -3,7 +3,7 @@ package services.mssql
 
 import models.{ArcaneSchema, ArcaneType, DataRow, Field}
 import services.base.{CanAdd, SchemaProvider}
-import services.mssql.MsSqlConnection.{DATE_PARTITION_KEY, UPSERT_MERGE_KEY, VersionedBatch, toArcaneType}
+import services.mssql.MsSqlConnection.{BackfillBatch, DATE_PARTITION_KEY, UPSERT_MERGE_KEY, VersionedBatch, toArcaneType}
 import services.mssql.base.{CanPeekHead, QueryResult}
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 
@@ -88,10 +88,9 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   /**
    * Run a backfill query on the database.
    *
-   * @param arcaneSchema The schema for the data produced by Arcane.
    * @return A future containing the result of the backfill.
    */
-  def backfill(arcaneSchema: ArcaneSchema)(using queryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult]): Future[QueryResult[LazyQueryResult.OutputType]] =
+  def backfill(using queryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult]): Future[BackfillBatch] =
     for query <- QueryProvider.getBackfillQuery(this)
         result <- queryRunner.executeQuery(query, connection, LazyQueryResult.apply)
     yield result
@@ -226,7 +225,18 @@ object MsSqlConnection:
     case java.sql.Types.VARCHAR => Success(ArcaneType.StringType)
     case _ => Failure(new IllegalArgumentException(s"Unsupported SQL type: $sqlType"))
 
-  type DataBatch = QueryResult[LazyQueryResult.OutputType] & CanPeekHead[LazyQueryResult.OutputType] 
+  /**
+   * Represents a batch of data.
+   */
+  type DataBatch = QueryResult[LazyQueryResult.OutputType] & CanPeekHead[LazyQueryResult.OutputType]
+  
+  /**
+   * Represents a batch of data that can be used to backfill the data.
+   * Since the data is not versioned, the version is always 0,
+   * and we don't need to be able to peek the head of the result.
+   */
+  type BackfillBatch = QueryResult[LazyQueryResult.OutputType]
+
   /**
    * Represents a versioned batch of data.
    */
