@@ -20,6 +20,7 @@ trait StagedBatch:
   
   val name: String
   val isBackfill: Boolean
+  val columns: List[String]
   val partitionValues: Map[String, List[String]]
   val mergeKey: String
 
