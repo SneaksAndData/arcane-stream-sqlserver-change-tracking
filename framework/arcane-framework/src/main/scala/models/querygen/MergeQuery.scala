@@ -1,6 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package models.querygen
 
+import com.sneaksanddata.arcane.framework.services.consumers.WhenNotMatchedInsert
+
+import scala.annotation.targetName
+
 object MergeQueryCommons:
   /**
    * Alias for the batch table in all queries
@@ -11,9 +15,19 @@ object MergeQueryCommons:
    */
   val TARGET_ALIAS: String = "t_o"
   
-case class MergeQuery(baseQuery: String, segments: Seq[MergeQuerySegment]):
+case class MergeQuery(baseQuery: String, segments: Seq[MergeQuerySegment]) extends StreamingBatchQuery:
+  @targetName("plusplus")
   def ++(segment: MergeQuerySegment): MergeQuery = copy(segments = segments :+ segment)
-  def query(): String = segments.foldLeft(baseQuery)((result, segment) => Seq(result, "\n", segment.toString).mkString(""))
+  def query: String =
+    require(segments.exists(seg => seg match
+      case OnSegment => true
+      case _ => false), "OnSegment is not defined for this query, unable to generate runnable SQL")
+    require(segments.exists(seg => seg match
+      case WhenNotMatchedInsert => true
+      case _ => false
+    ), "WhenNotMatchedInsert segment is not defined for this query, unable to generate runnable SQL")
+    
+    segments.foldLeft(baseQuery)((result, segment) => Seq(result, "\n", segment.toString).mkString(""))
 
 object MergeQuery:
   private def baseQuery(targetName: String, sourceQuery: String): String =

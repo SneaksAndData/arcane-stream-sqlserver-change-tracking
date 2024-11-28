@@ -14,7 +14,11 @@ trait OnSegment extends MergeQuerySegment:
 trait WhenMatchedUpdate extends MergeQuerySegment:
   final val segmentPrefix: String = "WHEN MATCHED"
   final val segmentAction: String = "UPDATE"
-  val segmentSet: String
+  val columns: Seq[String]
+  
+  override final def toString: String =
+    val columnSet = columns.map(col => s"$col = ${MergeQueryCommons.SOURCE_ALIAS}.$col").mkString(",\n")  
+    Seq(segmentPrefix, segmentCondition.map(c => s"AND $c").getOrElse(""), "THEN", segmentAction, "SET", s"($columnSet)").mkString(" ")
 
 trait WhenMatchedDelete extends MergeQuerySegment:
   final val segmentPrefix: String = "WHEN MATCHED"
@@ -27,7 +31,7 @@ trait WhenNotMatchedInsert extends MergeQuerySegment:
   
   override final def toString: String =
     val columnList = columns.map(col => s"$col").mkString(",")
-    val columnSet = columns.map(col => s"$col = ${MergeQueryCommons.SOURCE_ALIAS}.$col").mkString(",\n")
+    val columnSet = columns.map(col => s"${MergeQueryCommons.SOURCE_ALIAS}.$col").mkString(",\n")
     Seq(segmentPrefix, segmentCondition.map(c => s"AND $c").getOrElse(""), "THEN", segmentAction, s"($columnList)", "VALUES", s"($columnSet)").mkString(" ")
 
 given WhenNotMatchedWildcardInsert: MergeQuerySegment with
@@ -40,7 +44,7 @@ object OnSegment extends OnSegment:
   private def generateInClause(content: String, partName: String): String = s"${MergeQueryCommons.TARGET_ALIAS}.$partName IN ($content)"
 
   def apply(partitionValues: Map[String, List[String]], mergeKey: String): OnSegment = new OnSegment {
-    override val segmentValue: String =
+    override val segmentCondition: String =
       val baseCondition = s"${MergeQueryCommons.TARGET_ALIAS}.$mergeKey = ${MergeQueryCommons.SOURCE_ALIAS}.$mergeKey"
       partitionValues
         .map(values => generateInClause(values._2.map(part => s"'$part'").mkString(","), values._1)) match
