@@ -14,6 +14,7 @@ case class JdbcConsumerOptions(connectionUrl: String):
 
 class JdbcConsumer[Batch <: Either[StagedBackfillBatch, StagedVersionedBatch]](val options: JdbcConsumerOptions) extends AutoCloseable:
   require(options.isValid, "Invalid JDBC url provided for the consumer")
+  
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   private lazy val sqlConnection: Connection = DriverManager.getConnection(options.connectionUrl)
 
@@ -22,17 +23,6 @@ class JdbcConsumer[Batch <: Either[StagedBackfillBatch, StagedVersionedBatch]](v
     val statement = sqlConnection.prepareStatement(querySql)
     Future(statement.executeQuery())
     
-//  def archiveBatch(batch: Batch): Future[Unit]
+  def archiveBatch(batch: Batch): Future[Unit] = ???
 
   def close(): Unit = sqlConnection.close()
-
-
-//case class SqlConsumer(val ) extends SqlConsumer[SqlServerChangeTrackingBatch]:
-//  lazy val sqlConnection: Connection = DriverManager.getConnection(jdbcUrl)
-//
-//  def mergeBatch(batch: SqlServerChangeTrackingBatch): Future[SqlServerChangeTrackingBatch] =
-//    require(sqlConnection.isValid(10000), "")
-//    val statement = sqlConnection.prepareStatement(batch.applyBatchQuery())
-//    Future(statement.executeQuery()).map(rs => batch.copy(batchResult = rs))
-//
-//  def archiveBatch(batch: SqlServerChangeTrackingBatch)(implicit sqlConnection: Connection): Future[Unit] = ???

@@ -1,0 +1,2 @@
+INSERT OVERWRITE
+SELECT * FROM test.staged_a
