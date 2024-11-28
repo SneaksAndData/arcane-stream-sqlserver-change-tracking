@@ -14,10 +14,13 @@ trait StagedBatch[Query <: StreamingBatchQuery]:
    * Schema for the table that holds batch data
    */
   val schema: ArcaneSchema
+  /**
+   * Query to be used to process this batch
+   */
   val batchQuery: Query
 
   /**
-   * Query that aggregates transactions in the batch to enable merge
+   * Query that aggregates transactions in the batch to enable merge or overwrite
    * @return SQL query text
    */
   def reduceBatchExpr(): String
