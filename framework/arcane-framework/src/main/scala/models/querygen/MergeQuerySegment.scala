@@ -11,7 +11,7 @@ sealed trait MergeQuerySegment:
 trait OnSegment extends MergeQuerySegment:
   final val segmentPrefix: String = "ON"
   final val segmentAction: String = ""
-  final override def toString: String = Seq(segmentPrefix, segmentCondition.map(c => s"AND $c").getOrElse("")).mkString(" ")
+  final override def toString: String = Seq(segmentPrefix, segmentCondition.getOrElse("")).mkString(" ")
 
 trait WhenMatchedUpdate extends MergeQuerySegment:
   final val segmentPrefix: String = "WHEN MATCHED"
@@ -20,7 +20,7 @@ trait WhenMatchedUpdate extends MergeQuerySegment:
 
   override final def toString: String =
     val columnSet = columns.map(col => s"$col = ${MergeQueryCommons.SOURCE_ALIAS}.$col").mkString(",\n")
-    Seq(segmentPrefix, segmentCondition.map(c => s"AND $c").getOrElse(""), "THEN", segmentAction, "SET", s"($columnSet)").mkString(" ")
+    Seq(segmentPrefix, segmentCondition.map(c => s"AND $c").getOrElse(""), "THEN", segmentAction, "SET\n", columnSet).mkString(" ")
 
 trait WhenMatchedDelete extends MergeQuerySegment:
   final val segmentPrefix: String = "WHEN MATCHED"

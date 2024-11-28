@@ -1,8 +1,6 @@
 package com.sneaksanddata.arcane.framework
 package models.querygen
 
-import com.sneaksanddata.arcane.framework.services.consumers.WhenNotMatchedInsert
-
 import scala.annotation.targetName
 
 object MergeQueryCommons:
@@ -31,9 +29,7 @@ case class MergeQuery(baseQuery: String, segments: Seq[MergeQuerySegment]) exten
 
 object MergeQuery:
   private def baseQuery(targetName: String, sourceQuery: String): String =
-    s"""
-       |MERGE INTO $targetName ${MergeQueryCommons.TARGET_ALIAS}
-       |USING ($sourceQuery) ${MergeQueryCommons.SOURCE_ALIAS}
-       |""".stripMargin
+    s"""MERGE INTO $targetName ${MergeQueryCommons.TARGET_ALIAS}
+       |USING ($sourceQuery) ${MergeQueryCommons.SOURCE_ALIAS}""".stripMargin
 
   def apply(targetName: String, sourceQuery: String): MergeQuery = new MergeQuery(baseQuery(targetName, sourceQuery), Seq())

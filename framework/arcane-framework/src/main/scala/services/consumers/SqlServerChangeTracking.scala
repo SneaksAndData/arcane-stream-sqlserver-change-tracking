@@ -28,7 +28,7 @@ object SqlServerChangeTrackingMergeQuery:
     MergeQuery(targetName, sourceQuery)
       ++ OnSegment(partitionValues, mergeKey)
       ++ WhenMatchedDelete()
-      ++ WhenMatchedUpdate(columns)
+      ++ WhenMatchedUpdate(columns.filterNot(c => c == mergeKey))
       ++ WhenNotMatchedInsert(columns)
 
 object SqlServerChangeTrackingBackfillQuery:
