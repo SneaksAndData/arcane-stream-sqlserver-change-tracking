@@ -22,8 +22,7 @@ object main extends ZIOAppDefault {
 
   private val loggingProprieties = Enricher("Application", "Arcane.Stream.Scala")
     ++ Enricher("App", "Arcane.Stream.Scala")
-    ++ Enricher("App", "Arcane.Stream.Scala")
-    ++ Enricher.fromEnvironment("APPLICATION_VERSION", "local-development")
+    ++ Enricher.fromEnvironment("APPLICATION_VERSION", "0.0.0")
 
   override val bootstrap: ZLayer[Any, Nothing, Unit] = SLF4J.slf4j(
     LogFormat.make{ (builder, _, _, _, line, _, _, _, _) =>
