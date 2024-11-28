@@ -40,4 +40,4 @@ enum ArcaneType:
  * @param name The name of the field.
  * @param fieldType The type of the field.
  */
-case class Field(name: String, fieldType: ArcaneType)
+case class Field(name: String, fieldType: ArcaneType, isMergeKey: Boolean = false, partitionIndex: Option[Int] = None)
