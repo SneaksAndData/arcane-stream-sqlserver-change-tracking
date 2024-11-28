@@ -2,8 +2,9 @@ package com.sneaksanddata.arcane.framework
 package services.lakehouse
 
 import models.{ArcaneSchema, ArcaneType}
-
 import models.ArcaneType.*
+
+import com.sneaksanddata.arcane.framework.services.mssql.ConnectionOptions
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Types
 
@@ -33,7 +34,7 @@ object SchemaConversions:
     schema
       .zipWithIndex
       .map {
-        (field, index) => 
+        (field, index) =>
           Types.NestedField.optional(index, field.name, field.fieldType)
       }.asJava
   )

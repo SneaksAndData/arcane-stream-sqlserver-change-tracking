@@ -1,7 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.lakehouse
 
-import models.{ArcaneSchema, DataRow}
+import models.DataRow
+
+import org.apache.iceberg.Schema
 
 import scala.concurrent.Future
 
@@ -63,7 +65,7 @@ trait CatalogWriter[CatalogImpl, TableImpl]:
    * @param name Name for the table in the catalog
    * @return Reference to the created table
    */
-  def write(data: Iterable[DataRow], name: String): Future[TableImpl]
+  def write(data: Iterable[DataRow], schema: Schema, name: String): Future[TableImpl]
 
   /**
    * Deletes the specified table from the catalog
@@ -78,4 +80,4 @@ trait CatalogWriter[CatalogImpl, TableImpl]:
    * @param name Table to append to
    * @return Reference to the updated table
    */
-  def append(data: Iterable[DataRow], name: String): Future[TableImpl]
+  def append(data: Iterable[DataRow], schema: Schema, name: String): Future[TableImpl]

@@ -17,6 +17,7 @@ lazy val root = (project in file("."))
     libraryDependencies += "dev.zio" %% "zio-streams" % "2.1.6",
     libraryDependencies += "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.1.jre11",
     libraryDependencies += "software.amazon.awssdk" % "s3" % "2.25.27",
+    libraryDependencies += "dev.zio" %% "zio-json" % "0.6.2",
 
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-api
     libraryDependencies += "org.apache.iceberg" % "iceberg-api" % "1.7.0",
@@ -45,7 +46,6 @@ lazy val root = (project in file("."))
     libraryDependencies += "dev.zio" %% "zio-logging-slf4j" % "2.3.0",
 
     // For DataDog
-//    libraryDependencies += "org.slf4j" % "log4j-over-slf4j" % "2.0.13",
     libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.5.6",
     libraryDependencies +=  "net.logstash.logback" % "logstash-logback-encoder" % "8.0",
   )

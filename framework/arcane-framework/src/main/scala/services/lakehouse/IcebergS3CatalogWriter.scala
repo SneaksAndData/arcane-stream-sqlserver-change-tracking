@@ -1,17 +1,17 @@
 package com.sneaksanddata.arcane.framework
 package services.lakehouse
 
-import models.{ArcaneSchema, DataRow}
-import services.lakehouse.SchemaConversions.*
+import models.DataRow
 
 import org.apache.iceberg.aws.s3.S3FileIOProperties
 import org.apache.iceberg.catalog.TableIdentifier
-import org.apache.iceberg.{CatalogProperties, DataFile, PartitionSpec, Schema, Table}
-import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.data.GenericRecord
 import org.apache.iceberg.data.parquet.GenericParquetWriter
 import org.apache.iceberg.parquet.Parquet
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList
+import org.apache.iceberg.rest.RESTCatalog
+import org.apache.iceberg.{CatalogProperties, PartitionSpec, Schema, Table}
+import zio.{ZIO, ZLayer}
 
 import java.util.UUID
 import scala.concurrent.Future
@@ -27,7 +27,6 @@ class IcebergS3CatalogWriter(
                               catalogUri: String,
                               additionalProperties: Map[String, String],
                               s3CatalogFileIO: S3CatalogFileIO,
-                              schema: Schema,
                               locationOverride: Option[String] = None,
                         ) extends CatalogWriter[RESTCatalog, Table]:
 
@@ -40,15 +39,15 @@ class IcebergS3CatalogWriter(
         case None => catalog.createTable(tableId, schema, PartitionSpec.unpartitioned())
     })
 
-  private def rowToRecord(row: DataRow)(implicit tbl: Table): GenericRecord =
+  private def rowToRecord(row: DataRow, schema: Schema)(implicit tbl: Table): GenericRecord =
     val record = GenericRecord.create(schema)
     val rowMap = row.map { cell => cell.name -> cell.value }.toMap
     record.copy(rowMap.asJava)
 
-  private def appendData(data: Iterable[DataRow], isTargetEmpty: Boolean)(implicit tbl: Table): Future[Table] = Future {
+  private def appendData(data: Iterable[DataRow], schema: Schema, isTargetEmpty: Boolean)(implicit tbl: Table): Future[Table] = Future {
       val appendTran = tbl.newTransaction()
       // create iceberg records
-      val records = data.map(rowToRecord).foldLeft(ImmutableList.builder[GenericRecord]) {
+      val records = data.map(d => rowToRecord(d, schema)).foldLeft(ImmutableList.builder[GenericRecord]) {
         (builder, record) => builder.add(record)
       }.build()
       val file = tbl.io.newOutputFile(s"${tbl.location()}/${UUID.randomUUID.toString}")
@@ -75,8 +74,8 @@ class IcebergS3CatalogWriter(
       }
     }
   
-  override def write(data: Iterable[DataRow], name: String): Future[Table] =
-    createTable(name, schema).flatMap(appendData(data, true))
+  override def write(data: Iterable[DataRow], schema: Schema, name: String): Future[Table] =
+    createTable(name, schema).flatMap(appendData(data, schema, true))
 
   override implicit val catalog: RESTCatalog = new RESTCatalog()
   override implicit val catalogProperties: Map[String, String] = Map(
@@ -100,17 +99,28 @@ class IcebergS3CatalogWriter(
     val tableId = TableIdentifier.of(namespace, tableName)
     Future(catalog.dropTable(tableId))
 
-  def append(data: Iterable[DataRow], name: String): Future[Table] =
+  def append(data: Iterable[DataRow], schema: Schema, name: String): Future[Table] =
     val tableId = TableIdentifier.of(namespace, name)
-    Future(catalog.loadTable(tableId)).flatMap(appendData(data, false))
-
+    Future(catalog.loadTable(tableId)).flatMap(appendData(data, schema, false))
 object IcebergS3CatalogWriter:
-  def apply(namespace: String, warehouse: String, catalogUri: String, additionalProperties: Map[String, String], s3CatalogFileIO: S3CatalogFileIO, schema: ArcaneSchema, locationOverride: Option[String]): IcebergS3CatalogWriter = new IcebergS3CatalogWriter(
-    namespace = namespace,
-    warehouse = warehouse,
-    catalogUri = catalogUri,
-    additionalProperties = additionalProperties, 
-    s3CatalogFileIO = s3CatalogFileIO,
-    locationOverride = locationOverride,
-    schema = schema
-  ).initialize()
+
+  /**
+   * The ZLayer that creates the LazyOutputDataProcessor.
+   */
+  val layer: ZLayer[IcebergSettings, Nothing, CatalogWriter[RESTCatalog, Table]] =
+    ZLayer {
+      for
+        settings <- ZIO.service[IcebergSettings]
+      yield IcebergS3CatalogWriter(settings)
+    }
+  
+  def apply(icebergSettings: IcebergSettings): IcebergS3CatalogWriter = 
+    val writer = new IcebergS3CatalogWriter(
+      namespace = icebergSettings.namespace,
+      warehouse = icebergSettings.warehouse,
+      catalogUri = icebergSettings.catalogUri,
+      additionalProperties = icebergSettings.additionalProperties, 
+      s3CatalogFileIO = icebergSettings.s3CatalogFileIO,
+      locationOverride = icebergSettings.locationOverride,
+    )
+    writer.initialize()
