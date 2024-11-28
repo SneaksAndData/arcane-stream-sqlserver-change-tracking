@@ -7,18 +7,30 @@ import com.sneaksanddata.arcane.framework.models.DataRow
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
+import com.sneaksanddata.arcane.framework.services.app.logging.base.Enricher
 import com.sneaksanddata.arcane.framework.services.app.{PosixStreamLifetimeService, StreamRunnerServiceImpl}
 import com.sneaksanddata.arcane.framework.services.mssql.MsSqlConnection.BackfillBatch
 import com.sneaksanddata.arcane.framework.services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider}
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchProcessor, StreamGraphBuilder}
 import com.sneaksanddata.arcane.framework.services.streaming.{BackfillGroupingProcessor, LazyListGroupingProcessor}
+import org.slf4j.MDC
 import zio.logging.LogFormat
 import zio.logging.backend.SLF4J
-import zio.{Chunk, ZIO, ZIOAppDefault, ZLayer}
+import zio.{ZIO, ZIOAppDefault, ZLayer}
 
 object main extends ZIOAppDefault {
 
-  override val bootstrap: ZLayer[Any, Nothing, Unit] = SLF4J.slf4j(LogFormat.colored)
+  private val loggingProprieties = Enricher("Application", "Arcane.Stream.Scala")
+    ++ Enricher("App", "Arcane.Stream.Scala")
+    ++ Enricher.fromEnvironment("APPLICATION_VERSION", "0.0.0")
+
+  override val bootstrap: ZLayer[Any, Nothing, Unit] = SLF4J.slf4j(
+    LogFormat.make{ (builder, _, _, _, line, _, _, _, _) =>
+      loggingProprieties.enrichLoggerWith(builder.appendKeyValue)
+      loggingProprieties.enrichLoggerWith(MDC.put)
+      builder.appendText(line())
+    }
+  )
 
   private val appLayer  = for
     _ <- ZIO.log("Application starting")
@@ -28,8 +40,8 @@ object main extends ZIOAppDefault {
   yield ()
 
   @main
-  def run: ZIO[Any, Throwable, Unit] = appLayer
-    .provide(
+  def run: ZIO[Any, Throwable, Unit] =
+    appLayer.provide(
       StreamSpec.layer,
       PosixStreamLifetimeService.layer,
       MsSqlConnection.layer,
