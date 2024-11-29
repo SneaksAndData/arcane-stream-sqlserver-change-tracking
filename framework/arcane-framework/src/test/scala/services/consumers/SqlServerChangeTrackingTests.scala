@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.consumers
 
-import com.sneaksanddata.arcane.framework.models.ArcaneType.StringType
-import com.sneaksanddata.arcane.framework.models.Field
+import models.ArcaneType.StringType
+import models.Field
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -66,6 +66,33 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
     ), "test.table_a")
 
     val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_sql_ct_backfill_batch_query.sql"))) {
+      _.getLines().mkString("\n")
+    }.get
+
+    batch.batchQuery.query should equal(expected)
+  }
+
+  "SqlServerChangeTrackingMergeBatch" should "generate a valid versioned batch" in {
+    val batch = SqlServerChangeTrackingMergeBatch("test.staged_a", Seq(
+        Field(
+          name = "ARCANE_MERGE_KEY",
+          fieldType = StringType,
+          isMergeKey = true
+        ),
+        Field(
+          name = "colA",
+          fieldType = StringType
+        ),
+        Field(
+          name = "colB",
+          fieldType = StringType
+        )
+      ),
+      "test.table_a",
+      Map("colA" -> List("a", "b", "c")
+    ))
+
+    val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_sql_ct_merge_query_with_partitions.sql"))) {
       _.getLines().mkString("\n")
     }.get
 

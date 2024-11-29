@@ -55,14 +55,9 @@ class SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSc
 
   override def reduceBatchExpr(): String =
     s"""
-       |WITH VERSIONS AS (
-       |SELECT $mergeKey, MAX(SYS_CHANGE_VERSION) AS LATEST_VERSION
-       |FROM $name AS ${MergeQueryCommons.SOURCE_ALIAS}
-       |GROUP BY $mergeKey),
-       |
        |SELECT
        |${MergeQueryCommons.SOURCE_ALIAS}.*
-       |FROM $name AS ${MergeQueryCommons.SOURCE_ALIAS} inner join VERSIONS as v
+       |FROM $name AS ${MergeQueryCommons.SOURCE_ALIAS} inner join (SELECT $mergeKey, MAX(SYS_CHANGE_VERSION) AS LATEST_VERSION FROM $name GROUP BY $mergeKey) as v
        |on ${MergeQueryCommons.SOURCE_ALIAS}.$mergeKey = v.$mergeKey AND ${MergeQueryCommons.SOURCE_ALIAS}.SYS_CHANGE_VERSION = v.LATEST_VERSION
        |""".stripMargin
 
