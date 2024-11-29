@@ -33,4 +33,4 @@ object IcebergCatalogCredential extends IcebergCatalogCredential:
         OAuth2Properties.CREDENTIAL -> credential,
         OAuth2Properties.OAUTH2_SERVER_URI -> oauth2Uri,
         OAuth2Properties.SCOPE -> oauth2Scope
-      )       
+      )
