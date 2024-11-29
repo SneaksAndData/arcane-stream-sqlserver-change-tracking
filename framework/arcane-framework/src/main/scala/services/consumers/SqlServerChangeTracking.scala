@@ -34,22 +34,20 @@ object SqlServerChangeTrackingMergeQuery:
 object SqlServerChangeTrackingBackfillQuery:
   def apply(targetName: String, sourceQuery: String): OverwriteQuery = OverwriteQuery(sourceQuery, targetName)
 
-class SqlServerChangeTrackingBackfillBatch(batchName: String, batchSchema: ArcaneSchema) extends StagedBackfillBatch:
+class SqlServerChangeTrackingBackfillBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String) extends StagedBackfillBatch:
   override val name: String = batchName
   override val schema: ArcaneSchema = batchSchema
 
   override def reduceBatchExpr(): String =
-    s"""
-       |SELECT * FROM $name AS ${MergeQueryCommons.SOURCE_ALIAS} WHERE ${MergeQueryCommons.SOURCE_ALIAS}.SYS_CHANGE_OPERATION != 'D'
-       |""".stripMargin
+    s"""SELECT * FROM $name AS ${MergeQueryCommons.SOURCE_ALIAS} WHERE ${MergeQueryCommons.SOURCE_ALIAS}.SYS_CHANGE_OPERATION != 'D'""".stripMargin
 
-  override val batchQuery: OverwriteQuery = SqlServerChangeTrackingBackfillQuery(name, reduceBatchExpr())
+  override val batchQuery: OverwriteQuery = SqlServerChangeTrackingBackfillQuery(targetName, reduceBatchExpr())
 
 object  SqlServerChangeTrackingBackfillBatch:
   /**
    *
    */
-  def apply(batchName: String, batchSchema: ArcaneSchema): StagedBackfillBatch = new SqlServerChangeTrackingBackfillBatch(batchName: String, batchSchema: ArcaneSchema)
+  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String): StagedBackfillBatch = new SqlServerChangeTrackingBackfillBatch(batchName: String, batchSchema: ArcaneSchema, targetName)
 
 class SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, partitionValues: Map[String, List[String]], mergeKey: String) extends StagedVersionedBatch:
   override val name: String = batchName
