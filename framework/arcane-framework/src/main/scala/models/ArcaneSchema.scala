@@ -1,15 +1,41 @@
 package com.sneaksanddata.arcane.framework
 package models
 
+import scala.language.implicitConversions
+
+/**
+ * A field in the schema definition
+ */
+trait ArcaneSchemaField:
+  val name: String
+  val fieldType: ArcaneType
+
 /**
  * ArcaneSchema is a type alias for a sequence of fields or structs.
  */
-type ArcaneSchema = Seq[Field]
+class ArcaneSchema(fields: Seq[ArcaneSchemaField]) extends Seq[ArcaneSchemaField]:
+  private def isValid: Boolean = fields.isEmpty || fields.exists {
+    case _: PrimaryKeyField => true
+    case _ => false
+  }
+  require(isValid, "Primary Key Field must be defined for the schema to be valid")
+
+  def primaryKey: ArcaneSchemaField = fields.find {
+    case _: PrimaryKeyField => true
+    case _ => false
+  }.get
+
+  def apply(i: Int): ArcaneSchemaField = fields(i)
+
+  def length: Int = fields.length
+
+  def iterator: Iterator[ArcaneSchemaField] = fields.iterator
 
 /**
  * Companion object for ArcaneSchema.
  */
 object ArcaneSchema:
+  implicit def fieldSeqToArcaneSchema(fields: Seq[ArcaneSchemaField]): ArcaneSchema = ArcaneSchema(fields)
   /**
    * Creates an empty ArcaneSchema.
    * @return An empty ArcaneSchema.
@@ -37,7 +63,10 @@ enum ArcaneType:
   
 /**
  * Field is a case class that represents a field in ArcaneSchema
- * @param name The name of the field.
- * @param fieldType The type of the field.
  */
-case class Field(name: String, fieldType: ArcaneType, isMergeKey: Boolean = false, partitionIndex: Option[Int] = None)
+final case class Field(name: String, fieldType: ArcaneType) extends ArcaneSchemaField
+
+/**
+ * Field is a case class that represents a primary key field in ArcaneSchema
+ */
+final case class PrimaryKeyField(name: String, fieldType: ArcaneType) extends ArcaneSchemaField

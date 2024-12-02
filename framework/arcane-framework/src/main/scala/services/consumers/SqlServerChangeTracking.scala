@@ -66,6 +66,4 @@ class SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSc
 
 object SqlServerChangeTrackingMergeBatch:
   def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, partitionValues: Map[String, List[String]]): StagedVersionedBatch =
-    require(batchSchema.exists(f => f.isMergeKey), "No merge key defined in the schema, cannot generate versioned batch")
-
-    new SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, partitionValues: Map[String, List[String]], batchSchema.find(f => f.isMergeKey).get.name)
+    new SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, partitionValues: Map[String, List[String]], batchSchema.primaryKey.name)
