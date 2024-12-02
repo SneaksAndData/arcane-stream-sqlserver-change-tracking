@@ -3,6 +3,8 @@ package models.app
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
+import com.sneaksanddata.arcane.framework.services.lakehouse.{IcebergCatalogCredential, S3CatalogFileIO}
+import com.sneaksanddata.arcane.framework.services.lakehouse.base.IcebergCatalogSettings
 import com.sneaksanddata.arcane.framework.services.mssql.ConnectionOptions
 import zio.ZLayer
 import zio.json.*
@@ -31,6 +33,9 @@ case class StreamSpec(database: String,
                       lookBackInterval: Int,
                       commandTimeout: Int,
                       changeCaptureIntervalSeconds: Int,
+                      icebergNamespace: String,
+                      icebergWarehouse: String,
+                      icebergCatalogUri: String,
                       partitionExpression: Option[String])
 
 /**
@@ -39,6 +44,7 @@ case class StreamSpec(database: String,
  */
 case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends StreamContext
   with GroupingSettings
+  with IcebergCatalogSettings
   with VersionedDataGraphBuilderSettings:
 
   implicit val specEncoder: JsonEncoder[StreamSpec] = DeriveJsonEncoder.gen[StreamSpec]
@@ -48,6 +54,12 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
   override val lookBackInterval: Duration = Duration.ofSeconds(spec.lookBackInterval)
   override val changeCaptureInterval: Duration = Duration.ofSeconds(spec.changeCaptureIntervalSeconds)
   override val groupingInterval: Duration = Duration.ofSeconds(spec.groupingIntervalSeconds)
+  override val namespace: String = spec.icebergNamespace
+  override val warehouse: String = spec.icebergWarehouse
+  override val catalogUri: String = spec.icebergCatalogUri
+  override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
+  override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
+  override val locationOverride: Option[String] = Some("s3://tmp/polaris/test")
 
   @jsonExclude
   val connectionString: String = sys.env("ARCANE.STREAM.SQL_SERVER_CHANGE_TRACKING__ARCANE_CONNECTION_STRING")
@@ -70,7 +82,7 @@ object StreamSpec {
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.
    */
-  val layer: ZLayer[Any, Throwable, StreamContext & ConnectionOptions & GroupingSettings & VersionedDataGraphBuilderSettings] =
+  val layer: ZLayer[Any, Throwable, StreamContext & ConnectionOptions & GroupingSettings & VersionedDataGraphBuilderSettings & IcebergCatalogSettings] =
     sys.env.get("STREAMCONTEXT__SPEC") map { raw =>
       val spec = raw.fromJson[StreamSpec] match {
         case Left(error) => throw new Exception(s"Failed to decode the stream context: $error")

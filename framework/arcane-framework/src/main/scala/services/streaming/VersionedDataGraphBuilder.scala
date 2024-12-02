@@ -1,16 +1,16 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming
 
-import models.DataRow
 import models.settings.VersionedDataGraphBuilderSettings
 import services.app.base.StreamLifetimeService
 import services.mssql.MsSqlConnection.{DataBatch, VersionedBatch}
 import services.mssql.given_HasVersion_VersionedBatch
 import services.streaming.base.{BatchProcessor, StreamGraphBuilder, VersionedDataProvider}
 
+import org.apache.iceberg.Table
 import org.slf4j.{Logger, LoggerFactory}
 import zio.stream.{ZSink, ZStream}
-import zio.{Chunk, Schedule, ZIO, ZLayer}
+import zio.{Schedule, ZIO}
 
 /**
  * The stream graph builder that reads the changes from the database.
@@ -22,11 +22,11 @@ import zio.{Chunk, Schedule, ZIO, ZLayer}
 class VersionedDataGraphBuilder(versionedDataGraphBuilderSettings: VersionedDataGraphBuilderSettings,
                                 versionedDataProvider: VersionedDataProvider[Long, VersionedBatch],
                                 streamLifetimeService: StreamLifetimeService,
-                                batchProcessor: BatchProcessor[DataBatch, Chunk[DataRow]])
+                                batchProcessor: BatchProcessor[DataBatch, Table])
   extends StreamGraphBuilder:
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[VersionedDataGraphBuilder])
-  override type StreamElementType = Chunk[DataRow]
+  override type StreamElementType = Table
 
   /**
    * Builds a stream that reads the changes from the database.
@@ -42,7 +42,7 @@ class VersionedDataGraphBuilder(versionedDataGraphBuilderSettings: VersionedData
    */
   override def consume: ZSink[Any, Throwable, StreamElementType, Any, Unit]  =
   ZSink.foreach { e =>
-    logger.info(s"Received ${e.size} rows from the streaming source")
+    logger.info(s"Received the table ${e.name()} from the streaming source")
     ZIO.unit
   }
 
@@ -70,7 +70,7 @@ class VersionedDataGraphBuilder(versionedDataGraphBuilderSettings: VersionedData
 object VersionedDataGraphBuilder:
   type Environment = VersionedDataProvider[Long, VersionedBatch]
     & StreamLifetimeService
-    & BatchProcessor[DataBatch, Chunk[DataRow]]
+    & BatchProcessor[DataBatch, Table]
     & VersionedDataGraphBuilderSettings
 
   /**
@@ -84,7 +84,7 @@ object VersionedDataGraphBuilder:
   def apply(versionedDataGraphBuilderSettings: VersionedDataGraphBuilderSettings,
              versionedDataProvider: VersionedDataProvider[Long, VersionedBatch],
             streamLifetimeService: StreamLifetimeService,
-            batchProcessor: BatchProcessor[DataBatch, Chunk[DataRow]]): VersionedDataGraphBuilder =
+            batchProcessor: BatchProcessor[DataBatch, Table]): VersionedDataGraphBuilder =
     new VersionedDataGraphBuilder(versionedDataGraphBuilderSettings, versionedDataProvider, streamLifetimeService, batchProcessor)
 
   /**
@@ -98,7 +98,7 @@ object VersionedDataGraphBuilder:
       sss <- ZIO.service[VersionedDataGraphBuilderSettings]
       dp <- ZIO.service[VersionedDataProvider[Long, VersionedBatch]]
       ls <- ZIO.service[StreamLifetimeService]
-      bp <- ZIO.service[BatchProcessor[DataBatch, Chunk[DataRow]]]
+      bp <- ZIO.service[BatchProcessor[DataBatch, Table]]
     yield VersionedDataGraphBuilder(sss, dp, ls, bp)
     
 

@@ -12,6 +12,7 @@ import org.apache.iceberg.parquet.Parquet
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{CatalogProperties, PartitionSpec, Schema, Table}
+import zio.{ZIO, ZLayer}
 
 import java.util.UUID
 import scala.concurrent.Future
@@ -106,6 +107,21 @@ class IcebergS3CatalogWriter(
     Future(catalog.loadTable(tableId)).flatMap(appendData(data, schema, false))
 
 object IcebergS3CatalogWriter:
+  /**
+   * The ZLayer that creates the LazyOutputDataProcessor.
+   */
+  val layer: ZLayer[IcebergCatalogSettings, Nothing, CatalogWriter[RESTCatalog, Table, Schema]] =
+    ZLayer {
+      for
+        settings <- ZIO.service[IcebergCatalogSettings]
+      yield IcebergS3CatalogWriter(settings)
+    }
+
+  /**
+   * Factory method to create IcebergS3CatalogWriter
+    * @param icebergSettings Iceberg settings
+   * @return The initialized IcebergS3CatalogWriter instance
+   */
   def apply(icebergSettings: IcebergCatalogSettings): IcebergS3CatalogWriter =
     val writer =
       new IcebergS3CatalogWriter(
