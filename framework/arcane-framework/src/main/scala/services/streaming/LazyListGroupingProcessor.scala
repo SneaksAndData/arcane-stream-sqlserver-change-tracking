@@ -6,6 +6,7 @@ import models.settings.GroupingSettings
 import services.mssql.MsSqlConnection.DataBatch
 import services.streaming.base.BatchProcessor
 
+import org.slf4j.{Logger, LoggerFactory}
 import zio.stream.ZPipeline
 import zio.{Chunk, ZIO, ZLayer}
 
@@ -16,8 +17,7 @@ import scala.util.{Try, Using}
  * The batch processor implementation that converts a lazy DataBatch to a Chunk of DataRow.
  * @param groupingSettings The grouping settings.
  */
-class LazyListGroupingProcessor(groupingSettings: GroupingSettings)
-  extends BatchProcessor[DataBatch, Chunk[DataRow]]:
+class LazyListGroupingProcessor(groupingSettings: GroupingSettings) extends BatchProcessor[DataBatch, Chunk[DataRow]]:
 
   /**
    * Processes the incoming data.
@@ -45,7 +45,8 @@ object LazyListGroupingProcessor:
    */
   val layer: ZLayer[GroupingSettings, Nothing, LazyListGroupingProcessor] =
     ZLayer {
-      for settings <- ZIO.service[GroupingSettings]
+      for
+        settings <- ZIO.service[GroupingSettings]
       yield LazyListGroupingProcessor(settings)
     }
 
