@@ -1,45 +1,30 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming
 
-import models.app.StreamContext
+import models.DataRow
 import models.settings.GroupingSettings
-import models.{ArcaneSchema, DataRow}
-import services.base.SchemaProvider
-import services.lakehouse.{CatalogWriter, SchemaConversions}
 import services.mssql.MsSqlConnection.DataBatch
 import services.streaming.base.BatchProcessor
 
-import org.apache.iceberg.rest.RESTCatalog
-import org.apache.iceberg.{Schema, Table}
 import zio.stream.ZPipeline
-import zio.{Chunk, Task, ZIO, ZLayer}
+import zio.{Chunk, ZIO, ZLayer}
 
-import java.time.format.DateTimeFormatter
-import java.time.{ZoneOffset, ZonedDateTime}
 import scala.concurrent.duration.Duration
 import scala.util.{Try, Using}
-import services.streaming.LazyListGroupingProcessor.getTableName
-
-given Conversion[ArcaneSchema, Schema] with
-  def apply(schema: ArcaneSchema): Schema = SchemaConversions.toIcebergSchema(schema)
 
 /**
  * The batch processor implementation that converts a lazy DataBatch to a Chunk of DataRow.
  * @param groupingSettings The grouping settings.
  */
-class LazyListGroupingProcessor(
-                                 groupingSettings: GroupingSettings,
-                                 streamContext: StreamContext,
-                                 catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
-                                 schemaProvider: SchemaProvider[ArcaneSchema])
-  extends BatchProcessor[DataBatch, Table]:
+class LazyListGroupingProcessor(groupingSettings: GroupingSettings)
+  extends BatchProcessor[DataBatch, Chunk[DataRow]]:
 
   /**
    * Processes the incoming data.
    *
    * @return ZPipeline (stream source for the stream graph).
    */
-  def process: ZPipeline[Any, Throwable, DataBatch, Table] = ZPipeline
+  def process: ZPipeline[Any, Throwable, DataBatch, Chunk[DataRow]] = ZPipeline
       .map(this.readBatch)
       // We use here unsafe get because we need to throw an exception if the data is not available.
       // Otherwise, we can get inconsistent data in the stream.
@@ -47,16 +32,6 @@ class LazyListGroupingProcessor(
       .map(list => Chunk.fromIterable(list))
       .flattenChunks
       .groupedWithin(groupingSettings.rowsPerGroup, groupingSettings.groupingInterval)
-      .mapAccum(0L) { (acc, chunk) => (acc + 1, (chunk, acc.getTableName(streamContext.streamId))) }
-      .mapZIO({
-        case (rows, tableName) => writeWithWriter(rows, tableName)
-      })
-
-  private def writeWithWriter(rows: Chunk[DataRow], name: String): Task[Table] =
-    for
-      schema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema)
-      table <- ZIO.fromFuture(implicit ec => catalogWriter.write(rows, name, schema))
-    yield table
 
   private def readBatch(dataBatch: DataBatch): Try[List[DataRow]] = Using(dataBatch) { data => data.read.toList }
 
@@ -64,32 +39,17 @@ class LazyListGroupingProcessor(
  * The companion object for the LazyOutputDataProcessor class.
  */
 object LazyListGroupingProcessor:
-  val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
-
-  extension (batchNumber: Long) def getTableName(streamId: String): String =
-    s"$streamId-${ZonedDateTime.now(ZoneOffset.UTC).format(formatter)}-$batchNumber"
-
-  private type Environment = GroupingSettings
-    & CatalogWriter[RESTCatalog, Table, Schema]
-    & SchemaProvider[ArcaneSchema]
-    & StreamContext
 
   /**
    * The ZLayer that creates the LazyOutputDataProcessor.
    */
-  val layer: ZLayer[Environment, Nothing, LazyListGroupingProcessor] =
+  val layer: ZLayer[GroupingSettings, Nothing, LazyListGroupingProcessor] =
     ZLayer {
       for settings <- ZIO.service[GroupingSettings]
-        writer <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
-        schemaProvider <- ZIO.service[SchemaProvider[ArcaneSchema]]
-        streamContext <- ZIO.service[StreamContext]
-      yield LazyListGroupingProcessor(settings, streamContext, writer, schemaProvider)
+      yield LazyListGroupingProcessor(settings)
     }
 
-  def apply(groupingSettings: GroupingSettings,
-            streamContext: StreamContext,
-            writer: CatalogWriter[RESTCatalog, Table, Schema],
-            schemaProvider: SchemaProvider[ArcaneSchema]): LazyListGroupingProcessor =
+  def apply(groupingSettings: GroupingSettings): LazyListGroupingProcessor =
     require(groupingSettings.rowsPerGroup > 0, "Rows per group must be greater than 0")
     require(!groupingSettings.groupingInterval.equals(Duration.Zero), "groupingInterval must be greater than 0")
-    new LazyListGroupingProcessor(groupingSettings, streamContext, writer, schemaProvider)
+    new LazyListGroupingProcessor(groupingSettings)

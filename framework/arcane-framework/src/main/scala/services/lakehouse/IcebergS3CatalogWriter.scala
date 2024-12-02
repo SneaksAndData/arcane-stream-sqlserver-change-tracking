@@ -20,9 +20,6 @@ import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
 
-given Conversion[ArcaneSchema, Schema] with
-  def apply(schema: ArcaneSchema): Schema = SchemaConversions.toIcebergSchema(schema)
-
 // https://www.tabular.io/blog/java-api-part-3/
 class IcebergS3CatalogWriter(
                               namespace: String,

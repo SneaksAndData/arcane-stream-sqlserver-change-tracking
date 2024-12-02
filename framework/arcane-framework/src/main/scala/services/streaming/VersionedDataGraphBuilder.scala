@@ -1,16 +1,16 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming
 
+import models.DataRow
 import models.settings.VersionedDataGraphBuilderSettings
 import services.app.base.StreamLifetimeService
 import services.mssql.MsSqlConnection.{DataBatch, VersionedBatch}
 import services.mssql.given_HasVersion_VersionedBatch
-import services.streaming.base.{BatchProcessor, StreamGraphBuilder, VersionedDataProvider}
+import services.streaming.base.{BatchConsumer, BatchProcessor, StreamGraphBuilder, VersionedDataProvider}
 
-import org.apache.iceberg.Table
 import org.slf4j.{Logger, LoggerFactory}
 import zio.stream.{ZSink, ZStream}
-import zio.{Schedule, ZIO}
+import zio.{Chunk, Schedule, ZIO}
 
 /**
  * The stream graph builder that reads the changes from the database.
@@ -22,11 +22,12 @@ import zio.{Schedule, ZIO}
 class VersionedDataGraphBuilder(versionedDataGraphBuilderSettings: VersionedDataGraphBuilderSettings,
                                 versionedDataProvider: VersionedDataProvider[Long, VersionedBatch],
                                 streamLifetimeService: StreamLifetimeService,
-                                batchProcessor: BatchProcessor[DataBatch, Table])
+                                batchProcessor: BatchProcessor[DataBatch, Chunk[DataRow]],
+                                batchConsumer: BatchConsumer[Chunk[DataRow]])
   extends StreamGraphBuilder:
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[VersionedDataGraphBuilder])
-  override type StreamElementType = Table
+  override type StreamElementType = Chunk[DataRow]
 
   /**
    * Builds a stream that reads the changes from the database.
@@ -40,11 +41,7 @@ class VersionedDataGraphBuilder(versionedDataGraphBuilderSettings: VersionedData
    *
    * @return ZStream (stream source for the stream graph).
    */
-  override def consume: ZSink[Any, Throwable, StreamElementType, Any, Unit]  =
-  ZSink.foreach { e =>
-    logger.info(s"Received the table ${e.name()} from the streaming source")
-    ZIO.unit
-  }
+  override def consume: ZSink[Any, Throwable, Chunk[DataRow], Any, Unit] = batchConsumer.consume
 
   private def createStream = ZStream
     .unfoldZIO(versionedDataProvider.firstVersion) { previousVersion =>
@@ -70,7 +67,8 @@ class VersionedDataGraphBuilder(versionedDataGraphBuilderSettings: VersionedData
 object VersionedDataGraphBuilder:
   type Environment = VersionedDataProvider[Long, VersionedBatch]
     & StreamLifetimeService
-    & BatchProcessor[DataBatch, Table]
+    & BatchProcessor[DataBatch, Chunk[DataRow]]
+    & BatchConsumer[Chunk[DataRow]]
     & VersionedDataGraphBuilderSettings
 
   /**
@@ -84,8 +82,13 @@ object VersionedDataGraphBuilder:
   def apply(versionedDataGraphBuilderSettings: VersionedDataGraphBuilderSettings,
              versionedDataProvider: VersionedDataProvider[Long, VersionedBatch],
             streamLifetimeService: StreamLifetimeService,
-            batchProcessor: BatchProcessor[DataBatch, Table]): VersionedDataGraphBuilder =
-    new VersionedDataGraphBuilder(versionedDataGraphBuilderSettings, versionedDataProvider, streamLifetimeService, batchProcessor)
+            batchProcessor: BatchProcessor[DataBatch, Chunk[DataRow]],
+            batchConsumer: BatchConsumer[Chunk[DataRow]]): VersionedDataGraphBuilder =
+    new VersionedDataGraphBuilder(versionedDataGraphBuilderSettings,
+      versionedDataProvider,
+      streamLifetimeService,
+      batchProcessor,
+      batchConsumer)
 
   /**
    * Creates a new instance of the BackfillDataGraphBuilder using services provided by ZIO Environment.
@@ -98,7 +101,8 @@ object VersionedDataGraphBuilder:
       sss <- ZIO.service[VersionedDataGraphBuilderSettings]
       dp <- ZIO.service[VersionedDataProvider[Long, VersionedBatch]]
       ls <- ZIO.service[StreamLifetimeService]
-      bp <- ZIO.service[BatchProcessor[DataBatch, Table]]
-    yield VersionedDataGraphBuilder(sss, dp, ls, bp)
+      bp <- ZIO.service[BatchProcessor[DataBatch, Chunk[DataRow]]]
+      bc <- ZIO.service[BatchConsumer[Chunk[DataRow]]]
+    yield VersionedDataGraphBuilder(sss, dp, ls, bp, bc)
     
 

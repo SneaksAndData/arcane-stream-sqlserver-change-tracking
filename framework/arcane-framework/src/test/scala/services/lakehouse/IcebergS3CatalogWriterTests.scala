@@ -13,6 +13,7 @@ import java.util.UUID
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
 import scala.language.postfixOps
+import services.lakehouse.SchemaConversions.toIcebergSchema
 
 class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
