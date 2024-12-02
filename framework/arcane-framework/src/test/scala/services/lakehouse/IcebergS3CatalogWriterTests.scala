@@ -3,7 +3,7 @@ package services.lakehouse
 
 import models.ArcaneType.{IntType, StringType}
 import models.{DataCell, Field}
-import services.lakehouse.base.IcebergCatalog
+import services.lakehouse.base.IcebergCatalogSettings
 
 import org.scalatest.*
 import org.scalatest.matchers.must.Matchers
@@ -17,7 +17,7 @@ import scala.language.postfixOps
 class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   private val s3CatalogFileIO = S3CatalogFileIO
-  private val settings = new IcebergCatalog:
+  private val settings = new IcebergCatalogSettings:
     override val namespace = "test"
     override val warehouse = "polaris"
     override val catalogUri = "http://localhost:8181/api/catalog"
