@@ -36,15 +36,9 @@ jobs:
         run: docker compose up -d
       - name: Build and test
         shell: bash
-        env:
-          ARCANE_FRAMEWORK__S3_CATALOG_ACCESS_KEY_ID: minioadmin
-          ARCANE_FRAMEWORK__S3_CATALOG_SECRET_ACCESS_KEY: minioadmin
-          ARCANE_FRAMEWORK__S3_CATALOG_AUTH_INIT_TOKEN: principal:root;realm:default-realm
-          ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_URI: http://localhost:8181/api/catalog/v1/oauth/tokens
-          ARCANE_FRAMEWORK__S3_CATALOG_AUTH_SCOPE: PRINCIPAL_ROLE:ALL
-          ARCANE_FRAMEWORK__S3_CATALOG_ENDPOINT: http://localhost:9000
-          AWS_REGION: us-east-1
-        run: sbt++field scala361 test
+        run: |
+          export $(cat unit-tests.env| xargs)
+          sbt++field scala361 test
 
 
   build_image:
