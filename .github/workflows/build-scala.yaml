@@ -37,7 +37,7 @@ jobs:
       - name: Build and test
         shell: bash
         run: |
-          source unit-tests.env
+          export $(cat unit-tests.env| xargs)
           sbt++field scala361 test
 
 
