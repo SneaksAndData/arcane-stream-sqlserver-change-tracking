@@ -38,10 +38,17 @@ lazy val root = (project in file("."))
     libraryDependencies += "io.trino" % "trino-jdbc" % "465",
 
 
-
-
-        // Test dependencies
+    // Test dependencies
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
-    libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test
+    libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test,
 
+    // Logging and metrics
+    // For ZIO
+    libraryDependencies += "dev.zio" %% "zio-logging" % "2.3.0",
+    libraryDependencies += "dev.zio" %% "zio-logging-slf4j" % "2.3.0",
+
+    // For DataDog
+//    libraryDependencies += "org.slf4j" % "log4j-over-slf4j" % "2.0.13",
+    libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.5.6",
+    libraryDependencies +=  "net.logstash.logback" % "logstash-logback-encoder" % "8.0",
   )
