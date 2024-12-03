@@ -1,6 +1,6 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 
-import models.app.StreamSpec
+import models.app.SqlServerChangeTrackingStreamContext
 import services.StreamGraphBuilderFactory
 
 import com.sneaksanddata.arcane.framework.models.DataRow
@@ -43,7 +43,7 @@ object main extends ZIOAppDefault {
   @main
   def run: ZIO[Any, Throwable, Unit] =
     appLayer.provide(
-      StreamSpec.layer,
+      SqlServerChangeTrackingStreamContext.layer,
       PosixStreamLifetimeService.layer,
       MsSqlConnection.layer,
       MsSqlDataProvider.layer,

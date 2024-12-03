@@ -127,6 +127,6 @@ object IcebergS3CatalogWriter:
         catalogUri = icebergSettings.catalogUri,
         additionalProperties = icebergSettings.additionalProperties, 
         s3CatalogFileIO = icebergSettings.s3CatalogFileIO,
-        locationOverride = icebergSettings.locationOverride,
+        locationOverride = icebergSettings.stagingLocation,
       )
     writer.initialize()

@@ -35,5 +35,5 @@ trait IcebergCatalogSettings:
   /**
    * The lakehouse location of the catalog
    */
-  val locationOverride: Option[String]
+  val stagingLocation: Option[String]
   

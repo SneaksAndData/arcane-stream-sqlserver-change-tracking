@@ -24,7 +24,7 @@ class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
     override val catalogUri = "http://localhost:8181/api/catalog"
     override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
     override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
-    override val locationOverride: Option[String] = Some("s3://tmp/polaris/test")
+    override val stagingLocation: Option[String] = Some("s3://tmp/polaris/test")
 
   private val schema = Seq(Field(name = "colA", fieldType = IntType), Field(name = "colB", fieldType = StringType))
   private val icebergWriter = IcebergS3CatalogWriter(settings)
