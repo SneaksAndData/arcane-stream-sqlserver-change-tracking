@@ -39,23 +39,22 @@ final case class Field(name: String, fieldType: ArcaneType) extends ArcaneSchema
  * MergeKeyField represents a field used for batch merges
  */
 case object MergeKeyField extends ArcaneSchemaField:
-    val name: String = "ARCANE_MERGE_KEY"
-    val fieldType: ArcaneType = StringType
+  val name: String = "ARCANE_MERGE_KEY"
+  val fieldType: ArcaneType = StringType
 
 /**
  * ArcaneSchema is a type alias for a sequence of fields or structs.
  */
 class ArcaneSchema(fields: Seq[ArcaneSchemaField]) extends Seq[ArcaneSchemaField]:
-  private def isValid: Boolean = fields.isEmpty || fields.exists {
-    case MergeKeyField => true
-    case _ => false
-  }
-  require(isValid, "MergeKeyField must be defined for the schema to be valid")
+  def mergeKey: ArcaneSchemaField =
+    val maybeMergeKey = fields.find {
+      case MergeKeyField => true
+      case _ => false
+    }
 
-  def mergeKey: ArcaneSchemaField = fields.find {
-    case MergeKeyField => true
-    case _ => false
-  }.get
+    require(maybeMergeKey.isDefined, "MergeKeyField must be defined for the schema to be usable for merges")
+
+    maybeMergeKey.get
 
   def apply(i: Int): ArcaneSchemaField = fields(i)
 
@@ -68,8 +67,10 @@ class ArcaneSchema(fields: Seq[ArcaneSchemaField]) extends Seq[ArcaneSchemaField
  */
 object ArcaneSchema:
   implicit def fieldSeqToArcaneSchema(fields: Seq[ArcaneSchemaField]): ArcaneSchema = ArcaneSchema(fields)
+
   /**
    * Creates an empty ArcaneSchema.
+   *
    * @return An empty ArcaneSchema.
    */
   def empty(): ArcaneSchema = Seq.empty

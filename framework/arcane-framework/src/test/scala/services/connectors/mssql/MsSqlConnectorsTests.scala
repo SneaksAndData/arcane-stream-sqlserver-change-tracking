@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.connectors.mssql
 
 import models.ArcaneType.{IntType, LongType, StringType}
-import models.Field
+import models.{ArcaneSchemaField, Field}
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 import services.mssql.{ConnectionOptions, MsSqlConnection, QueryProvider}
 
@@ -112,7 +112,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   "MsSqlConnection" should "be able to extract schema column names from the database" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
     connection.getSchema map { schema =>
-      val fields = for column <- schema if column.isInstanceOf[Field] yield column.name
+      val fields = for column <- schema if column.isInstanceOf[ArcaneSchemaField] yield column.name
       fields should be (List("x", "SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "y", "ChangeTrackingVersion", "ARCANE_MERGE_KEY", "DATE_PARTITION_KEY"))
     }
   }
@@ -121,7 +121,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   "MsSqlConnection" should "be able to extract schema column types from the database" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
     connection.getSchema map { schema =>
-      val fields = for column <- schema if column.isInstanceOf[Field] yield column.fieldType
+      val fields = for column <- schema if column.isInstanceOf[ArcaneSchemaField] yield column.fieldType
       fields should be(List(IntType, LongType, StringType, IntType, LongType, StringType, StringType))
     }
   }
