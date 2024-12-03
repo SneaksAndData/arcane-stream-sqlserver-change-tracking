@@ -29,7 +29,7 @@ object DataDogClientBuilder:
    * @param metricNamespace The metric namespace.
    * @return The DataDog configuration.
    */
-  def selectFromEnvironment(metricNamespace: String): DataDogClientBuilder = sys.env.get("ARCANE_FRAMEWORK_DATADOG_ENABLED") match
+  def selectFromEnvironment(metricNamespace: String): DataDogClientBuilder = sys.env.get("ARCANE_FRAMEWORK__DATADOG_ENABLED") match
     case Some(_) => unixDomainSocket(metricNamespace)
     case None => noOp(metricNamespace)
 
@@ -37,7 +37,7 @@ object DataDogClientBuilder:
     NoOpClientBuilder()
 
   private def unixDomainSocket(metricNamespace: String): DataDogClientBuilder =
-    val path = sys.env.getOrElse("ARCANE_FRAMEWORK_DD_UNIX_DOMAIN_SOCKET_PATH", "unix:///var/run/datadog/dsd.socket")
-    val deployEnv = sys.env.getOrElse("ARCANE_FRAMEWORK_DD_DEPLOY_ENV", "development")
+    val path = sys.env.getOrElse("ARCANE_FRAMEWORK__DD_UNIX_DOMAIN_SOCKET_PATH", "unix:///var/run/datadog/dsd.socket")
+    val deployEnv = sys.env.getOrElse("ARCANE_FRAMEWORK__DD_DEPLOY_ENV", "development")
     val version = sys.env.getOrElse("APPLICATION_VERSION", "0.0.0")
     UnixDomainSocketClientBuilder(path, deployEnv, version, metricNamespace.toLowerCase)
