@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.consumers
 
 import models.ArcaneType.StringType
-import models.{Field, PrimaryKeyField}
+import models.{Field, MergeKeyField}
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -51,10 +51,7 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
 
   "SqlServerChangeTrackingBackfillBatch" should "generate a valid backfill batch" in {
     val batch = SqlServerChangeTrackingBackfillBatch("test.staged_a", Seq(
-      PrimaryKeyField(
-        name = "ARCANE_MERGE_KEY",
-        fieldType = StringType
-      ),
+      MergeKeyField,
       Field(
         name = "colA",
         fieldType = StringType
@@ -74,10 +71,7 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
 
   "SqlServerChangeTrackingMergeBatch" should "generate a valid versioned batch" in {
     val batch = SqlServerChangeTrackingMergeBatch("test.staged_a", Seq(
-      PrimaryKeyField(
-          name = "ARCANE_MERGE_KEY",
-          fieldType = StringType
-        ),
+      MergeKeyField,
         Field(
           name = "colA",
           fieldType = StringType

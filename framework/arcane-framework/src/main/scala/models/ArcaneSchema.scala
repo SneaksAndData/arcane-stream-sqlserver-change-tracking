@@ -1,7 +1,27 @@
 package com.sneaksanddata.arcane.framework
 package models
 
+import models.ArcaneType.StringType
+
 import scala.language.implicitConversions
+
+/**
+ * Types of fields in ArcaneSchema.
+ */
+enum ArcaneType:
+  case LongType
+  case ByteArrayType
+  case BooleanType
+  case StringType
+  case DateType
+  case TimestampType
+  case DateTimeOffsetType
+  case BigDecimalType
+  case DoubleType
+  case IntType
+  case FloatType
+  case ShortType
+  case TimeType
 
 /**
  * A field in the schema definition
@@ -11,17 +31,29 @@ trait ArcaneSchemaField:
   val fieldType: ArcaneType
 
 /**
+ * Field is a case class that represents a field in ArcaneSchema
+ */
+final case class Field(name: String, fieldType: ArcaneType) extends ArcaneSchemaField
+
+/**
+ * MergeKeyField represents a field used for batch merges
+ */
+case object MergeKeyField extends ArcaneSchemaField:
+    val name: String = "ARCANE_MERGE_KEY"
+    val fieldType: ArcaneType = StringType
+
+/**
  * ArcaneSchema is a type alias for a sequence of fields or structs.
  */
 class ArcaneSchema(fields: Seq[ArcaneSchemaField]) extends Seq[ArcaneSchemaField]:
   private def isValid: Boolean = fields.isEmpty || fields.exists {
-    case _: PrimaryKeyField => true
+    case MergeKeyField => true
     case _ => false
   }
-  require(isValid, "Primary Key Field must be defined for the schema to be valid")
+  require(isValid, "MergeKeyField must be defined for the schema to be valid")
 
-  def primaryKey: ArcaneSchemaField = fields.find {
-    case _: PrimaryKeyField => true
+  def mergeKey: ArcaneSchemaField = fields.find {
+    case MergeKeyField => true
     case _ => false
   }.get
 
@@ -41,32 +73,3 @@ object ArcaneSchema:
    * @return An empty ArcaneSchema.
    */
   def empty(): ArcaneSchema = Seq.empty
-
-
-/**
- * Types of fields in ArcaneSchema.
- */
-enum ArcaneType:
-  case LongType
-  case ByteArrayType
-  case BooleanType
-  case StringType
-  case DateType
-  case TimestampType
-  case DateTimeOffsetType
-  case BigDecimalType
-  case DoubleType
-  case IntType
-  case FloatType
-  case ShortType
-  case TimeType
-  
-/**
- * Field is a case class that represents a field in ArcaneSchema
- */
-final case class Field(name: String, fieldType: ArcaneType) extends ArcaneSchemaField
-
-/**
- * Field is a case class that represents a primary key field in ArcaneSchema
- */
-final case class PrimaryKeyField(name: String, fieldType: ArcaneType) extends ArcaneSchemaField
