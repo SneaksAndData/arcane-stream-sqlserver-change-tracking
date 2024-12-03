@@ -21,7 +21,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
   with IcebergCatalogSettings
   with VersionedDataGraphBuilderSettings:
 
-  implicit val icebergSettingsEncoder: JsonEncoder[IcebergSettings] = DeriveJsonEncoder.gen[IcebergSettings]
+  implicit val icebergSettingsEncoder: JsonEncoder[CatalogSettings] = DeriveJsonEncoder.gen[CatalogSettings]
   implicit val specEncoder: JsonEncoder[StreamSpec] = DeriveJsonEncoder.gen[StreamSpec]
   implicit val contextEncoder: JsonEncoder[SqlServerChangeTrackingStreamContext] = DeriveJsonEncoder.gen[SqlServerChangeTrackingStreamContext]
 
@@ -30,9 +30,9 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
   override val changeCaptureInterval: Duration = Duration.ofSeconds(spec.changeCaptureIntervalSeconds)
   override val groupingInterval: Duration = Duration.ofSeconds(spec.groupingIntervalSeconds)
 
-  override val namespace: String = spec.icebergSettings.namespace
-  override val warehouse: String = spec.icebergSettings.warehouse
-  override val catalogUri: String = spec.icebergSettings.catalogUri
+  override val namespace: String = spec.catalogSettings.namespace
+  override val warehouse: String = spec.catalogSettings.warehouse
+  override val catalogUri: String = spec.catalogSettings.catalogUri
 
   override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
   override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
@@ -40,7 +40,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
   override val stagingLocation: Option[String] = spec.stagingLocation
 
   @jsonExclude
-  val connectionString: String = sys.env("ARCANE_STREAM__SQL_SERVER_CHANGE_TRACKING__ARCANE_CONNECTION_STRING")
+  val connectionString: String = sys.env("ARCANE_CONNECTIONSTRING")
 
   val database = "IntegrationTests"
 
@@ -56,7 +56,7 @@ given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
       context.spec.partitionExpression)
 
 object SqlServerChangeTrackingStreamContext {
-  implicit val icebergSettingsDecoder: JsonDecoder[IcebergSettings] = DeriveJsonDecoder.gen[IcebergSettings]
+  implicit val icebergSettingsDecoder: JsonDecoder[CatalogSettings] = DeriveJsonDecoder.gen[CatalogSettings]
   implicit val streamSpecDecoder: JsonDecoder[StreamSpec] = DeriveJsonDecoder.gen[StreamSpec]
 
   type Environment = StreamContext

@@ -4,7 +4,7 @@ package models.app
 /**
   * The configuration of Iceberg sink.
  */
-case class IcebergSettings(namespace: String, warehouse: String, catalogUri: String)
+case class CatalogSettings(namespace: String, warehouse: String, catalogUri: String)
 
 /**
  * The specification for the stream.
@@ -31,7 +31,7 @@ case class StreamSpec(database: String,
                       changeCaptureIntervalSeconds: Int,
 
                       // Iceberg settings
-                      icebergSettings: IcebergSettings,
+                      catalogSettings: CatalogSettings,
 
                       stagingLocation: Option[String],
                       sinkLocation: String,
