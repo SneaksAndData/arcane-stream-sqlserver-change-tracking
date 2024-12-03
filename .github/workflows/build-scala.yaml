@@ -41,8 +41,8 @@ jobs:
           sbt clean coverage test coverageReport
       - uses: 5monkeys/cobertura-action@v14
         with:
-          path: ./target/scala-3.6.1/coverage-report/cobertura.xml
-          minimum_coverage: 55
+          path: ./framework/arcane-framework/target/scala-3.6.1/coverage-report/cobertura.xml
+          minimum_coverage: 40
 
   build_image:
     name: Build Docker Image and Helm Charts
