@@ -10,8 +10,8 @@ import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeServi
 import com.sneaksanddata.arcane.framework.services.app.logging.base.Enricher
 import com.sneaksanddata.arcane.framework.services.app.{PosixStreamLifetimeService, StreamRunnerServiceImpl}
 import com.sneaksanddata.arcane.framework.services.metrics.ArcaneDimensionsProvider
-import com.sneaksanddata.arcane.framework.services.metrics.datadog.base.DataDogConfiguration
-import com.sneaksanddata.arcane.framework.services.metrics.datadog.{DataDogConfiguration, DatadogMetricsService}
+import com.sneaksanddata.arcane.framework.services.metrics.datadog.base.DataDogClientBuilder
+import com.sneaksanddata.arcane.framework.services.metrics.datadog.{DataDogCli, DatadogMetricsService}
 import com.sneaksanddata.arcane.framework.services.mssql.MsSqlConnection.BackfillBatch
 import com.sneaksanddata.arcane.framework.services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider}
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchProcessor, StreamGraphBuilder}
@@ -37,7 +37,7 @@ object main extends ZIOAppDefault {
 
   private val appLayer  = for
     _ <- ZIO.log("Application starting")
-    _ <- ZIO.service[DataDogConfiguration].debug("initialized datadog metrics configuration")
+    _ <- ZIO.service[DataDogClientBuilder].debug("initialized datadog metrics configuration")
     context <- ZIO.service[StreamContext].debug("initialized stream context")
     streamRunner <- ZIO.service[StreamRunnerService].debug("initialized stream runner")
     _ <- streamRunner.run
@@ -54,7 +54,7 @@ object main extends ZIOAppDefault {
       StreamRunnerServiceImpl.layer,
       StreamGraphBuilderFactory.layer,
       BackfillGroupingProcessor.layer,
-      ZLayer.succeed(DataDogConfiguration.selectFromEnvironment("Arcane.Stream.Scala")),
+      ZLayer.succeed(DataDogCli.selectFromEnvironment("Arcane.Stream.Scala")),
     )
     .orDie
 }

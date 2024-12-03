@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.metrics.datadog
 
 import services.metrics.base.MetricsService
-import services.metrics.datadog.base.DataDogConfiguration
+import services.metrics.datadog.base.DataDogClientBuilder
 
 import zio.{ZIO, ZLayer}
 
@@ -12,11 +12,11 @@ import scala.collection.immutable.SortedMap
 /**
  * A metrics service that sends metrics to DataDog.
  *
- * @param dataDogConfiguration The DataDog configuration.
+ * @param dataDogClientBuilder The DataDog configuration.
  */
-class DatadogMetricsService(dataDogConfiguration: DataDogConfiguration) extends MetricsService with AutoCloseable:
+class DatadogMetricsService(dataDogClientBuilder: DataDogClientBuilder) extends MetricsService with AutoCloseable:
   
-  private val dataDog = dataDogConfiguration.build
+  private val dataDog = dataDogClientBuilder.build
 
   /**
    * Increments the counter.
@@ -43,17 +43,18 @@ object DatadogMetricsService:
   /**
    * The ZLayer that creates the LazyOutputDataProcessor.
    */
-  val layer: ZLayer[DataDogConfiguration, Nothing, MetricsService] =
+  val layer: ZLayer[DataDogClientBuilder, Nothing, MetricsService] =
     ZLayer {
       for
-        configuration <- ZIO.service[DataDogConfiguration]
+        configuration <- ZIO.service[DataDogClientBuilder]
       yield DatadogMetricsService(configuration)
     }
 
   /**
    * Creates a new instance of the DatadogMetricsService.
    *
-   * @param dataDogConfiguration The DataDog client.
+   * @param datadogClientBuilder The DataDog client.
    * @return The DatadogMetricsService instance.
    */
-  def apply(dataDogConfiguration: DataDogConfiguration): DatadogMetricsService = new DatadogMetricsService(dataDogConfiguration)
+  def apply(datadogClientBuilder: DataDogClientBuilder): DatadogMetricsService =
+    new DatadogMetricsService(datadogClientBuilder)
