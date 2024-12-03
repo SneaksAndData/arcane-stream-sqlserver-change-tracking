@@ -26,6 +26,8 @@ jobs:
       id-token: write      # required for dependabot PRs
       pull-requests: write # required for dependabot PRs
       contents: read       # required for dependabot PRs
+      checks: write
+      issues: write
     steps:
       - uses: actions/checkout@v4
       - name: Setup Scala
