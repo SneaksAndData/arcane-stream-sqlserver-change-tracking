@@ -21,10 +21,6 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
   with IcebergCatalogSettings
   with VersionedDataGraphBuilderSettings:
 
-  implicit val icebergSettingsEncoder: JsonEncoder[CatalogSettings] = DeriveJsonEncoder.gen[CatalogSettings]
-  implicit val specEncoder: JsonEncoder[StreamSpec] = DeriveJsonEncoder.gen[StreamSpec]
-  implicit val contextEncoder: JsonEncoder[SqlServerChangeTrackingStreamContext] = DeriveJsonEncoder.gen[SqlServerChangeTrackingStreamContext]
-
   override val rowsPerGroup: Int = spec.rowsPerGroup
   override val lookBackInterval: Duration = Duration.ofSeconds(spec.lookBackInterval)
   override val changeCaptureInterval: Duration = Duration.ofSeconds(spec.changeCaptureIntervalSeconds)
@@ -42,7 +38,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
   @jsonExclude
   val connectionString: String = sys.env("ARCANE_CONNECTIONSTRING")
 
-  val database = "IntegrationTests"
+  val database: String = spec.database
 
   override def toString: String = this.toJsonPretty
 
@@ -58,6 +54,10 @@ given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
 object SqlServerChangeTrackingStreamContext {
   implicit val icebergSettingsDecoder: JsonDecoder[CatalogSettings] = DeriveJsonDecoder.gen[CatalogSettings]
   implicit val streamSpecDecoder: JsonDecoder[StreamSpec] = DeriveJsonDecoder.gen[StreamSpec]
+
+  implicit val icebergSettingsEncoder: JsonEncoder[CatalogSettings] = DeriveJsonEncoder.gen[CatalogSettings]
+  implicit val specEncoder: JsonEncoder[StreamSpec] = DeriveJsonEncoder.gen[StreamSpec]
+  implicit val contextEncoder: JsonEncoder[SqlServerChangeTrackingStreamContext] = DeriveJsonEncoder.gen[SqlServerChangeTrackingStreamContext]
 
   type Environment = StreamContext
     & ConnectionOptions
