@@ -10,8 +10,12 @@ networks:
 services:
   mssql:
     container_name: sql-server
+    hostname: sql-server
     image: mcr.microsoft.com/mssql/server:2022-latest
     restart: always
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.8
     environment:
       ACCEPT_EULA: "Y"
       SA_PASSWORD: "tMIxN11yGZgMC"
@@ -20,6 +24,9 @@ services:
   setup_mssql:
     container_name: integration-setup
     image: mcr.microsoft.com/mssql-tools
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.6
     depends_on:
       - mssql
     restart: "no"
@@ -36,6 +43,9 @@ services:
   insert_changes:
     container_name: insert-data
     image: mcr.microsoft.com/mssql-tools
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.7
     depends_on:
       setup_mssql:
         condition: service_completed_successfully
@@ -109,7 +119,7 @@ services:
       JAVA_OPTS: -Ddw.awsAccessKey=minioadmin -Ddw.awsSecretKey=minioadmin
 
     healthcheck:
-      test: [ "CMD", "curl", "http://localhost:8182/healthcheck" ]
+      test: ["CMD", "curl", "http://localhost:8182/healthcheck"]
       interval: 10s
       timeout: 10s
       retries: 5
@@ -123,4 +133,4 @@ services:
         condition: service_healthy
     volumes:
       - ./create-polaris-catalog.sh:/create-polaris-catalog.sh
-    command: [ "/bin/sh", "/create-polaris-catalog.sh" ]
+    command: ["/bin/sh", "/create-polaris-catalog.sh"]

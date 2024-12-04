@@ -191,7 +191,7 @@ object MsSqlConnection:
   /**
    * The ZLayer that creates the MsSqlDataProvider.
    */
-  val layer: ZLayer[ConnectionOptions, Nothing, MsSqlConnection] =
+  val layer: ZLayer[ConnectionOptions, Nothing, MsSqlConnection & SchemaProvider[ArcaneSchema]] =
     ZLayer.scoped {
       ZIO.fromAutoCloseable{
         for connectionOptions <- ZIO.service[ConnectionOptions] yield MsSqlConnection(connectionOptions)
