@@ -1,9 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import models.{ArcaneSchema, ArcaneType, DataRow, Field, MergeKeyField}
+import models.{ArcaneSchema, ArcaneType, Field, MergeKeyField}
 import services.base.{CanAdd, SchemaProvider}
-import services.mssql.MsSqlConnection.{BackfillBatch, DATE_PARTITION_KEY, UPSERT_MERGE_KEY, VersionedBatch, toArcaneType}
+import services.mssql.MsSqlConnection.{BackfillBatch, VersionedBatch, toArcaneType}
+import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.base.{CanPeekHead, QueryResult}
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 
@@ -11,12 +12,11 @@ import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.{ZIO, ZLayer}
 
 import java.sql.ResultSet
+import java.time.Duration
 import java.time.format.DateTimeFormatter
-import java.time.{Duration, Instant, LocalDateTime, ZoneOffset}
 import java.util.Properties
 import scala.annotation.tailrec
 import scala.concurrent.{Future, blocking}
-import scala.io.Source
 import scala.util.{Failure, Success, Try, Using}
 
 /**
@@ -75,17 +75,10 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @return A future containing the column summaries for the table in the database.
    */
   def getColumnSummaries: Future[List[ColumnSummary]] =
-    val query = QueryProvider.getColumnSummariesQuery(connectionOptions.schemaName, connectionOptions.tableName, connectionOptions.databaseName)
-    Future {
-      val result = Using.Manager { use =>
-        val statement = use(connection.createStatement())
-        val resultSet = use(statement.executeQuery(query))
-        blocking {
-          readColumns(resultSet, List.empty)
-        }
-      }
-      result.get
-    }
+    val tryQuery = QueryProvider.getColumnSummariesQuery(connectionOptions.schemaName, connectionOptions.tableName, connectionOptions.databaseName)
+    for query <- Future.fromTry(tryQuery)
+        result <- executeColumnSummariesQuery(query)
+    yield result
 
   /**
    * Run a backfill query on the database.
@@ -93,7 +86,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @return A future containing the result of the backfill.
    */
   def backfill(using queryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult]): Future[BackfillBatch] =
-    for query <- QueryProvider.getBackfillQuery(this)
+    for query <- this.getBackfillQuery
         result <- queryRunner.executeQuery(query, connection, LazyQueryResult.apply)
     yield result
 
@@ -110,7 +103,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
 
     for versionResult <- versionQueryRunner.executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
         version = versionResult.read.getOrElse(Long.MaxValue)
-        changesQuery <- QueryProvider.getChangesQuery(this, version - 1)
+        changesQuery <- this.getChangesQuery(version - 1)
         result <- queryRunner.executeQuery(changesQuery, connection, LazyQueryResult.apply)
     yield MsSqlConnection.ensureHead((result, maybeLatestVersion.getOrElse(0)))
 
@@ -137,7 +130,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @return A future containing the schema for the data produced by Arcane.
    */
   override def getSchema: Future[this.SchemaType] =
-    for query <- QueryProvider.getSchemaQuery(this)
+    for query <- this.getSchemaQuery
         sqlSchema <- getSqlSchema(query)
     yield toSchema(sqlSchema, empty) match
       case Success(schema) => schema
@@ -165,6 +158,19 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
           case Success(arcaneType) => toSchema(xs, schema.addField(name, arcaneType))
           case Failure(exception) => Failure[this.SchemaType](exception)
 
+  private def executeColumnSummariesQuery(query: String): Future[List[ColumnSummary]] =
+    Future {
+      val result = Using.Manager { use =>
+        val statement = use(connection.createStatement())
+        val resultSet = use(statement.executeQuery(query))
+        blocking {
+          readColumns(resultSet, List.empty)
+        }
+      }
+      result.get
+    }
+    
+
   @tailrec
   private def readColumns(resultSet: ResultSet, result: List[ColumnSummary]): List[ColumnSummary] =
     val hasNext = resultSet.next()
@@ -174,16 +180,6 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
     readColumns(resultSet, result ++ List((resultSet.getString(1), resultSet.getInt(2) == 1)))
 
 object MsSqlConnection:
-  /**
-   * The key used to merge rows in the output table.
-   */
-  val UPSERT_MERGE_KEY = "ARCANE_MERGE_KEY"
-
-  /**
-   * The key used to partition the output table by date.
-   */
-  val DATE_PARTITION_KEY = "DATE_PARTITION_KEY"
-
   /**
    * Creates a new Microsoft SQL Server connection.
    *
@@ -252,172 +248,4 @@ object MsSqlConnection:
     val (queryResult, version) = result
     (queryResult.peekHead, version)
 
-object QueryProvider:
-  private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
-  /**
-   * Gets the schema query for the Microsoft SQL Server database.
-   *
-   * @param msSqlConnection The connection to the database.
-   * @return A future containing the schema query for the Microsoft SQL Server database.
-   */
-  def getSchemaQuery(msSqlConnection: MsSqlConnection): Future[MsSqlQuery] =
-    msSqlConnection.getColumnSummaries
-      .map(columnSummaries => {
-        val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
-        val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
-        val matchStatement = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
-        QueryProvider.getChangesQuery(
-          msSqlConnection.connectionOptions,
-          mergeExpression,
-          columnExpression,
-          matchStatement,
-          Long.MaxValue)
-      })
-
-  /**
-   * Gets the changes query for the Microsoft SQL Server database.
-   * @param msSqlConnection The connection to the database.
-   * @param fromVersion The version to start from.
-   * @return A future containing the changes query for the Microsoft SQL Server database.
-   */
-  def getChangesQuery(msSqlConnection: MsSqlConnection, fromVersion: Long): Future[MsSqlQuery] =
-    msSqlConnection.getColumnSummaries
-      .map(columnSummaries => {
-        val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
-        val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
-        val matchStatement = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
-        QueryProvider.getChangesQuery(
-          msSqlConnection.connectionOptions,
-          mergeExpression,
-          columnExpression,
-          matchStatement,
-          fromVersion)
-      })
-
-  /**
-   * Gets the column summaries query for the Microsoft SQL Server database.
-   *
-   * @param schemaName   The name of the schema.
-   * @param tableName    The name of the table.
-   * @param databaseName The name of the database.
-   * @return The column summaries query for the Microsoft SQL Server database.
-   */
-  def getColumnSummariesQuery(schemaName: String, tableName: String, databaseName: String): MsSqlQuery =
-    Source.fromResource("get_column_summaries.sql")
-      .getLines
-      .mkString("\n")
-      .replace("{dbName}", databaseName)
-      .replace("{schema}", schemaName)
-      .replace("{table}", tableName)
-
-  /**
-   * Gets the changes query for the Microsoft SQL Server database.
-   * @param msSqlConnection The connection to the database.
-   * @return A future containing the changes query for the Microsoft SQL Server database.
-   */
-  def getBackfillQuery(msSqlConnection: MsSqlConnection): Future[MsSqlQuery] =
-    msSqlConnection.getColumnSummaries
-      .map(columnSummaries => {
-        val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
-        val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")
-        QueryProvider.getAllQuery(
-          msSqlConnection.connectionOptions,
-          mergeExpression,
-          columnExpression)
-      })
-
-  /**
-   * Gets the query that retrieves the change tracking version for the Microsoft SQL Server database.
-   *
-   * @param databaseName The name of the database.
-   * @param maybeVersion The version to start from.
-   * @param lookBackRange The look back range for the query.
-   * @return The change tracking version query for the Microsoft SQL Server database.
-   */
-  def getChangeTrackingVersionQuery(databaseName: String, maybeVersion: Option[Long], lookBackRange: Duration)
-                                   (using formatter: DateTimeFormatter): MsSqlQuery = {
-    maybeVersion match
-      case None =>
-        val lookBackTime = Instant.now().minusSeconds(lookBackRange.getSeconds)
-        val formattedTime = formatter.format(LocalDateTime.ofInstant(lookBackTime, ZoneOffset.UTC))
-        s"SELECT MIN(commit_ts) FROM $databaseName.sys.dm_tran_commit_table WHERE commit_time > '$formattedTime'"
-      case Some(version) => s"SELECT MIN(commit_ts) FROM $databaseName.sys.dm_tran_commit_table WHERE commit_ts > $version"
-  }
-
-  private def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
-    cs.filter((name, isPrimaryKey) => isPrimaryKey)
-      .map((name, _) => s"cast($tableAlias.[$name] as nvarchar(128))")
-      .mkString(" + '#' + ")
-
-  private def getMatchStatement(cs: List[ColumnSummary], sourceAlias: String, outputAlias: String, partitionColumns: Option[List[String]]): String =
-    val mainMatch = cs.filter((_, isPrimaryKey) => isPrimaryKey)
-      .map((name, _) => s"$outputAlias.[$name] = $sourceAlias.[$name]")
-      .mkString(" and ")
-
-    partitionColumns match
-      case Some(columns) =>
-        val partitionMatch = columns
-          .map(column => s"$outputAlias.[$column] = $sourceAlias.[$column]")
-          .mkString(" and ")
-        s"$mainMatch and  ($sourceAlias.SYS_CHANGE_OPERATION == 'D' OR ($partitionMatch))"
-      case None => mainMatch
-
-
-  private def getChangeTrackingColumns(tableColumns: List[ColumnSummary], changesAlias: String, tableAlias: String): String =
-    val primaryKeyColumns = tableColumns.filter((_, isPrimaryKey) => isPrimaryKey).map((name, _) => s"$changesAlias.[$name]")
-    val additionalColumns = List(s"$changesAlias.SYS_CHANGE_VERSION", s"$changesAlias.SYS_CHANGE_OPERATION")
-    val nonPrimaryKeyColumns = tableColumns
-      .filter((name, isPrimaryKey) => !isPrimaryKey && !Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION").contains(name))
-      .map((name, _) => s"$tableAlias.[$name]")
-    (primaryKeyColumns ++ additionalColumns ++ nonPrimaryKeyColumns).mkString(",\n")
-
-  private def getChangeTrackingColumns(tableColumns: List[ColumnSummary], tableAlias: String): String =
-    val primaryKeyColumns = tableColumns.filter((_, isPrimaryKey) => isPrimaryKey).map((name, _) => s"$tableAlias.[$name]")
-    val additionalColumns = List("0 as SYS_CHANGE_VERSION", "'I' as SYS_CHANGE_OPERATION")
-    val nonPrimaryKeyColumns = tableColumns
-      .filter((name, isPrimaryKey) => !isPrimaryKey && !Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION").contains(name))
-      .map((name, _) => s"$tableAlias.[$name]")
-
-    (primaryKeyColumns ++ additionalColumns ++ nonPrimaryKeyColumns).mkString(",\n")
-
-  private def getChangesQuery(connectionOptions: ConnectionOptions,
-                              mergeExpression: String,
-                              columnStatement: String,
-                              matchStatement: String,
-                              changeTrackingId: Long): String =
-    val baseQuery = connectionOptions.partitionExpression match {
-      case Some(_) => Source.fromResource("get_select_delta_query_date_partitioned.sql").getLines.mkString("\n")
-      case None => Source.fromResource("get_select_delta_query.sql").getLines.mkString("\n")
-    }
-
-    baseQuery.replace("{dbName}", connectionOptions.databaseName)
-      .replace("{schema}", connectionOptions.schemaName)
-      .replace("{tableName}", connectionOptions.tableName)
-      .replace("{ChangeTrackingColumnsStatement}", columnStatement)
-      .replace("{ChangeTrackingMatchStatement}", matchStatement)
-      .replace("{MERGE_EXPRESSION}", mergeExpression)
-      .replace("{MERGE_KEY}", UPSERT_MERGE_KEY)
-      .replace("{DATE_PARTITION_EXPRESSION}", connectionOptions.partitionExpression.getOrElse(""))
-      .replace("{DATE_PARTITION_KEY}", DATE_PARTITION_KEY)
-      .replace("{lastId}", changeTrackingId.toString)
-
-  private def getAllQuery(connectionOptions: ConnectionOptions,
-                  mergeExpression: String,
-                  columnExpression: String): String = {
-
-    val baseQuery = connectionOptions.partitionExpression match {
-      case Some(_) => Source.fromResource("get_select_all_query_date_partitioned.sql").getLines.mkString("\n")
-      case None => Source.fromResource("get_select_all_query.sql").getLines.mkString("\n")
-    }
-
-    baseQuery
-      .replace("{dbName}", connectionOptions.databaseName)
-      .replace("{schema}", connectionOptions.schemaName)
-      .replace("{tableName}", connectionOptions.tableName)
-      .replace("{ChangeTrackingColumnsStatement}", columnExpression)
-      .replace("{MERGE_EXPRESSION}", mergeExpression)
-      .replace("{MERGE_KEY}", UPSERT_MERGE_KEY)
-      .replace("{DATE_PARTITION_EXPRESSION}", connectionOptions.partitionExpression.getOrElse(""))
-      .replace("{DATE_PARTITION_KEY}", DATE_PARTITION_KEY)
-  }
