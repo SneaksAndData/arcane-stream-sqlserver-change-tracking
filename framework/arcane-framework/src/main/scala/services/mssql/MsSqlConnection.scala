@@ -335,7 +335,8 @@ object QueryProvider:
    * @param lookBackRange The look back range for the query.
    * @return The change tracking version query for the Microsoft SQL Server database.
    */
-  def getChangeTrackingVersionQuery(databaseName: String, maybeVersion: Option[Long], lookBackRange: Duration)(using formatter: DateTimeFormatter): MsSqlQuery = {
+  def getChangeTrackingVersionQuery(databaseName: String, maybeVersion: Option[Long], lookBackRange: Duration)
+                                   (using formatter: DateTimeFormatter): MsSqlQuery = {
     maybeVersion match
       case None =>
         val lookBackTime = Instant.now().minusSeconds(lookBackRange.getSeconds)
