@@ -1,6 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
+import models.MergeKeyField
+import models.DatePartitionField
+
 import java.time.format.DateTimeFormatter
 import java.time.{Duration, Instant, LocalDateTime, ZoneOffset}
 import scala.concurrent.Future
@@ -11,12 +14,7 @@ object QueryProvider:
   /**
    * The key used to merge rows in the output table.
    */
-  private val UPSERT_MERGE_KEY = "ARCANE_MERGE_KEY"
-
-  /**
-   * The key used to partition the output table by date.
-   */
-  private val DATE_PARTITION_KEY = "DATE_PARTITION_KEY"
+  private val UPSERT_MERGE_KEY = MergeKeyField.name
 
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
@@ -167,9 +165,9 @@ object QueryProvider:
         .replace("{ChangeTrackingColumnsStatement}", columnStatement)
         .replace("{ChangeTrackingMatchStatement}", matchStatement)
         .replace("{MERGE_EXPRESSION}", mergeExpression)
-        .replace("{MERGE_KEY}", UPSERT_MERGE_KEY)
+        .replace("{MERGE_KEY}", MergeKeyField.name)
         .replace("{DATE_PARTITION_EXPRESSION}", connectionOptions.partitionExpression.getOrElse(""))
-        .replace("{DATE_PARTITION_KEY}", DATE_PARTITION_KEY)
+        .replace("{DATE_PARTITION_KEY}", DatePartitionField.name)
         .replace("{lastId}", changeTrackingId.toString)
     }
 
@@ -189,7 +187,7 @@ object QueryProvider:
         .replace("{tableName}", connectionOptions.tableName)
         .replace("{ChangeTrackingColumnsStatement}", columnExpression)
         .replace("{MERGE_EXPRESSION}", mergeExpression)
-        .replace("{MERGE_KEY}", UPSERT_MERGE_KEY)
+        .replace("{MERGE_KEY}", MergeKeyField.name)
         .replace("{DATE_PARTITION_EXPRESSION}", connectionOptions.partitionExpression.getOrElse(""))
-        .replace("{DATE_PARTITION_KEY}", DATE_PARTITION_KEY)
+        .replace("{DATE_PARTITION_KEY}", DatePartitionField.name)
     }
