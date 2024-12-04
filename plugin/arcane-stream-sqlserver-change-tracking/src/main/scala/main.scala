@@ -55,7 +55,6 @@ object main extends ZIOAppDefault {
       BackfillGroupingProcessor.layer,
       IcebergS3CatalogWriter.layer,
       IcebergConsumer.layer,
-      BackfillGroupingProcessor.layer,
       ZLayer.succeed(DataDogClientBuilder.selectFromEnvironment("Arcane.Stream.Scala")),
     )
     .orDie
