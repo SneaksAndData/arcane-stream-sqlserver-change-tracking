@@ -4,7 +4,7 @@ package services.streaming
 import models.app.StreamContext
 import models.{ArcaneSchema, DataRow}
 import services.base.SchemaProvider
-import services.lakehouse.{CatalogWriter, SchemaConversions}
+import services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
 import services.streaming.IcebergConsumer.getTableName
 import services.streaming.base.BatchConsumer
 
@@ -16,12 +16,6 @@ import zio.{Chunk, Task, ZIO, ZLayer}
 
 import java.time.format.DateTimeFormatter
 import java.time.{ZoneOffset, ZonedDateTime}
-
-/**
- * Converts an Arcane schema to an Iceberg schema.
- */
-given Conversion[ArcaneSchema, Schema] with
-  def apply(schema: ArcaneSchema): Schema = SchemaConversions.toIcebergSchema(schema)
 
 /**
  * A consumer that writes the data to the staging table.

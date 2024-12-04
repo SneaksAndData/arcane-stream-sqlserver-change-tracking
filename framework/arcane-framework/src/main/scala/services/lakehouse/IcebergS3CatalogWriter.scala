@@ -20,6 +20,12 @@ import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
 
+/**
+ * Converts an Arcane schema to an Iceberg schema.
+ */
+given Conversion[ArcaneSchema, Schema] with
+  def apply(schema: ArcaneSchema): Schema = SchemaConversions.toIcebergSchema(schema)
+  
 // https://www.tabular.io/blog/java-api-part-3/
 class IcebergS3CatalogWriter(
                               namespace: String,
@@ -116,12 +122,37 @@ object IcebergS3CatalogWriter:
 
   /**
    * Factory method to create IcebergS3CatalogWriter
+   * @param namespace The namespace for the catalog
+   * @param warehouse The warehouse location
+   * @param catalogUri The catalog URI
+   * @param additionalProperties Additional properties for the catalog
+   * @param s3CatalogFileIO The S3 catalog file IO settings
+   * @param locationOverride The location override for the catalog
+   * @return The initialized IcebergS3CatalogWriter instance
+   */
+  def apply(namespace: String,
+            warehouse: String,
+            catalogUri: String,
+            additionalProperties: Map[String, String],
+            s3CatalogFileIO: S3CatalogFileIO,
+            locationOverride: Option[String]): IcebergS3CatalogWriter =
+    val writer = new IcebergS3CatalogWriter(
+      namespace = namespace,
+      warehouse = warehouse,
+      catalogUri = catalogUri,
+      additionalProperties = additionalProperties,
+      s3CatalogFileIO = s3CatalogFileIO,
+      locationOverride = locationOverride,
+    )
+    writer.initialize()
+  
+  /**
+   * Factory method to create IcebergS3CatalogWriter
     * @param icebergSettings Iceberg settings
    * @return The initialized IcebergS3CatalogWriter instance
    */
   def apply(icebergSettings: IcebergCatalogSettings): IcebergS3CatalogWriter =
-    val writer =
-      new IcebergS3CatalogWriter(
+      IcebergS3CatalogWriter(
         namespace = icebergSettings.namespace,
         warehouse = icebergSettings.warehouse,
         catalogUri = icebergSettings.catalogUri,
@@ -129,4 +160,3 @@ object IcebergS3CatalogWriter:
         s3CatalogFileIO = icebergSettings.s3CatalogFileIO,
         locationOverride = icebergSettings.stagingLocation,
       )
-    writer.initialize()
