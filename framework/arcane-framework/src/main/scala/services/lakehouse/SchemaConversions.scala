@@ -1,20 +1,18 @@
 package com.sneaksanddata.arcane.framework
 package services.lakehouse
 
-import models.{ArcaneSchema, ArcaneSchemaField, ArcaneType}
 import models.ArcaneType.*
+import models.{ArcaneSchema, ArcaneType}
 
 import org.apache.iceberg.Schema
-import org.apache.iceberg.types.Types
-
-import scala.language.implicitConversions
+import org.apache.iceberg.types.{Type, Types}
 import scala.jdk.CollectionConverters.*
 
 /**
- * Implicit conversions from ArcaneType to Iceberg schema types
+ * Converts an Arcane schema to an Iceberg schema.
  */
-object SchemaConversions:
-  implicit def toIcebergType(arcaneType: ArcaneType): org.apache.iceberg.types.Type = arcaneType match
+given Conversion[ArcaneType, Type] with
+  def apply(arcaneType:  ArcaneType): Type = arcaneType match
     case IntType => Types.IntegerType.get()
     case LongType => Types.LongType.get()
     case ByteArrayType => Types.BinaryType.get()
@@ -29,13 +27,15 @@ object SchemaConversions:
     case ShortType => Types.IntegerType.get()
     case TimeType => Types.TimeType.get()
 
-  implicit def toIcebergSchema(schema: ArcaneSchema): Schema = new Schema(
+/**
+ * Converts an Arcane schema to an Iceberg schema.
+ */
+given Conversion[ArcaneSchema, Schema] with
+  def apply(schema: ArcaneSchema): Schema = new Schema(
     schema
       .zipWithIndex
       .map {
-        (field, index) => 
+        (field, index) =>
           Types.NestedField.optional(index, field.name, field.fieldType)
       }.asJava
   )
-
-  implicit def toIcebergSchemaFromFields(fields: Seq[ArcaneSchemaField]): Schema = toIcebergSchema(fields)

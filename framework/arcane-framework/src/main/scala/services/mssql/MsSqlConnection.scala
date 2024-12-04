@@ -204,7 +204,8 @@ object MsSqlConnection:
 
   /**
    * Converts a SQL type to an Arcane type.
-   *
+   * This method is not the implementation of th Conversion typeclass since Int is a very broad type
+   * and explicit conversion could be error-prone
    * @param sqlType The SQL type.
    * @return The Arcane type.
    */

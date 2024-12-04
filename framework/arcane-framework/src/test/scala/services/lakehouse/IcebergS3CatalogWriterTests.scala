@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.lakehouse
 
 import models.ArcaneType.{IntType, StringType}
-import models.{DataCell, Field, MergeKeyField}
+import models.{ArcaneSchema, DataCell, Field, MergeKeyField}
 import services.lakehouse.base.IcebergCatalogSettings
 
 import org.scalatest.*
@@ -13,7 +13,6 @@ import java.util.UUID
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
 import scala.language.postfixOps
-import services.lakehouse.SchemaConversions.*
 
 class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
@@ -25,7 +24,7 @@ class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
     override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
     override val stagingLocation: Option[String] = Some("s3://tmp/polaris/test")
 
-  private val schema = Seq(MergeKeyField, Field(name = "colA", fieldType = IntType), Field(name = "colB", fieldType = StringType))
+  private val schema: ArcaneSchema = Seq(MergeKeyField, Field(name = "colA", fieldType = IntType), Field(name = "colB", fieldType = StringType))
   private val icebergWriter = IcebergS3CatalogWriter(settings)
 
   it should "create a table when provided schema and rows" in {

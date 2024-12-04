@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.lakehouse
 
-import models.{ArcaneSchema, DataRow}
+import models.DataRow
 import services.lakehouse.base.IcebergCatalogSettings
 
 import org.apache.iceberg.aws.s3.S3FileIOProperties
@@ -20,11 +20,6 @@ import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
 
-/**
- * Converts an Arcane schema to an Iceberg schema.
- */
-given Conversion[ArcaneSchema, Schema] with
-  def apply(schema: ArcaneSchema): Schema = SchemaConversions.toIcebergSchema(schema)
   
 // https://www.tabular.io/blog/java-api-part-3/
 class IcebergS3CatalogWriter(
