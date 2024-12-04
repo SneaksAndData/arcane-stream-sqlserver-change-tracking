@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.connectors.mssql
 
+import models.ArcaneSchemaField
 import models.ArcaneType.{IntType, LongType, StringType}
-import models.{ArcaneSchemaField, Field}
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 import services.mssql.{ConnectionOptions, MsSqlConnection, QueryProvider}
 
@@ -12,7 +12,8 @@ import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.*
 
 import java.sql.Connection
-import java.time.Duration
+import java.time.format.DateTimeFormatter
+import java.time.{Duration, LocalDateTime}
 import java.util.Properties
 import scala.List
 import scala.concurrent.Future
@@ -24,6 +25,9 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   private implicit val dataQueryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult] = QueryRunner()
   private implicit val versionQueryRunner: QueryRunner[Option[Long], ScalarQueryResult[Long]] = QueryRunner()
+  
+  /// To avoid mocking current date/time  we use the formatter that will always return the same value
+  private implicit val constantFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("111")
 
   val connectionUrl = "jdbc:sqlserver://localhost;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC"
 
@@ -88,7 +92,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     val query = QueryProvider.getColumnSummariesQuery(connector.connectionOptions.schemaName,
       connector.connectionOptions.tableName,
       connector.connectionOptions.databaseName)
-    query should include ("case when kcu.CONSTRAINT_NAME is not null then 1 else 0 end as IsPrimaryKey")
+    query.get should include ("case when kcu.CONSTRAINT_NAME is not null then 1 else 0 end as IsPrimaryKey")
   }
 
   "QueryProvider" should "generate schema query" in withDatabase { dbInfo =>
@@ -98,6 +102,20 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         include ("ct.SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY") and include("format(getdate(), 'yyyyMM')")
         )
     }
+  }
+
+  "QueryProvider" should "generate time-based query if previous version not provided" in withDatabase { dbInfo =>
+    val connector = MsSqlConnection(dbInfo.connectionOptions)
+    val formattedTime = constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1)))
+    val query = QueryProvider.getChangeTrackingVersionQuery(dbInfo.connectionOptions.databaseName, None, Duration.ofHours(-1))
+    query should (include ("SELECT MIN(commit_ts)") and include (s"WHERE commit_time > '$formattedTime'"))
+  }
+  
+  "QueryProvider" should "generate version-based query if previous version is provided" in withDatabase { dbInfo =>
+    val connector = MsSqlConnection(dbInfo.connectionOptions)
+    val formattedTime = constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1)))
+    val query = QueryProvider.getChangeTrackingVersionQuery(dbInfo.connectionOptions.databaseName, Some(1), Duration.ofHours(-1))
+    query should (include ("SELECT MIN(commit_ts)") and (not include "commit_time") and include (s"WHERE commit_ts > 1"))
   }
 
   "QueryProvider" should "generate backfill query" in withDatabase { dbInfo =>
