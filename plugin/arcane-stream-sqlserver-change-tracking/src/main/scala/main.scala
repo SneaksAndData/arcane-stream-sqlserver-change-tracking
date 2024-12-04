@@ -1,6 +1,6 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 
-import models.app.StreamSpec
+import models.app.SqlServerChangeTrackingStreamContext
 import services.StreamGraphBuilderFactory
 
 import com.sneaksanddata.arcane.framework.models.DataRow
@@ -9,11 +9,12 @@ import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, Ver
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
 import com.sneaksanddata.arcane.framework.services.app.logging.base.Enricher
 import com.sneaksanddata.arcane.framework.services.app.{PosixStreamLifetimeService, StreamRunnerServiceImpl}
+import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.metrics.datadog.base.DataDogClientBuilder
 import com.sneaksanddata.arcane.framework.services.mssql.MsSqlConnection.BackfillBatch
 import com.sneaksanddata.arcane.framework.services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider}
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchProcessor, StreamGraphBuilder}
-import com.sneaksanddata.arcane.framework.services.streaming.{BackfillGroupingProcessor, LazyListGroupingProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.{BackfillGroupingProcessor, IcebergConsumer, LazyListGroupingProcessor}
 import org.slf4j.MDC
 import zio.logging.LogFormat
 import zio.logging.backend.SLF4J
@@ -44,13 +45,16 @@ object main extends ZIOAppDefault {
   @main
   def run: ZIO[Any, Throwable, Unit] =
     appLayer.provide(
-      StreamSpec.layer,
+      SqlServerChangeTrackingStreamContext.layer,
       PosixStreamLifetimeService.layer,
       MsSqlConnection.layer,
       MsSqlDataProvider.layer,
       LazyListGroupingProcessor.layer,
       StreamRunnerServiceImpl.layer,
       StreamGraphBuilderFactory.layer,
+      BackfillGroupingProcessor.layer,
+      IcebergS3CatalogWriter.layer,
+      IcebergConsumer.layer,
       BackfillGroupingProcessor.layer,
       ZLayer.succeed(DataDogClientBuilder.selectFromEnvironment("Arcane.Stream.Scala")),
     )
