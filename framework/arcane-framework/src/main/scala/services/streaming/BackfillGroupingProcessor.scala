@@ -6,9 +6,10 @@ import models.settings.GroupingSettings
 import services.mssql.MsSqlConnection.BackfillBatch
 import services.streaming.base.BatchProcessor
 
-import zio.stream.ZPipeline
-import zio.{Chunk, ZIO, ZLayer}
+import zio.stream.{ZPipeline, ZStream}
+import zio.{Chunk, Scope, ZIO, ZLayer}
 
+import java.sql.SQLException
 import scala.concurrent.duration.Duration
 import scala.util.{Try, Using}
 
@@ -16,23 +17,16 @@ import scala.util.{Try, Using}
  * The batch processor implementation that converts a lazy DataBatch to a Chunk of DataRow.
  * @param groupingSettings The grouping settings.
  */
-class BackfillGroupingProcessor(groupingSettings: GroupingSettings) extends BatchProcessor[BackfillBatch, Chunk[DataRow]]:
+class BackfillGroupingProcessor(groupingSettings: GroupingSettings) extends BatchProcessor[DataRow, Chunk[DataRow]]:
 
   /**
    * Processes the incoming data.
    *
    * @return ZPipeline (stream source for the stream graph).
    */
-  def process: ZPipeline[Any, Throwable, BackfillBatch, Chunk[DataRow]] = ZPipeline
-      .map(this.readBatch)
-      // We use here unsafe get because we need to throw an exception if the data is not available.
-      // Otherwise, we can get inconsistent data in the stream.
-      .map(tryDataRow => tryDataRow.get)
-      .map(list => Chunk.fromIterable(list))
-      .flattenChunks
-      .groupedWithin(groupingSettings.rowsPerGroup, groupingSettings.groupingInterval)
+  def process: ZPipeline[Any, Throwable, DataRow, Chunk[DataRow]] =
+    ZPipeline.groupedWithin(groupingSettings.rowsPerGroup, groupingSettings.groupingInterval)
 
-  private def readBatch(dataBatch: BackfillBatch): Try[List[DataRow]] = Using(dataBatch) { data => data.read.toList }
 
 /**
  * The companion object for the LazyOutputDataProcessor class.
@@ -42,7 +36,7 @@ object BackfillGroupingProcessor:
   /**
    * The ZLayer that creates the LazyOutputDataProcessor.
    */
-  val layer: ZLayer[GroupingSettings, Nothing, BatchProcessor[BackfillBatch, Chunk[DataRow]]] =
+  val layer: ZLayer[GroupingSettings, Nothing, BatchProcessor[DataRow, Chunk[DataRow]]] =
     ZLayer {
       for
         settings <- ZIO.service[GroupingSettings]
