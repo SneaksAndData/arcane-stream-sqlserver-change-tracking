@@ -1,9 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.lakehouse
 
-import models.{ArcaneSchema, ArcaneType}
-
+import models.{ArcaneSchema, ArcaneSchemaField, ArcaneType}
 import models.ArcaneType.*
+
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Types
 
@@ -37,3 +37,5 @@ object SchemaConversions:
           Types.NestedField.optional(index, field.name, field.fieldType)
       }.asJava
   )
+
+  implicit def toIcebergSchemaFromFields(fields: Seq[ArcaneSchemaField]): Schema = toIcebergSchema(fields)

@@ -1,21 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package models
 
-/**
- * ArcaneSchema is a type alias for a sequence of fields or structs.
- */
-type ArcaneSchema = Seq[Field]
+import models.ArcaneType.StringType
 
-/**
- * Companion object for ArcaneSchema.
- */
-object ArcaneSchema:
-  /**
-   * Creates an empty ArcaneSchema.
-   * @return An empty ArcaneSchema.
-   */
-  def empty(): ArcaneSchema = Seq.empty
-
+import scala.language.implicitConversions
 
 /**
  * Types of fields in ArcaneSchema.
@@ -34,10 +22,55 @@ enum ArcaneType:
   case FloatType
   case ShortType
   case TimeType
-  
+
+/**
+ * A field in the schema definition
+ */
+trait ArcaneSchemaField:
+  val name: String
+  val fieldType: ArcaneType
+
 /**
  * Field is a case class that represents a field in ArcaneSchema
- * @param name The name of the field.
- * @param fieldType The type of the field.
  */
-case class Field(name: String, fieldType: ArcaneType)
+final case class Field(name: String, fieldType: ArcaneType) extends ArcaneSchemaField
+
+/**
+ * MergeKeyField represents a field used for batch merges
+ */
+case object MergeKeyField extends ArcaneSchemaField:
+  val name: String = "ARCANE_MERGE_KEY"
+  val fieldType: ArcaneType = StringType
+
+/**
+ * ArcaneSchema is a type alias for a sequence of fields or structs.
+ */
+class ArcaneSchema(fields: Seq[ArcaneSchemaField]) extends Seq[ArcaneSchemaField]:
+  def mergeKey: ArcaneSchemaField =
+    val maybeMergeKey = fields.find {
+      case MergeKeyField => true
+      case _ => false
+    }
+
+    require(maybeMergeKey.isDefined, "MergeKeyField must be defined for the schema to be usable for merges")
+
+    maybeMergeKey.get
+
+  def apply(i: Int): ArcaneSchemaField = fields(i)
+
+  def length: Int = fields.length
+
+  def iterator: Iterator[ArcaneSchemaField] = fields.iterator
+
+/**
+ * Companion object for ArcaneSchema.
+ */
+object ArcaneSchema:
+  implicit def fieldSeqToArcaneSchema(fields: Seq[ArcaneSchemaField]): ArcaneSchema = ArcaneSchema(fields)
+
+  /**
+   * Creates an empty ArcaneSchema.
+   *
+   * @return An empty ArcaneSchema.
+   */
+  def empty(): ArcaneSchema = Seq.empty
