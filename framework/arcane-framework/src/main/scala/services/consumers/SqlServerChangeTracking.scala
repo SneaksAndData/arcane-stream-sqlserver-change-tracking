@@ -38,10 +38,12 @@ class SqlServerChangeTrackingBackfillBatch(batchName: String, batchSchema: Arcan
   override val name: String = batchName
   override val schema: ArcaneSchema = batchSchema
 
-  override def reduceBatchExpr(): String =
+  override def reduceExpr: String =
     s"""SELECT * FROM $name AS ${MergeQueryCommons.SOURCE_ALIAS} WHERE ${MergeQueryCommons.SOURCE_ALIAS}.SYS_CHANGE_OPERATION != 'D'""".stripMargin
 
-  override val batchQuery: OverwriteQuery = SqlServerChangeTrackingBackfillQuery(targetName, reduceBatchExpr())
+  override val batchQuery: OverwriteQuery = SqlServerChangeTrackingBackfillQuery(targetName, reduceExpr)
+
+  def archiveExpr: String = s"INSERT OVERWRITE ${targetName}_stream_archive $reduceExpr"
 
 object  SqlServerChangeTrackingBackfillBatch:
   /**
@@ -53,7 +55,7 @@ class SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSc
   override val name: String = batchName
   override val schema: ArcaneSchema = batchSchema
 
-  override def reduceBatchExpr(): String =
+  override def reduceExpr: String =
     s"""
        |SELECT
        |${MergeQueryCommons.SOURCE_ALIAS}.*
@@ -62,7 +64,9 @@ class SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSc
        |""".stripMargin
 
   override val batchQuery: MergeQuery =
-    SqlServerChangeTrackingMergeQuery(targetName = targetName, sourceQuery = reduceBatchExpr(), partitionValues = partitionValues, mergeKey = mergeKey, columns = schema.map(f => f.name))
+    SqlServerChangeTrackingMergeQuery(targetName = targetName, sourceQuery = reduceExpr, partitionValues = partitionValues, mergeKey = mergeKey, columns = schema.map(f => f.name))
+
+  def archiveExpr: String = s"INSERT INTO ${targetName}_stream_archive $reduceExpr"
 
 object SqlServerChangeTrackingMergeBatch:
   def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, partitionValues: Map[String, List[String]]): StagedVersionedBatch =

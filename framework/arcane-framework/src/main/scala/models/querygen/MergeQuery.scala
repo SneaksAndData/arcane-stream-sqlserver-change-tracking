@@ -13,6 +13,11 @@ object MergeQueryCommons:
    */
   val TARGET_ALIAS: String = "t_o"
 
+/**
+ * Represents an SQL query used to update data in the target table
+ * @param baseQuery SQL query skeleton to use when constructing the final query
+ * @param segments Additional MERGE query segments
+ */
 case class MergeQuery(baseQuery: String, segments: Seq[MergeQuerySegment]) extends StreamingBatchQuery:
   @targetName("plusplus")
   def ++(segment: MergeQuerySegment): MergeQuery = copy(segments = segments :+ segment)
