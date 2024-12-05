@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.sql_server_change_tracking
 package models.app
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
+import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, SinkSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumerOptions
 import com.sneaksanddata.arcane.framework.services.lakehouse.{IcebergCatalogCredential, S3CatalogFileIO}
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.IcebergCatalogSettings
@@ -21,7 +21,8 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
   with GroupingSettings
   with IcebergCatalogSettings
   with JdbcConsumerOptions
-  with VersionedDataGraphBuilderSettings:
+  with VersionedDataGraphBuilderSettings
+  with SinkSettings:
 
   override val rowsPerGroup: Int = spec.rowsPerGroup
   override val lookBackInterval: Duration = Duration.ofSeconds(spec.lookBackInterval)
@@ -47,6 +48,11 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
 
   override def toString: String = this.toJsonPretty
 
+  /**
+   * The target table to write the data.
+   */
+  override val sinkLocation: String = spec.sinkLocation
+
 
 given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
   def apply(context: SqlServerChangeTrackingStreamContext): ConnectionOptions =
@@ -70,6 +76,7 @@ object SqlServerChangeTrackingStreamContext {
     & VersionedDataGraphBuilderSettings
     & IcebergCatalogSettings
     & JdbcConsumerOptions
+    & SinkSettings
 
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.

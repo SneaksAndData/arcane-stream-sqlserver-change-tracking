@@ -43,7 +43,7 @@ class IcebergConsumer(streamContext: StreamContext,
     writeStagingTable >>> mergeProcessor.process >>> logResults
 
 
-  private def logResults: ZSink[Any, Throwable, Boolean, Nothing, Unit] = ZSink.foreach { e =>
+  private def logResults: ZSink[Any, Throwable, BatchApplicationResult, Nothing, Unit] = ZSink.foreach { e =>
     logger.info(s"Received the table $e from the streaming source")
     ZIO.unit
   }
