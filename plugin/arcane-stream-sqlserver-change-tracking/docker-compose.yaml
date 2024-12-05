@@ -8,56 +8,6 @@ networks:
           gateway: 10.1.0.1
 
 services:
-  mssql:
-    container_name: sql-server
-    hostname: sql-server
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    restart: always
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.8
-    environment:
-      ACCEPT_EULA: "Y"
-      SA_PASSWORD: "tMIxN11yGZgMC"
-    ports:
-      - "1433:1433"
-  setup_mssql:
-    container_name: integration-setup
-    image: mcr.microsoft.com/mssql-tools
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.6
-    depends_on:
-      - mssql
-    restart: "no"
-    volumes:
-      - ./:/app
-    entrypoint:
-      - "bash"
-      - "-c"
-      - |
-        while ! /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -Q "SELECT 1"; do
-          sleep 1
-        done
-        /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -i /app/integration-tests.sql
-  insert_changes:
-    container_name: insert-data
-    image: mcr.microsoft.com/mssql-tools
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.7
-    depends_on:
-      setup_mssql:
-        condition: service_completed_successfully
-    entrypoint:
-      - "bash"
-      - "-c"
-      - |
-        while true; do 
-          /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -Q "INSERT INTO IntegrationTests.dbo.TestTable (Id, Name) VALUES (ABS(CHECKSUM(NewId())) % 14000, 'Name' + CAST(RAND() as nvarchar(50)))";
-          sleep 5;
-        done
-        
   minio:
     container_name: minio
     hostname: minio-e2e
@@ -92,9 +42,10 @@ services:
       - "/bin/sh"
       - "-c"
       - |
+        sleep 15
         mc alias set e2e "http://10.1.0.2:9000" minioadmin minioadmin
         mc admin info e2e
-        mc mb e2e/tmp && mc mb e2e/lakehouse
+        mc mb e2e/tmp --ignore-existing && mc mb e2e/lakehouse --ignore-existing
   # https://github.com/databricks/docker-spark-iceberg/blob/main/docker-compose.yml
   # note there is no publicly available image for Polaris yet
   # follow guidelines from https://github.com/apache/polaris?tab=readme-ov-file#more-build-and-run-options to build one
@@ -134,3 +85,64 @@ services:
     volumes:
       - ./create-polaris-catalog.sh:/create-polaris-catalog.sh
     command: ["/bin/sh", "/create-polaris-catalog.sh"]
+  setup_mssql:
+    container_name: integration-setup
+    image: mcr.microsoft.com/mssql-tools
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.6
+    depends_on:
+      - mssql
+    restart: "no"
+    volumes:
+      - ./:/app
+    entrypoint:
+      - "bash"
+      - "-c"
+      - |
+        while ! /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -Q "SELECT 1"; do
+          sleep 1
+        done
+        /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -i /app/integration-tests.sql
+  insert_changes:
+    container_name: insert-data
+    image: mcr.microsoft.com/mssql-tools
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.7
+    depends_on:
+      setup_mssql:
+        condition: service_completed_successfully
+    entrypoint:
+      - "bash"
+      - "-c"
+      - |
+        while true; do 
+          /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -Q "INSERT INTO IntegrationTests.dbo.TestTable (Id, Name) VALUES (ABS(CHECKSUM(NewId())) % 14000, 'Name' + CAST(RAND() as nvarchar(50)))";
+          sleep 5;
+        done
+  mssql:
+    container_name: sql-server
+    hostname: sql-server
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: always
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.8
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "tMIxN11yGZgMC"
+    ports:
+      - "1433:1433"
+  trino:
+    depends_on:
+      polaris:
+        condition: service_healthy
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.9
+    ports:
+      - "8080:8080"
+    image: "trinodb/trino:455"
+    volumes:
+      - ./integration-tests.properties:/etc/trino/catalog/iceberg.properties
