@@ -3,15 +3,12 @@ package services.streaming
 
 import models.DataRow
 import models.settings.GroupingSettings
-import services.mssql.MsSqlConnection.BackfillBatch
 import services.streaming.base.BatchProcessor
 
-import zio.stream.{ZPipeline, ZStream}
-import zio.{Chunk, Scope, ZIO, ZLayer}
+import zio.stream.ZPipeline
+import zio.{Chunk, ZIO, ZLayer}
 
-import java.sql.SQLException
 import scala.concurrent.duration.Duration
-import scala.util.{Try, Using}
 
 /**
  * The batch processor implementation that converts a lazy DataBatch to a Chunk of DataRow.
