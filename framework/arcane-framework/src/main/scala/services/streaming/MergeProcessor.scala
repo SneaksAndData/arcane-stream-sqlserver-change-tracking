@@ -1,41 +1,46 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming
 
-import models.querygen.{MergeQuery, StreamingBatchQuery}
-import services.consumers.{JdbcConsumer, StagedBatch, StagedVersionedBatch}
+import models.querygen.MergeQuery
+import services.consumers.{BatchApplicationResult, JdbcConsumer, StagedBatch, StagedVersionedBatch}
 import services.streaming.base.BatchProcessor
 
-import zio.{ZIO, ZLayer}
 import zio.stream.ZPipeline
+import zio.{ZIO, ZLayer}
 
-import java.sql.ResultSet
+/**
+ * Processor that merges data into a target table.
+ *
+ * @param jdbcConsumer The JDBC consumer.
+ */
+class MergeProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch])
+  extends BatchProcessor[StagedBatch[MergeQuery], BatchApplicationResult]:
 
-class MergeProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch]) 
-  extends BatchProcessor[StagedBatch[MergeQuery], Boolean]:
-  
-  override def process: ZPipeline[Any, Throwable, StagedVersionedBatch, Boolean] =
+  /**
+   * Processes the incoming data.
+   *
+   * @return ZPipeline (stream source for the stream graph).
+   */
+  override def process: ZPipeline[Any, Throwable, StagedVersionedBatch, BatchApplicationResult] =
     ZPipeline.mapZIO(batch => ZIO.fromFuture(implicit ec => jdbcConsumer.applyBatch(batch)))
 
 object MergeProcessor:
 
   /**
-   * Factory method to create IcebergConsumer
-   *
-   * @param streamContext  The stream context.
-   * @param catalogWriter  The catalog writer.
-   * @param schemaProvider The schema provider.
-   * @return The initialized IcebergConsumer instance
+   * Factory method to create MergeProcessor
+   * @param jdbcConsumer The JDBC consumer.
+   * @return The initialized MergeProcessor instance
    */
   def apply(jdbcConsumer: JdbcConsumer[StagedVersionedBatch]): MergeProcessor =
     new MergeProcessor(jdbcConsumer)
 
   /**
-   * The required environment for the IcebergConsumer.
+   * The required environment for the MergeProcessor.
    */
   type Environment = JdbcConsumer[StagedVersionedBatch]
 
   /**
-   * The ZLayer that creates the IcebergConsumer.
+   * The ZLayer that creates the MergeProcessor.
    */
   val layer: ZLayer[Environment, Nothing, MergeProcessor] =
     ZLayer {

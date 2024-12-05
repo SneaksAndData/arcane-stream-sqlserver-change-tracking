@@ -65,7 +65,7 @@ given CanAdd[ArcaneSchema] with
  */
 class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoCloseable with SchemaProvider[ArcaneSchema]:
   private val driver = new SQLServerDriver()
-  private lazy val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
+  private val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   private implicit val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 

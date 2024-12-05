@@ -41,7 +41,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
   val connectionString: String = sys.env("ARCANE_CONNECTIONSTRING")
 
   @jsonExclude
-  override val connectionUrl: String = sys.env("ARCANE_MERGE_SERVICE_CONNECTION_URI")
+  override val connectionUrl: String = sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")
 
   val database: String = spec.database
 
