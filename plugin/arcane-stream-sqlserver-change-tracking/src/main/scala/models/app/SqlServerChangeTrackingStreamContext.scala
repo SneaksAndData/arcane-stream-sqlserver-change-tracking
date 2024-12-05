@@ -3,6 +3,7 @@ package models.app
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
+import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumerOptions
 import com.sneaksanddata.arcane.framework.services.lakehouse.{IcebergCatalogCredential, S3CatalogFileIO}
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.IcebergCatalogSettings
 import com.sneaksanddata.arcane.framework.services.mssql.ConnectionOptions
@@ -19,6 +20,7 @@ import java.time.Duration
 case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends StreamContext
   with GroupingSettings
   with IcebergCatalogSettings
+  with JdbcConsumerOptions
   with VersionedDataGraphBuilderSettings:
 
   override val rowsPerGroup: Int = spec.rowsPerGroup
@@ -37,6 +39,9 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
 
   @jsonExclude
   val connectionString: String = sys.env("ARCANE_CONNECTIONSTRING")
+
+  @jsonExclude
+  override val connectionUrl: String = sys.env("ARCANE_MERGE_SERVICE_CONNECTION_URI")
 
   val database: String = spec.database
 
@@ -64,6 +69,7 @@ object SqlServerChangeTrackingStreamContext {
     & GroupingSettings
     & VersionedDataGraphBuilderSettings
     & IcebergCatalogSettings
+    & JdbcConsumerOptions
 
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.

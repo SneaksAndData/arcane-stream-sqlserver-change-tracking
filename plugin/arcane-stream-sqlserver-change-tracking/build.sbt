@@ -13,6 +13,7 @@ lazy val plugin = (project in file("."))
     name := "arcane-stream-sqlserver-change-tracking",
     idePackagePrefix := Some("com.sneaksanddata.arcane.sql_server_change_tracking"),
     libraryDependencies += "dev.zio" %% "zio-json" % "0.6.2",
+    libraryDependencies += "io.trino" % "trino-jdbc" % "465",
 
     assembly / mainClass := Some("com.sneaksanddata.arcane.sql_server_change_tracking.main"),
 
