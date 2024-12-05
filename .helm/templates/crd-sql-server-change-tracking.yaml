@@ -32,7 +32,7 @@ spec:
           type: string
           jsonPath: .status.phase
       subresources:
-        status: { }
+        status: {}
       schema:
         openAPIV3Schema:
           type: object
@@ -43,11 +43,100 @@ spec:
                 connectionStringRef:
                   description: |
                     Name of the secret containing the connection string.
-                    Should have a key named 'ARCANE_CONNECTIONSTRING'.
+                    The secret should have a key named 'ARCANE_CONNECTIONSTRING'.
                   type: object
                   properties:
                     name:
                       type: string
+                catalogAuthSecretRef:
+                  description: |
+                    Name of the secret containing the catalog authentication.
+                    The secret should have the following mandatory keys:
+                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_URI
+                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_SCOPE
+                    And the authentication information in the following keys:
+                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_ID
+                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_SECRET
+                    OR
+                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_INIT_TOKEN
+
+                    The authentication information is mutually exclusive.
+                    If init token is provided, client id and secret are not used.
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                catalog:
+                  type: object
+                  properties:
+                    namespace:
+                      type: string
+                    warehouse:
+                      type: string
+                    authSecretRef:
+                      description: |
+                        Not used in the operator version 0.0.x
+                        In operator version 0.1.x and above this field will replace the `catalogAuthSecretRef` field.
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                optional: true
+                default: null # for backward compatibility
+                mergeService:
+                  type: object
+                  properties:
+                    uri:
+                      type: string
+                    authSecretRef:
+                      description: |
+                        Not used in the operator version 0.0.x
+                        In operator version 0.1.x and above this field will replace the `mergeAuthSecretRef` field.
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                  optional: true
+                  default: null # for backward compatibility
+                mergeAuthSecretRef:
+                  #TODO: Add the keys required in the secret.
+                  description: |
+                    Name of the secret containing the data storage authentication for the merge service.
+                    The secret should have a key named 'ARCANE_FRAMEWORK__MERGE_SERVICE__JDBC_URL'.
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                  optional: true
+                  default: null # for backward compatibility
+                stagingStorageAuthSecretRef:
+                  description: |
+                    Name of the secret containing the data storage authentication for the S3 bucket containing staging data.
+                    The secret should have the following mandatory keys:
+                      - ARCANE_FRAMEWORK__S3_CATALOG_SECRET_ACCESS_KEY
+                      - ARCANE_FRAMEWORK__S3_CATALOG_ACCESS_KEY_ID
+                      - ARCANE_FRAMEWORK__S3_CATALOG_ENDPOINT
+                      - ARCANE_FRAMEWORK__S3_CATALOG_REGION
+                      - AWS_REGION
+                    The AWS_REGION key is used to set the region for the AWS SDK and it's value should be
+                    the same as ARCANE_FRAMEWORK__S3_STAGING_CATALOG_REGION.
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                  optional: true
+                  default: null # for backward compatibility
+                stagingStorage:
+                  authSecretRef:
+                    description: |
+                      Not used in the operator version 0.0.x
+                      In operator version 0.1.x and above this field will replace the `stagingStorageAuthSecretRef` field.
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                  optional: true
+                  default: null # for backward compatibility
                 jobTemplateRef:
                   description: |
                     Name of the job template to be used for the streaming job if stream is running in normal mode.
@@ -136,6 +225,30 @@ spec:
                             type: string
                           fieldFormat:
                             type: string
+                stagingLocation:
+                  type: string
+                  description: Data location for staging files.
+                  optional: true
+                  default: null # for backward compatibility
+                retention:
+                  type: object
+                  properties:
+                    retentionPeriod:
+                      type: integer
+                      description: Number of days to retain data.
+                    retentionUnit:
+                      optional: true
+                      default: hours
+                      type: string
+                      enum:
+                        - days
+                        - hours
+                        - minutes
+                    location:
+                      type: string
+                      description: Data location for retention table.
+                  optional: true
+                  default: null # for backward compatibility
             status:
               type: object
               properties:
