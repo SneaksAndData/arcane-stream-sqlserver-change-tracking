@@ -10,7 +10,6 @@ import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeServi
 import com.sneaksanddata.arcane.framework.services.app.logging.base.Enricher
 import com.sneaksanddata.arcane.framework.services.app.{PosixStreamLifetimeService, StreamRunnerServiceImpl}
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
-import com.sneaksanddata.arcane.framework.services.mssql.MsSqlConnection.BackfillBatch
 import com.sneaksanddata.arcane.framework.services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider}
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchProcessor, StreamGraphBuilder}
 import com.sneaksanddata.arcane.framework.services.streaming.{BackfillGroupingProcessor, IcebergConsumer, LazyListGroupingProcessor}
