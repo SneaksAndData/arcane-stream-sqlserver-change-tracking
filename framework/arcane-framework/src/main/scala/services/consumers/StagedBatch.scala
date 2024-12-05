@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.consumers
 
-import models.querygen.{MergeQuery, OverwriteQuery, StreamingBatchQuery}
+import models.querygen.{MergeQuery, OverwriteQuery, StreamingBatchQuery, InitializeQuery}
 import models.ArcaneSchema
 
 
@@ -23,8 +23,19 @@ trait StagedBatch[Query <: StreamingBatchQuery]:
    * Query that aggregates transactions in the batch to enable merge or overwrite
    * @return SQL query text
    */
-  def reduceBatchExpr(): String
+  def reduceExpr: String
 
+  /**
+   * Query that should be used to archive this batch data
+   * @return SQL query text
+   */
+  def archiveExpr: String
+
+
+/**
+ * StagedBatch that overwrites the whole table and all partitions that it might have
+ */
+type StagedInitBatch = StagedBatch[InitializeQuery]
 
 /**
  * StagedBatch that overwrites the whole table and all partitions that it might have
