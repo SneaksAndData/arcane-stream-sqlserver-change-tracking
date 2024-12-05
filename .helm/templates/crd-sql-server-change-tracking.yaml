@@ -73,8 +73,6 @@ spec:
                       type: string
                     warehouse:
                       type: string
-                    uri:
-                      type: string
                     authSecretRef:
                       description: |
                         Not used in the operator version 0.0.x
