@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package models.app
 
+import models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
+
 /**
  * Provides the context for the stream.
  */
