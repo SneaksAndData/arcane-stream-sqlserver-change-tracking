@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import models.{ArcaneSchema, ArcaneType, DataRow, Field}
+import models.{ArcaneSchema, ArcaneType, DataRow, Field, MergeKeyField}
 import services.base.{CanAdd, SchemaProvider}
 import services.mssql.MsSqlConnection.{BackfillBatch, DATE_PARTITION_KEY, UPSERT_MERGE_KEY, VersionedBatch, toArcaneType}
 import services.mssql.base.{CanPeekHead, QueryResult}
@@ -54,7 +54,9 @@ case class ConnectionOptions(connectionUrl: String,
  * Required typeclass implementation
  */
 given CanAdd[ArcaneSchema] with
-  extension (a: ArcaneSchema) def addField(fieldName: String, fieldType: ArcaneType): ArcaneSchema = a :+ Field(fieldName, fieldType)
+  extension (a: ArcaneSchema) def addField(fieldName: String, fieldType: ArcaneType): ArcaneSchema = fieldName match
+    case MergeKeyField.name => a :+ MergeKeyField
+    case _ => a :+ Field(fieldName, fieldType)
 
 /**
  * Represents a connection to a Microsoft SQL Server database.
