@@ -9,10 +9,11 @@ import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, Ver
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
 import com.sneaksanddata.arcane.framework.services.app.logging.base.Enricher
 import com.sneaksanddata.arcane.framework.services.app.{PosixStreamLifetimeService, StreamRunnerServiceImpl}
+import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumer
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider}
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchProcessor, StreamGraphBuilder}
-import com.sneaksanddata.arcane.framework.services.streaming.{BackfillGroupingProcessor, IcebergConsumer, LazyListGroupingProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.{BackfillGroupingProcessor, IcebergConsumer, LazyListGroupingProcessor, MergeProcessor}
 import org.slf4j.MDC
 import zio.logging.LogFormat
 import zio.logging.backend.SLF4J
@@ -51,7 +52,9 @@ object main extends ZIOAppDefault {
       StreamGraphBuilderFactory.layer,
       BackfillGroupingProcessor.layer,
       IcebergS3CatalogWriter.layer,
-      IcebergConsumer.layer
+      IcebergConsumer.layer,
+      MergeProcessor.layer,
+      JdbcConsumer.layer
     )
     .orDie
 }

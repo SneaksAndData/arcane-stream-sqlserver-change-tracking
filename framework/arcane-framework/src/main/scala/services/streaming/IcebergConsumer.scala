@@ -2,11 +2,13 @@ package com.sneaksanddata.arcane.framework
 package services.streaming
 
 import models.app.StreamContext
+import models.settings.SinkSettings
 import models.{ArcaneSchema, DataRow}
 import services.base.SchemaProvider
+import services.consumers.{BatchApplicationResult, SqlServerChangeTrackingMergeBatch, StagedVersionedBatch}
 import services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
-import services.streaming.IcebergConsumer.getTableName
-import services.streaming.base.BatchConsumer
+import services.streaming.IcebergConsumer.{getTableName, toStagedBatch}
+import services.streaming.base.{BatchConsumer, BatchProcessor}
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -25,8 +27,10 @@ import java.time.{ZoneOffset, ZonedDateTime}
  * @param schemaProvider The schema provider.
  */
 class IcebergConsumer(streamContext: StreamContext,
+                      sinkSettings: SinkSettings,
                       catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
-                      schemaProvider: SchemaProvider[ArcaneSchema]) extends BatchConsumer[Chunk[DataRow]]:
+                      schemaProvider: SchemaProvider[ArcaneSchema],
+                      mergeProcessor: BatchProcessor[StagedVersionedBatch, BatchApplicationResult]) extends BatchConsumer[Chunk[DataRow]]:
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[IcebergConsumer])
 
@@ -36,51 +40,64 @@ class IcebergConsumer(streamContext: StreamContext,
    * @return ZSink (stream sink for the stream graph).
    */
   def consume: ZSink[Any, Throwable, Chunk[DataRow], Any, Unit] =
-    writeStagingTable >>> logResults
+    writeStagingTable >>> mergeProcessor.process >>> logResults
 
 
-  private def logResults: ZSink[Any, Throwable, Table, Nothing, Unit] = ZSink.foreach { e =>
-    logger.info(s"Received the table ${e.name()} from the streaming source")
+  private def logResults: ZSink[Any, Throwable, BatchApplicationResult, Nothing, Unit] = ZSink.foreach { e =>
+    logger.info(s"Received the table $e from the streaming source")
     ZIO.unit
   }
 
-  private def writeStagingTable: ZPipeline[Any, Throwable, Chunk[DataRow], Table] = ZPipeline[Chunk[DataRow]]()
+  private def writeStagingTable = ZPipeline[Chunk[DataRow]]()
     .mapAccum(0L) { (acc, chunk) => (acc + 1, (chunk, acc.getTableName(streamContext.streamId))) }
     .mapZIO({
       case (rows, tableName) => writeWithWriter(rows, tableName)
     })
 
 
-  private def writeWithWriter(rows: Chunk[DataRow], name: String): Task[Table] =
+  private def writeWithWriter(rows: Chunk[DataRow], name: String): Task[StagedVersionedBatch] =
     for
-      schema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema)
-      table <- ZIO.fromFuture(implicit ec => catalogWriter.write(rows, name, schema))
-    yield table
+      arcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema)
+      table <- ZIO.fromFuture(implicit ec => catalogWriter.write(rows, name, arcaneSchema))
+    yield table.toStagedBatch(arcaneSchema, sinkSettings.sinkLocation, Map())
 
 object IcebergConsumer:
-  val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
+  val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm_ss")
 
   extension (batchNumber: Long) def getTableName(streamId: String): String =
-    s"$streamId-${ZonedDateTime.now(ZoneOffset.UTC).format(formatter)}-$batchNumber"
+    s"${streamId}_${ZonedDateTime.now(ZoneOffset.UTC).format(formatter)}_$batchNumber"
+
+  extension (table: Table) def toStagedBatch(batchSchema: ArcaneSchema,
+                                             targetName: String,
+                                             partitionValues: Map[String, List[String]]): StagedVersionedBatch =
+    val batchName = table.name().split('.').last
+    SqlServerChangeTrackingMergeBatch(batchName, batchSchema, targetName, partitionValues)
 
 
   /**
    * Factory method to create IcebergConsumer
    *
    * @param streamContext  The stream context.
+   * @param sinkSettings   The stream sink settings.
    * @param catalogWriter  The catalog writer.
    * @param schemaProvider The schema provider.
    * @return The initialized IcebergConsumer instance
    */
   def apply(streamContext: StreamContext,
+            sinkSettings: SinkSettings,
             catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
-            schemaProvider: SchemaProvider[ArcaneSchema]): IcebergConsumer =
-    new IcebergConsumer(streamContext, catalogWriter, schemaProvider)
+            schemaProvider: SchemaProvider[ArcaneSchema],
+            mergeProcessor: BatchProcessor[StagedVersionedBatch, Boolean]): IcebergConsumer =
+    new IcebergConsumer(streamContext, sinkSettings, catalogWriter, schemaProvider, mergeProcessor)
 
   /**
    * The required environment for the IcebergConsumer.
    */
-  type Environment = SchemaProvider[ArcaneSchema] & CatalogWriter[RESTCatalog, Table, Schema] & StreamContext
+  type Environment = SchemaProvider[ArcaneSchema]
+    & CatalogWriter[RESTCatalog, Table, Schema]
+    & BatchProcessor[StagedVersionedBatch, Boolean]
+    & StreamContext
+    & SinkSettings
 
   /**
    * The ZLayer that creates the IcebergConsumer.
@@ -89,7 +106,9 @@ object IcebergConsumer:
     ZLayer {
       for
         streamContext <- ZIO.service[StreamContext]
+        sinkSettings <- ZIO.service[SinkSettings]
         catalogWriter <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
         schemaProvider <- ZIO.service[SchemaProvider[ArcaneSchema]]
-      yield IcebergConsumer(streamContext, catalogWriter, schemaProvider)
+        mergeProcessor <- ZIO.service[BatchProcessor[StagedVersionedBatch, Boolean]]
+      yield IcebergConsumer(streamContext, sinkSettings, catalogWriter, schemaProvider, mergeProcessor)
     }
