@@ -7,7 +7,7 @@ import models.{ArcaneSchema, DataRow}
 import services.base.SchemaProvider
 import services.consumers.{BatchApplicationResult, SqlServerChangeTrackingMergeBatch, StagedVersionedBatch}
 import services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
-import IcebergConsumer.{getTableName, toStagedBatch}
+import IcebergStreamingConsumer.{getTableName, toStagedBatch}
 import services.streaming.base.{BatchConsumer, BatchProcessor}
 
 import org.apache.iceberg.rest.RESTCatalog
@@ -31,13 +31,13 @@ trait StreamingConsumer extends BatchConsumer[Chunk[DataRow]]
  * @param catalogWriter  The catalog writer.
  * @param schemaProvider The schema provider.
  */
-class IcebergConsumer(streamContext: StreamContext,
-                      sinkSettings: SinkSettings,
-                      catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
-                      schemaProvider: SchemaProvider[ArcaneSchema],
-                      mergeProcessor: BatchProcessor[StagedVersionedBatch, BatchApplicationResult]) extends StreamingConsumer:
+class IcebergStreamingConsumer(streamContext: StreamContext,
+                               sinkSettings: SinkSettings,
+                               catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
+                               schemaProvider: SchemaProvider[ArcaneSchema],
+                               mergeProcessor: BatchProcessor[StagedVersionedBatch, BatchApplicationResult]) extends StreamingConsumer:
 
-  private val logger: Logger = LoggerFactory.getLogger(classOf[IcebergConsumer])
+  private val logger: Logger = LoggerFactory.getLogger(classOf[IcebergStreamingConsumer])
 
   /**
    * Returns the sink that consumes the batch.
@@ -66,7 +66,7 @@ class IcebergConsumer(streamContext: StreamContext,
       table <- ZIO.fromFuture(implicit ec => catalogWriter.write(rows, name, arcaneSchema))
     yield table.toStagedBatch(arcaneSchema, sinkSettings.sinkLocation, Map())
 
-object IcebergConsumer:
+object IcebergStreamingConsumer:
   val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm_ss")
 
   extension (batchNumber: Long) def getTableName(streamId: String): String =
@@ -92,8 +92,8 @@ object IcebergConsumer:
             sinkSettings: SinkSettings,
             catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
             schemaProvider: SchemaProvider[ArcaneSchema],
-            mergeProcessor: BatchProcessor[StagedVersionedBatch, Boolean]): IcebergConsumer =
-    new IcebergConsumer(streamContext, sinkSettings, catalogWriter, schemaProvider, mergeProcessor)
+            mergeProcessor: BatchProcessor[StagedVersionedBatch, Boolean]): IcebergStreamingConsumer =
+    new IcebergStreamingConsumer(streamContext, sinkSettings, catalogWriter, schemaProvider, mergeProcessor)
 
   /**
    * The required environment for the IcebergConsumer.
@@ -115,5 +115,5 @@ object IcebergConsumer:
         catalogWriter <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
         schemaProvider <- ZIO.service[SchemaProvider[ArcaneSchema]]
         mergeProcessor <- ZIO.service[BatchProcessor[StagedVersionedBatch, Boolean]]
-      yield IcebergConsumer(streamContext, sinkSettings, catalogWriter, schemaProvider, mergeProcessor)
+      yield IcebergStreamingConsumer(streamContext, sinkSettings, catalogWriter, schemaProvider, mergeProcessor)
     }

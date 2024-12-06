@@ -126,10 +126,19 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
 
   /**
    * Gets the schema for the data produced by Arcane.
+   * Implementation in the MsSqlConnection memorizes the schema since we need to run an SQL query to 
+   * get the schema.
    *
    * @return A future containing the schema for the data produced by Arcane.
    */
-  override def getSchema: Future[this.SchemaType] =
+  override lazy val getSchema: Future[this.SchemaType] = readSchemaFromSource
+
+  /**
+   * Gets the schema for the data produced by Arcane.
+   *
+   * @return A future containing the schema for the data produced by Arcane.
+   */
+  private def readSchemaFromSource: Future[this.SchemaType] =
     for query <- this.getSchemaQuery
         sqlSchema <- getSqlSchema(query)
     yield toSchema(sqlSchema, empty) match
