@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.streaming
+package services.streaming.processors
 
 import models.querygen.MergeQuery
 import services.consumers.{BatchApplicationResult, JdbcConsumer, StagedBatch, StagedVersionedBatch}

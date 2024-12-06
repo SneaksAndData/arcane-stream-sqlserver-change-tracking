@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.streaming
+package services.streaming.graph_builders
 
 import models.DataRow
 import services.app.base.StreamLifetimeService
@@ -29,11 +29,11 @@ class BackfillDataGraphBuilder(backfillDataProvider: BackfillDataProvider,
       .flatMap(batch => ZStream.fromIterable(batch.read))
       .via(batchProcessor.process)
 
-  override def consume: ZSink[Any, Throwable, StreamElementType, Any, Unit] =
-    ZSink.foreach { e =>
-      logger.info(s"Received ${e.size} rows from the streaming source")
-      ZIO.unit
-    }
+  override def consume: ZSink[Any, Throwable, StreamElementType, Any, Unit] = batchConsumer.consume
+//    ZSink.foreach { e =>
+//      logger.info(s"Received ${e.size} rows from the streaming source")
+//      ZIO.unit
+//    }
 
 /**
  * The companion object for the VersionedDataGraphBuilder class.

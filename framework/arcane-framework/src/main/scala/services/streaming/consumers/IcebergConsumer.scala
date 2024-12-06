@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.streaming
+package services.streaming.consumers
 
 import models.app.StreamContext
 import models.settings.SinkSettings
@@ -7,7 +7,7 @@ import models.{ArcaneSchema, DataRow}
 import services.base.SchemaProvider
 import services.consumers.{BatchApplicationResult, SqlServerChangeTrackingMergeBatch, StagedVersionedBatch}
 import services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
-import services.streaming.IcebergConsumer.{getTableName, toStagedBatch}
+import IcebergConsumer.{getTableName, toStagedBatch}
 import services.streaming.base.{BatchConsumer, BatchProcessor}
 
 import org.apache.iceberg.rest.RESTCatalog
@@ -20,6 +20,11 @@ import java.time.format.DateTimeFormatter
 import java.time.{ZoneOffset, ZonedDateTime}
 
 /**
+ * A trait that represents a streaming consumer.
+ */
+trait StreamingConsumer extends BatchConsumer[Chunk[DataRow]]
+
+/**
  * A consumer that writes the data to the staging table.
  *
  * @param streamContext  The stream context.
@@ -30,7 +35,7 @@ class IcebergConsumer(streamContext: StreamContext,
                       sinkSettings: SinkSettings,
                       catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
                       schemaProvider: SchemaProvider[ArcaneSchema],
-                      mergeProcessor: BatchProcessor[StagedVersionedBatch, BatchApplicationResult]) extends BatchConsumer[Chunk[DataRow]]:
+                      mergeProcessor: BatchProcessor[StagedVersionedBatch, BatchApplicationResult]) extends StreamingConsumer:
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[IcebergConsumer])
 
@@ -102,7 +107,7 @@ object IcebergConsumer:
   /**
    * The ZLayer that creates the IcebergConsumer.
    */
-  val layer: ZLayer[Environment, Nothing, IcebergConsumer] =
+  val layer: ZLayer[Environment, Nothing, StreamingConsumer] =
     ZLayer {
       for
         streamContext <- ZIO.service[StreamContext]

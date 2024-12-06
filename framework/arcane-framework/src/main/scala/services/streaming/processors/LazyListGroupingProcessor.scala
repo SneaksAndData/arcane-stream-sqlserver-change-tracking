@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.streaming
+package services.streaming.processors
 
 import models.DataRow
 import models.settings.GroupingSettings

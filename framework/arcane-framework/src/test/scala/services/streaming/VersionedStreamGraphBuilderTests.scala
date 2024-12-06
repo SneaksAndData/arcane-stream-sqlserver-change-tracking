@@ -8,7 +8,10 @@ import services.app.base.StreamLifetimeService
 import services.mssql.MsSqlConnection.{DataBatch, VersionedBatch}
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 import services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider}
-import services.streaming.base.{BatchConsumer, BatchProcessor, VersionedDataProvider}
+import services.streaming.base.{BatchProcessor, VersionedDataProvider}
+import services.streaming.consumers.StreamingConsumer
+import services.streaming.graph_builders.VersionedDataGraphBuilder
+import services.streaming.processors.LazyListGroupingProcessor
 import utils.{TestConnectionInfo, TestGroupingSettings, TestStreamLifetimeService}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
@@ -18,7 +21,7 @@ import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.TableDrivenPropertyChecks.forAll
 import org.scalatest.prop.Tables.Table
 import zio.stream.ZSink
-import zio.{Chunk, FiberFailure, Runtime, Task, ULayer, Unsafe, ZIO, ZLayer}
+import zio.{Chunk, FiberFailure, Runtime, ULayer, Unsafe, ZIO, ZLayer}
 
 import java.sql.Connection
 import java.time.Duration
@@ -185,7 +188,7 @@ class VersionedStreamGraphBuilderTests extends flatspec.AsyncFlatSpec with Match
     test(conn)
 
 
-class EmptyConsumer extends BatchConsumer[Chunk[DataRow]]:
+class EmptyConsumer extends StreamingConsumer:
   def consume: ZSink[Any, Throwable, Chunk[DataRow], Any, Unit] = ZSink.drain
 
 class TestVersionedDataGraphBuilderSettings(override val lookBackInterval: Duration,
