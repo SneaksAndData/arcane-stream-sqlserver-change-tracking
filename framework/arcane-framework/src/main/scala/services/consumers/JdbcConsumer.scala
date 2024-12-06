@@ -24,7 +24,7 @@ trait JdbcConsumerOptions:
    * Checks if the connection URL is valid.
    * @return True if the connection URL is valid, false otherwise.
    */
-  def isValid: Boolean = Try(DriverManager.getDriver(connectionUrl)).isSuccess
+  final def isValid: Boolean = Try(DriverManager.getDriver(connectionUrl)).isSuccess
 
 /**
  * The result of applying a batch.
