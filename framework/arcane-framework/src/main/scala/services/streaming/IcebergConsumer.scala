@@ -59,7 +59,7 @@ class IcebergConsumer(streamContext: StreamContext,
     for
       arcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema)
       table <- ZIO.fromFuture(implicit ec => catalogWriter.write(rows, name, arcaneSchema))
-    yield table.toStagedBatch(arcaneSchema, sinkSettings.sinkLocation)
+    yield table.toStagedBatch(arcaneSchema, sinkSettings.sinkLocation, Map())
 
 object IcebergConsumer:
   val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm_ss")
@@ -67,10 +67,11 @@ object IcebergConsumer:
   extension (batchNumber: Long) def getTableName(streamId: String): String =
     s"${streamId}_${ZonedDateTime.now(ZoneOffset.UTC).format(formatter)}_$batchNumber"
 
-  extension (table: Table) def toStagedBatch(batchSchema: ArcaneSchema, targetName: String): StagedVersionedBatch =
-    val batchName = table.name().split('.').last;
-    // TODO: implement partition partitionValues
-    SqlServerChangeTrackingMergeBatch(batchName, batchSchema, targetName, Map())
+  extension (table: Table) def toStagedBatch(batchSchema: ArcaneSchema,
+                                             targetName: String,
+                                             partitionValues: Map[String, List[String]]): StagedVersionedBatch =
+    val batchName = table.name().split('.').last
+    SqlServerChangeTrackingMergeBatch(batchName, batchSchema, targetName, partitionValues)
 
 
   /**
