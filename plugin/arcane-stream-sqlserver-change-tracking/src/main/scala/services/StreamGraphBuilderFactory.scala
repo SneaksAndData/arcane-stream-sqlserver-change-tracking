@@ -3,7 +3,7 @@ package services
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.services.streaming.base.StreamGraphBuilder
-import com.sneaksanddata.arcane.framework.services.streaming.{BackfillDataGraphBuilder, VersionedDataGraphBuilder}
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{BackfillDataGraphBuilder, VersionedDataGraphBuilder}
 import zio.{ZIO, ZLayer}
 
 /**

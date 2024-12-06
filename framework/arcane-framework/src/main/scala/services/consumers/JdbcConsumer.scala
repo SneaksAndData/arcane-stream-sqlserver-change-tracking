@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.consumers
 
-import services.streaming.BackfillDataGraphBuilder
+import services.streaming.graph_builders.BackfillDataGraphBuilder
 
 import org.slf4j.{Logger, LoggerFactory}
 import zio.{ZIO, ZLayer}
