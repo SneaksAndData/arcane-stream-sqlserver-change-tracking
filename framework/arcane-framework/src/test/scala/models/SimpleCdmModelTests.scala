@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models
 
-import models.cdm.given_Conversion_SimpleCdmModel_ArcaneSchema
+import models.cdm.given_Conversion_SimpleCdmEntity_ArcaneSchema
 import models.cdm.SimpleCdmModel
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -33,8 +33,8 @@ class SimpleCdmModelTests extends AnyFlatSpec with Matchers {
       _.getLines().mkString("\n")
     }.get
 
-    val result: ArcaneSchema = read[SimpleCdmModel](serialized)
+    val result: Seq[ArcaneSchema] = read[SimpleCdmModel](serialized).entities.map(implicitly)
 
-    noException should be thrownBy result.mergeKey
+    noException should be thrownBy result.map(schema => schema.mergeKey).toList
   }
 }
