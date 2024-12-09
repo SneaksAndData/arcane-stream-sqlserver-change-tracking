@@ -366,7 +366,7 @@
       ],
       "partitions": [
         {
-          "name": "2024",
+          "name": "2020",
           "location": "https://myaccount.dfs.core.windows.net:443/dataverse-identifier/2020-10-01T00.00.00Z/custinvoicejour/2020.csv",
           "cdm:traits": [
             {
