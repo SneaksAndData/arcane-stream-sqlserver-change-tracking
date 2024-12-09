@@ -4,6 +4,8 @@ package services.mssql
 import models.MergeKeyField
 import models.DatePartitionField
 
+import org.slf4j.{Logger, LoggerFactory}
+
 import java.time.format.DateTimeFormatter
 import java.time.{Duration, Instant, LocalDateTime, ZoneOffset}
 import scala.concurrent.Future
@@ -16,6 +18,8 @@ object QueryProvider:
    */
   private val UPSERT_MERGE_KEY = MergeKeyField.name
 
+  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
+  
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
   /**
@@ -141,7 +145,7 @@ object QueryProvider:
 
   private def getChangeTrackingColumns(tableColumns: List[ColumnSummary], tableAlias: String): String =
     val primaryKeyColumns = tableColumns.filter((_, isPrimaryKey) => isPrimaryKey).map((name, _) => s"$tableAlias.[$name]")
-    val additionalColumns = List("0 as SYS_CHANGE_VERSION", "'I' as SYS_CHANGE_OPERATION")
+    val additionalColumns = List("CAST(0 as BIGINT) as SYS_CHANGE_VERSION", "'I' as SYS_CHANGE_OPERATION")
     val nonPrimaryKeyColumns = tableColumns
       .filter((name, isPrimaryKey) => !isPrimaryKey && !Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION").contains(name))
       .map((name, _) => s"$tableAlias.[$name]")
@@ -158,7 +162,7 @@ object QueryProvider:
       case None => Source.fromResource("get_select_delta_query.sql")
     }
 
-    Using(querySource)(_.getLines.mkString("\n")) map { baseQuery =>
+    val query = Using(querySource)(_.getLines.mkString("\n")) map { baseQuery =>
       baseQuery.replace("{dbName}", connectionOptions.databaseName)
         .replace("{schema}", connectionOptions.schemaName)
         .replace("{tableName}", connectionOptions.tableName)
@@ -170,6 +174,8 @@ object QueryProvider:
         .replace("{DATE_PARTITION_KEY}", DatePartitionField.name)
         .replace("{lastId}", changeTrackingId.toString)
     }
+    logger.debug(s"Query: $query")
+    query
 
   private def getAllQuery(connectionOptions: ConnectionOptions,
                           mergeExpression: String,
@@ -180,7 +186,7 @@ object QueryProvider:
       case None => Source.fromResource("get_select_all_query.sql")
     }
 
-    Using(querySource)(_.getLines.mkString("\n")) map { baseQuery =>
+    val query = Using(querySource)(_.getLines.mkString("\n")) map { baseQuery =>
       baseQuery
         .replace("{dbName}", connectionOptions.databaseName)
         .replace("{schema}", connectionOptions.schemaName)
@@ -191,3 +197,5 @@ object QueryProvider:
         .replace("{DATE_PARTITION_EXPRESSION}", connectionOptions.partitionExpression.getOrElse(""))
         .replace("{DATE_PARTITION_KEY}", DatePartitionField.name)
     }
+    logger.debug(s"Query: $query")
+    query
