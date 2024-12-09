@@ -20,3 +20,17 @@ case class SimpleCdmEntity(
 
 case class SimpleCdmModel(name: String, description: String, version: String, entities: Seq[SimpleCdmEntity])
   derives ReadWriter
+
+given Conversion[SimpleCdmAttribute, ArcaneSchemaField] with
+  override def apply(entity: SimpleCdmAttribute): ArcaneSchemaField = entity.dataType match
+    case "guid" => Field(name = entity.name, fieldType = ArcaneType.StringType)
+    case "string" => Field(name = entity.name, fieldType = ArcaneType.StringType)
+    case "int64" => Field(name = entity.name, fieldType = ArcaneType.LongType)
+    case "decimal" => Field(name = entity.name, fieldType = ArcaneType.DoubleType)
+    case "dateTime" => Field(name = entity.name, fieldType = ArcaneType.TimestampType)
+    case "dateTimeOffset" => Field(name = entity.name, fieldType = ArcaneType.DateTimeOffsetType)
+    case "boolean" => Field(name = entity.name, fieldType = ArcaneType.BooleanType)
+    case _ => Field(name = entity.name, fieldType = ArcaneType.StringType)
+
+given Conversion[SimpleCdmEntity, ArcaneSchema] with
+  override def apply(entity: SimpleCdmEntity): ArcaneSchema = entity.attributes.map(implicitly) :+ MergeKeyField
