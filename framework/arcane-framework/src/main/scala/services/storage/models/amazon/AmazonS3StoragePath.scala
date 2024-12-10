@@ -23,13 +23,13 @@ final case class AmazonS3StoragePath(bucket: String, objectKey: String) extends 
   override def toHdfsPath = s"s3a://$bucket/$objectKey"
 
   /**
-    * Joins the given key name to the current path.
-    *
-    * @param keyName The key name to join.
-    * @return The new path.
-    */
+   * Joins the given key name to the current path.
+   *
+   * @param keyName The key name to join.
+   * @return The new path.
+   */
   @targetName("plus")
-  def +(keyName: String) = new AmazonS3StoragePath(bucket, if (objectKey.isEmpty) keyName else s"$objectKey/$keyName")
+  def +(keyName: String): AmazonS3StoragePath = copy(objectKey = if (objectKey.isEmpty) keyName else s"$objectKey/$keyName")
 
 /**
   * Companion object for [[AmazonS3StoragePath]].
@@ -43,10 +43,7 @@ object AmazonS3StoragePath {
     * @param hdfsPath The HDFS path.
     * @return The [[AmazonS3StoragePath]].
     */
-  def apply(hdfsPath: String): Try[AmazonS3StoragePath] =
-    val r: Regex = AmazonS3StoragePath.matchRegex.r
-    val m = r.findFirstMatchIn(hdfsPath)
-    m match {
+  def apply(hdfsPath: String): Try[AmazonS3StoragePath] = matchRegex.r.findFirstMatchIn(hdfsPath) match {
       case Some(matched) => Success(new AmazonS3StoragePath(matched.group(1), matched.group(2).stripSuffix("/")))
       case None => Failure(IllegalArgumentException(s"An AmazonS3StoragePath must be in the format s3a://bucket/path, but was: $hdfsPath"))
     }
