@@ -7,7 +7,7 @@ import scala.language.implicitConversions
 import scala.util.matching.Regex
 
 object CSVParser:
-  def parseCsvLine(line: String, delimiter: Char = ','): Seq[Option[String]] = {
+  def parseCsvLine(line: String, delimiter: Char = ',', headerCount: Int): Seq[Option[String]] = {
     def isQuote(position: Int): Boolean = line(position) == '"'
     def isDelimiter(position: Int): Boolean = line(position) == delimiter
     def isEol(position: Int): Boolean = position == line.length - 1
@@ -27,13 +27,19 @@ object CSVParser:
           case (true, false) if isQuote(currentPosition - 1) => Some(line.slice(from = fromIndex, until = currentPosition - 1))
           case _ => Some(line.slice(from = fromIndex, until = currentPosition))
 
-    line.zipWithIndex.foldLeft((IndexedSeq[Option[String]](), 0, 0)) { (agg, element) =>
+    val parsed = line.zipWithIndex.foldLeft((IndexedSeq[Option[String]](), 0, 0)) { (agg, element) =>
       val (character, charIndex) = element
       val (result, quoteSum, prevCharIndex) = agg
 
+      def handleEol: (IndexedSeq[Option[String]], Int, Int) =
+        if isQuote(prevCharIndex) then
+          (result :+ extractValue(prevCharIndex + 1, charIndex), quoteSum, prevCharIndex)
+        else
+          (result :+ extractValue(prevCharIndex, charIndex), quoteSum, prevCharIndex)
+
       character match
         // recursive case in a quoted line - opening quote - move on
-        case '"' if charIndex < line.length && quoteSum == 0 =>
+        case '"' if !isEol(charIndex) && quoteSum == 0 =>
           (result, quoteSum + 1, prevCharIndex)
 
         // recursive case in a quoted line - closing quote - move on
@@ -41,11 +47,7 @@ object CSVParser:
           (result, quoteSum - 1, prevCharIndex)
 
         // EOL on quote
-        case '"' if isEol(charIndex) =>
-          if isQuote(prevCharIndex) then
-            (result :+ extractValue(prevCharIndex + 1, charIndex), quoteSum, prevCharIndex)
-          else
-            (result :+ extractValue(prevCharIndex, charIndex), quoteSum, prevCharIndex)
+        case '"' if isEol(charIndex) => handleEol
 
         // hit a delimiter, not end of string - emit value and continue
         case _ if (quoteSum == 0) && isDelimiter(charIndex) && !isEol(charIndex) =>
@@ -61,11 +63,7 @@ object CSVParser:
             (result :+ extractValue(prevCharIndex, charIndex) :+ None, quoteSum, prevCharIndex)
 
         // regular case - end of line - return last segment and exit
-        case _ if (quoteSum == 0) && isEol(charIndex) =>
-          if isQuote(prevCharIndex) then
-            (result :+ extractValue(prevCharIndex + 1, charIndex), quoteSum, prevCharIndex)
-          else
-            (result :+ extractValue(prevCharIndex, charIndex), quoteSum, prevCharIndex)
+        case _ if (quoteSum == 0) && isEol(charIndex) => handleEol
 
         // mismatched quotes
         case _ if (quoteSum != 0) && isEol(charIndex) && !isQuote(charIndex) =>
@@ -73,6 +71,11 @@ object CSVParser:
         case _ =>
           (result, quoteSum, prevCharIndex)
     }._1
+
+    if parsed.size != headerCount then
+      throw new IllegalStateException(s"CSV line $line with delimiter $delimiter cannot be parsed into desired $headerCount")
+
+    parsed
   }
 
   def isComplete(csvLine: String): Boolean = {
@@ -88,10 +91,10 @@ object CSVParser:
 given Conversion[(String, ArcaneSchema), DataRow] with
   override def apply(schemaBoundCsvLine: (String, ArcaneSchema)): DataRow = schemaBoundCsvLine match
     case (csvLine, schema) =>
-      val parsed = CSVParser.parseCsvLine(csvLine)
-
-      require(parsed.size == schema.size, s"Mismatched field count: ${parsed.size} in the CSV, ${schema.size} in the schema")
-
+      val parsed = CSVParser.parseCsvLine(
+        line = csvLine,
+        headerCount = schema.size)
+      
       val mergeKeyValue = parsed(schema.zipWithIndex.find(v => v._1.name == "Id").get._2)
 
       parsed

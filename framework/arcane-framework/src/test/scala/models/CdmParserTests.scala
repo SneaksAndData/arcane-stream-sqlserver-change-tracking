@@ -23,19 +23,19 @@ class CdmParserTests extends AnyFlatSpec with Matchers {
 
   private val invalidCsvlines = Table(
     ("line", "result"),
-    ("\"q\",\",\"1321\"", Seq())
+    ("\"q\",\",\"1321\"", Seq(Some("q"), None, Some("1321")))
   )
 
   it should "handle valid quoted CSV lines correctly" in {
     forAll (validCsvLines) { (line, result) =>
-      CSVParser.parseCsvLine(line) should equal(result)
+      CSVParser.parseCsvLine(line = line, headerCount = result.size) should equal(result)
     }
   }
 
   it should "handle invalid quoted CSV lines correctly" in {
-    forAll (invalidCsvlines) { (line, _) =>
+    forAll (invalidCsvlines) { (line, result) =>
       intercept[IllegalStateException] {
-        CSVParser.parseCsvLine(line)
+        CSVParser.parseCsvLine(line, headerCount = result.size)
       }
     }
   }
