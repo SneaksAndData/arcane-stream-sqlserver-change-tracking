@@ -28,6 +28,9 @@ object CSVParser:
           case _ => Some(line.slice(from = fromIndex, until = currentPosition))
 
     def scanLine(charIndex: Int, quoteSum: Int, prevCharIndex: Int): IndexedSeq[Option[String]] = {
+      if charIndex >= line.length then
+        throw new IllegalStateException(s"Failed to split a CSV line $line with delimiter $delimiter into a value sequence")
+        
       line(charIndex) match
         // recursive case in a quoted line - opening quote - move on
         case '"' if charIndex < line.length && quoteSum == 0 =>
