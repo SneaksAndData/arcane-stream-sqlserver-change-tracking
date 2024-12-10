@@ -27,54 +27,52 @@ object CSVParser:
           case (true, false) if isQuote(currentPosition - 1) => Some(line.slice(from = fromIndex, until = currentPosition - 1))
           case _ => Some(line.slice(from = fromIndex, until = currentPosition))
 
-    def scanLine(charIndex: Int, quoteSum: Int, prevCharIndex: Int): IndexedSeq[Option[String]] = {
-      if charIndex >= line.length then
-        throw new IllegalStateException(s"Failed to split a CSV line $line with delimiter $delimiter into a value sequence")
-        
-      line(charIndex) match
+    line.zipWithIndex.foldLeft((IndexedSeq[Option[String]](), 0, 0)) { (agg, element) =>
+      val (character, charIndex) = element
+      val (result, quoteSum, prevCharIndex) = agg
+
+      character match
         // recursive case in a quoted line - opening quote - move on
         case '"' if charIndex < line.length && quoteSum == 0 =>
-          scanLine(charIndex + 1, quoteSum + 1, prevCharIndex)
+          (result, quoteSum + 1, prevCharIndex)
 
         // recursive case in a quoted line - closing quote - move on
         case '"' if charIndex < line.length - 1 =>
-          scanLine(charIndex + 1, quoteSum - 1, prevCharIndex)
+          (result, quoteSum - 1, prevCharIndex)
 
         // EOL on quote
         case '"' if isEol(charIndex) =>
           if isQuote(prevCharIndex) then
-            IndexedSeq(extractValue(prevCharIndex + 1, charIndex))
+            (result :+ extractValue(prevCharIndex + 1, charIndex), quoteSum, prevCharIndex)
           else
-            IndexedSeq(extractValue(prevCharIndex, charIndex))
+            (result :+ extractValue(prevCharIndex, charIndex), quoteSum, prevCharIndex)
 
         // hit a delimiter, not end of string - emit value and continue
         case _ if (quoteSum == 0) && isDelimiter(charIndex) && !isEol(charIndex) =>
           if isQuote(prevCharIndex) then // move ahead 1 character in case we hit a quote on a previous character
-            extractValue(prevCharIndex + 1, charIndex) +: scanLine(charIndex + 1, quoteSum, charIndex + 1)
+            (result :+ extractValue(prevCharIndex + 1, charIndex), quoteSum, charIndex + 1)
           else
-            extractValue(prevCharIndex, charIndex) +: scanLine(charIndex + 1, quoteSum, charIndex + 1)
+            (result :+ extractValue(prevCharIndex, charIndex), quoteSum, charIndex + 1)
 
         case _ if (quoteSum == 0) && isDelimiter(charIndex) && isEol(charIndex) =>
           if isQuote(prevCharIndex) then
-            IndexedSeq(extractValue(prevCharIndex + 1, charIndex), None)
+            (result :+ extractValue(prevCharIndex + 1, charIndex) :+ None, quoteSum, prevCharIndex)
           else
-            IndexedSeq(extractValue(prevCharIndex, charIndex), None)
+            (result :+ extractValue(prevCharIndex, charIndex) :+ None, quoteSum, prevCharIndex)
 
         // regular case - end of line - return last segment and exit
         case _ if (quoteSum == 0) && isEol(charIndex) =>
           if isQuote(prevCharIndex) then
-            IndexedSeq(extractValue(prevCharIndex + 1, charIndex))
+            (result :+ extractValue(prevCharIndex + 1, charIndex), quoteSum, prevCharIndex)
           else
-            IndexedSeq(extractValue(prevCharIndex, charIndex))
+            (result :+ extractValue(prevCharIndex, charIndex), quoteSum, prevCharIndex)
 
         // mismatched quotes
         case _ if (quoteSum != 0) && isEol(charIndex) && !isQuote(charIndex) =>
           throw new IllegalStateException(s"CSV line $line with delimiter $delimiter has mismatching field quotes")
         case _ =>
-          scanLine(charIndex + 1, quoteSum, prevCharIndex)
-    }
-
-    scanLine(0, 0, 0)
+          (result, quoteSum, prevCharIndex)
+    }._1
   }
 
   def isComplete(csvLine: String): Boolean = {
