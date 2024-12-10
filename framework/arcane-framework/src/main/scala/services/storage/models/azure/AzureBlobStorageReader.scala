@@ -10,7 +10,7 @@ import services.storage.models.azure.AzureModelConversions.given
 
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
-import com.azure.storage.blob.models.ListBlobsOptions
+import com.azure.storage.blob.models.{BlobListDetails, ListBlobsOptions}
 import com.azure.storage.common.policy.{RequestRetryOptions, RetryPolicyType}
 
 import java.time.Duration
@@ -22,6 +22,7 @@ final class AzureBlobStorageReader extends BlobStorageReader[AdlsStoragePath]:
   private val httpRetryTimeout = Duration.ofSeconds(60)
   private val httpMinRetryDelay = Duration.ofMillis(500)
   private val httpMaxRetryDelay = Duration.ofSeconds(3)
+  private val maxResultsPerPage = 1000
   
   private lazy val defaultCredential = new DefaultAzureCredentialBuilder().build()
   private lazy val serviceClient = new BlobServiceClientBuilder()
@@ -43,7 +44,9 @@ final class AzureBlobStorageReader extends BlobStorageReader[AdlsStoragePath]:
 
   def listBlobs(blobPath: AdlsStoragePath): LazyList[StoredBlob] =
     val client = getBlobContainerClient(blobPath)
-    val listOptions = new ListBlobsOptions().setPrefix(blobPath.blobPrefix)
+    val listOptions = new ListBlobsOptions()
+      .setPrefix(blobPath.blobPrefix)
+      .setMaxResultsPerPage(maxResultsPerPage)
 
     @tailrec
     def getPage(pageToken: Option[String], result: Iterable[StoredBlob]): Iterable[StoredBlob] =
