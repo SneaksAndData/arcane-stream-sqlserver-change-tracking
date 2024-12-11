@@ -37,8 +37,17 @@ final class AzureBlobStorageReader extends BlobStorageReader[AdlsStoragePath]:
 
   private def getBlobContainerClient(blobPath: AdlsStoragePath): BlobContainerClient =
     serviceClient.getBlobContainerClient(blobPath.container)
+    
+  private val stringContentSerializer: Array[Byte] => String = _.map(_.toChar).mkString
 
-  def getBlobContent[Result](blobPath: AdlsStoragePath, deserializer: Array[Byte] => Result): Future[Result] =
+  /**
+   * 
+   * @param blobPath The path to the blob.
+   * @param deserializer function to deserialize the content of the blob. Deserializes all content as String if not implementation is provided
+   * @tparam Result The type of the result.
+   *  @return The result of applying the function to the content of the blob.
+   */
+  def getBlobContent[Result](blobPath: AdlsStoragePath, deserializer: Array[Byte] => Result = stringContentSerializer): Future[Result] =
     val client = getBlobClient(blobPath)
     Future(deserializer(client.downloadContent().toBytes))
 

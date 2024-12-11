@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.cdm
 
 import models.cdm.CSVParser.replaceQuotedNewlines
-import models.cdm.{SimpleCdmEntity, given}
+import models.cdm.{SimpleCdmEntity, SimpleCdmModel, given}
 import models.{ArcaneSchema, DataRow}
 import services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReader}
 
@@ -48,7 +48,7 @@ class CdmTable(name: String, storagePath: AdlsStoragePath, entityModel: SimpleCd
       .flatMap(prefix => reader.listBlobs(storagePath + prefix + name))
       // exclude any files other than CSV
       .collect {
-          case blob if blob.name.endsWith(".csv") => reader.getBlobContent(storagePath + blob.name, _.map(_.toChar).mkString)
+          case blob if blob.name.endsWith(".csv") => reader.getBlobContent(storagePath + blob.name)
       })
       .map(_.flatMap(content => replaceQuotedNewlines(content).split('\n').map(implicitly[DataRow](_, schema))))
       .map(LazyList.from)
@@ -60,3 +60,4 @@ object CdmTable:
     entityModel = entityModel,
     reader = reader
   )
+  
