@@ -41,6 +41,9 @@ given Conversion[SimpleCdmEntity, ArcaneSchema] with
 
 object SimpleCdmModel:
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
+  // number of fields in the schema of each entity which do not originate from CDM
+  // currently MergeKeyField only
+  val systemFieldCount: Int = 1
 
   def apply(rootPath: String, reader: AzureBlobStorageReader): Future[SimpleCdmModel] =
     AdlsStoragePath(rootPath).map(_ + "model.json") match {

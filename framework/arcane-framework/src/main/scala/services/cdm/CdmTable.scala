@@ -17,25 +17,13 @@ class CdmTable(name: String, storagePath: AdlsStoragePath, entityModel: SimpleCd
   private def getListPrefixes(startDate: Option[OffsetDateTime]): IndexedSeq[String] =
     val currentMoment = OffsetDateTime.now(ZoneOffset.UTC)
     val startMoment = startDate.getOrElse(currentMoment.minusYears(defaultFromYears))
-    Range.inclusive(
-      startMoment.getYear,
-      currentMoment.getYear
-    ).flatMap(year => Range.inclusive(
-      1,
-      12
-    ).map { m =>
-      val mon = s"00$m".takeRight(2)
-      (s"$year-$mon-", year, m)
-    }).collect {
-      // include all prefixes from previous years
-      // in case year for both dates is the same, we will never hit this case
-      case (prefix, year, _) if year < currentMoment.getYear => prefix
-      // only include prefixes for current year that are less than current month
-      // this only applies to the case when startMoment year is less than current moment - then we take months from 1 to current month
-      case (prefix, year, mon) if (year == currentMoment.getYear) && (currentMoment.getYear > startMoment.getYear) && (mon <= currentMoment.getMonth.getValue) => prefix
-      // in case both dates are in the same year, we limit month selection to start from startMoment month
-      case (prefix, year, mon) if (year == currentMoment.getYear) && (currentMoment.getYear == startMoment.getYear) && (mon >= startMoment.getMonth.getValue) && (mon <= currentMoment.getMonth.getValue) => prefix
-    }
+    Iterator.iterate(startMoment)(_.plusDays(1))
+      .takeWhile(_.toEpochSecond < currentMoment.toEpochSecond)
+      .map { moment =>
+        val monthString = s"00${moment.getMonth.getValue}".takeRight(2)
+        val dayString = s"00${moment.getDayOfMonth}".takeRight(2)
+        s"${moment.getYear}-$monthString-$dayString"
+      }.toIndexedSeq
 
   /**
    * Read a table snapshot, taking optional start time.
@@ -45,7 +33,8 @@ class CdmTable(name: String, storagePath: AdlsStoragePath, entityModel: SimpleCd
   def snapshot(startDate: Option[OffsetDateTime] = None): Future[LazyList[DataRow]] =
     // list all matching blobs
     Future.sequence(getListPrefixes(startDate)
-      .flatMap(prefix => reader.listBlobs(storagePath + prefix + name))
+      .flatMap(prefix => reader.listPrefixes(storagePath + prefix))
+      .flatMap(prefix => reader.listBlobs(storagePath + prefix.name + name))
       // exclude any files other than CSV
       .collect {
           case blob if blob.name.endsWith(".csv") => reader.getBlobContent(storagePath + blob.name)
@@ -60,4 +49,4 @@ object CdmTable:
     entityModel = entityModel,
     reader = reader
   )
-  
+

@@ -73,7 +73,7 @@ object CSVParser:
     }._1
 
     if parsed.size != headerCount then
-      throw new IllegalStateException(s"CSV line $line with delimiter $delimiter cannot be parsed into desired $headerCount")
+      throw new IllegalStateException(s"CSV line $line with delimiter $delimiter cannot be parsed into desired $headerCount fields")
 
     parsed
   }
@@ -93,7 +93,7 @@ given Conversion[(String, ArcaneSchema), DataRow] with
     case (csvLine, schema) =>
       val parsed = CSVParser.parseCsvLine(
         line = csvLine,
-        headerCount = schema.size)
+        headerCount = schema.size - SimpleCdmModel.systemFieldCount)
       
       val mergeKeyValue = parsed(schema.zipWithIndex.find(v => v._1.name == "Id").get._2)
 
