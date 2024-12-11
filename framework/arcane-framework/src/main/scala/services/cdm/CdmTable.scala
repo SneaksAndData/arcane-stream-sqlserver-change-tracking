@@ -1,12 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package services.cdm
 
-import models.cdm.CSVParser.isComplete
+import models.cdm.CSVParser.replaceQuotedNewlines
 import models.cdm.{SimpleCdmEntity, given}
 import models.{ArcaneSchema, DataRow}
 import services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReader}
 
-import java.time.{Instant, OffsetDateTime, ZoneOffset}
+import java.time.{OffsetDateTime, ZoneOffset}
 import scala.concurrent.Future
 
 class CdmTable(name: String, storagePath: AdlsStoragePath, entityModel: SimpleCdmEntity, reader: AzureBlobStorageReader):
@@ -45,14 +45,12 @@ class CdmTable(name: String, storagePath: AdlsStoragePath, entityModel: SimpleCd
   def snapshot(startDate: Option[OffsetDateTime] = None): Future[LazyList[DataRow]] =
     // list all matching blobs
     Future.sequence(getListPrefixes(startDate)
-      .flatMap(prefix => reader.listBlobs(storagePath + prefix))
-      .map(blob => reader.getBlobContent(storagePath + blob.name, _.map(_.toChar).mkString)))
-      .map(_.flatMap(content => content.split('\n').foldLeft((Seq.empty[String], "")) { (agg, value) =>
-        if isComplete(agg._2) then
-          (agg._1 :+ agg._2, "")
-        else
-          (agg._1, agg._2 + value)
-      }._1.map(implicitly[DataRow](_, schema))))
+      .flatMap(prefix => reader.listBlobs(storagePath + prefix + name))
+      // exclude any files other than CSV
+      .collect {
+          case blob if blob.name.endsWith(".csv") => reader.getBlobContent(storagePath + blob.name, _.map(_.toChar).mkString)
+      })
+      .map(_.flatMap(content => replaceQuotedNewlines(content).split('\n').map(implicitly[DataRow](_, schema))))
       .map(LazyList.from)
 
 object CdmTable:
