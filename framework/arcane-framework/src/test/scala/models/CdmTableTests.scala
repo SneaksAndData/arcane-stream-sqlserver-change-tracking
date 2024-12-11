@@ -32,7 +32,7 @@ class CdmTableTests extends AsyncFlatSpec with Matchers {
       case (Some(container), Some(account), Some(key)) => SimpleCdmModel(s"abfss://$container@$account.dfs.core.windows.net/", AzureBlobStorageReader(account, StorageSharedKeyCredential(account, key))).flatMap { model =>
         val entityToRead = model.entities.find(v => v.name == "salesline").get
         CdmTable(CdmTableSettings(name = entityToRead.name, rootPath = s"abfss://$container@$account.dfs.core.windows.net/"), entityToRead, AzureBlobStorageReader(account, StorageSharedKeyCredential(account, key)))
-          .snapshot(Some(OffsetDateTime.now(ZoneOffset.UTC).minusDays(1)))
+          .snapshot(Some(OffsetDateTime.now(ZoneOffset.UTC).minusHours(6)))
           .map { rows =>
             rows.foldLeft(0L){ (agg, _) => agg + 1 } should be > 0L
           }

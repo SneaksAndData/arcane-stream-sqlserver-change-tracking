@@ -17,12 +17,13 @@ class CdmTable(name: String, storagePath: AdlsStoragePath, entityModel: SimpleCd
   private def getListPrefixes(startDate: Option[OffsetDateTime]): IndexedSeq[String] =
     val currentMoment = OffsetDateTime.now(ZoneOffset.UTC)
     val startMoment = startDate.getOrElse(currentMoment.minusYears(defaultFromYears))
-    Iterator.iterate(startMoment)(_.plusDays(1))
+    Iterator.iterate(startMoment)(_.plusHours(1))
       .takeWhile(_.toEpochSecond < currentMoment.toEpochSecond)
       .map { moment =>
         val monthString = s"00${moment.getMonth.getValue}".takeRight(2)
         val dayString = s"00${moment.getDayOfMonth}".takeRight(2)
-        s"${moment.getYear}-$monthString-$dayString"
+        val hourString = s"00${moment.getHour}".takeRight(2)
+        s"${moment.getYear}-$monthString-${dayString}T$hourString"
       }.toIndexedSeq
 
   /**
