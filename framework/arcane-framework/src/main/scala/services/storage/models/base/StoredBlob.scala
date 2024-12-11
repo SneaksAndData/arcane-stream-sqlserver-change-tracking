@@ -43,4 +43,4 @@ case class StoredBlob(
  /**
   * Created on timestamp.  
   */
- createdOn: Long)  
+ createdOn: Option[Long])  
