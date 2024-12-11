@@ -10,9 +10,22 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success}
 import scala.language.implicitConversions
 
+/**
+ * Attribute in Microsoft Common Data Model, simplified compared to native SDK
+ * @param name Attribute name
+ * @param dataType String literal for the attribute data type
+ * @param maxLength max length property - not used
+ */
 case class SimpleCdmAttribute(name: String, dataType: String, maxLength: Int)
   derives ReadWriter
 
+/**
+ * Entity (Table) in Microsoft Common Data Model, simplified compared to native SDK
+ * @param entityType CDM entity type
+ * @param name Entity name 
+ * @param description Docstring for the entity
+ * @param attributes Entity fields
+ */
 case class SimpleCdmEntity(
                             @upickle.implicits.key("$type")
                             entityType: String,
@@ -22,6 +35,13 @@ case class SimpleCdmEntity(
   derives ReadWriter
 
 
+/**
+ * Synapse Link container model, containing all entities enabled for the export
+ * @param name Model name
+ * @param description Docstring for the model
+ * @param version Model version
+ * @param entities Included entities
+ */
 case class SimpleCdmModel(name: String, description: String, version: String, entities: Seq[SimpleCdmEntity])
   derives ReadWriter
 

@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.cdm
 
 import models.cdm.CSVParser.replaceQuotedNewlines
-import models.cdm.{SimpleCdmEntity, SimpleCdmModel, given}
+import models.cdm.{SimpleCdmEntity, given}
 import models.{ArcaneSchema, DataRow}
 import services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReader}
 
@@ -14,6 +14,11 @@ class CdmTable(name: String, storagePath: AdlsStoragePath, entityModel: SimpleCd
   private val defaultFromYears: Int = 5
   private val schema: ArcaneSchema = implicitly(entityModel)
 
+  /**
+   * Read top-level virtual directories to allow pre-filtering blobs
+   * @param startDate Baseline date to start search from
+   * @return A list of yyyy-MM-ddTHH prefixes to apply as filters
+   */
   private def getListPrefixes(startDate: Option[OffsetDateTime]): IndexedSeq[String] =
     val currentMoment = OffsetDateTime.now(ZoneOffset.UTC)
     val startMoment = startDate.getOrElse(currentMoment.minusYears(defaultFromYears))
@@ -27,7 +32,7 @@ class CdmTable(name: String, storagePath: AdlsStoragePath, entityModel: SimpleCd
       }.toIndexedSeq
 
   /**
-   * Read a table snapshot, taking optional start time.
+   * Read a table snapshot, taking optional start time. Lowest precision available is 1 hour
    * @param startDate Folders from Synapse export to include in the snapshot, based on the start date provided. If not provided, ALL folders from now - defaultFromYears will be included
    * @return A stream of rows for this table
    */

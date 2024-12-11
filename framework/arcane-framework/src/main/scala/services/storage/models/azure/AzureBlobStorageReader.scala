@@ -19,6 +19,12 @@ import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 
+/**
+ * Blob reader implementation for Azure. Relies on the default credential chain if no added credentials are provided.
+ * @param accountName Storage account name
+ * @param tokenCredential Optional token credential provider
+ * @param sharedKeyCredential Optional access key credential
+ */
 final class AzureBlobStorageReader(accountName: String, tokenCredential: Option[TokenCredential], sharedKeyCredential: Option[StorageSharedKeyCredential]) extends BlobStorageReader[AdlsStoragePath]:
   private val httpMaxRetries = 3
   private val httpRetryTimeout = Duration.ofSeconds(60)
@@ -98,6 +104,28 @@ final class AzureBlobStorageReader(accountName: String, tokenCredential: Option[
 
 object AzureBlobStorageReader:
   // TODO: move http settings etc to apply
+
+  /**
+   * Create AzureBlobStorageReader for the account using TokenCredential
+   * @param accountName Storage account name
+   * @param credential TokenCredential (accessToken provider)
+   * @return AzureBlobStorageReader instance
+   */
   def apply(accountName: String, credential: TokenCredential): AzureBlobStorageReader = new AzureBlobStorageReader(accountName, Some(credential), None)
+
+  /**
+   * Create AzureBlobStorageReader for the account using StorageSharedKeyCredential
+   *
+   * @param accountName Storage account name
+   * @param credential  StorageSharedKeyCredential (account key)
+   * @return AzureBlobStorageReader instance
+   */
   def apply(accountName: String, credential: StorageSharedKeyCredential): AzureBlobStorageReader = new AzureBlobStorageReader(accountName, None, Some(credential))
+
+  /**
+   * Create AzureBlobStorageReader for the account using default credential chain
+   *
+   * @param accountName Storage account name
+   * @return AzureBlobStorageReader instance
+   */ 
   def apply(accountName: String): AzureBlobStorageReader = new AzureBlobStorageReader(accountName, None, None)
