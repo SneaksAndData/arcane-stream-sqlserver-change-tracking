@@ -19,8 +19,8 @@ class CdmTable(name: String, storagePath: AdlsStoragePath, entityModel: SimpleCd
    * @param startDate Baseline date to start search from
    * @return A list of yyyy-MM-ddTHH prefixes to apply as filters
    */
-  private def getListPrefixes(startDate: Option[OffsetDateTime]): IndexedSeq[String] =
-    val currentMoment = OffsetDateTime.now(ZoneOffset.UTC)
+  private def getListPrefixes(startDate: Option[OffsetDateTime], endDate: Option[OffsetDateTime] = None): IndexedSeq[String] =
+    val currentMoment = endDate.getOrElse(OffsetDateTime.now(ZoneOffset.UTC))
     val startMoment = startDate.getOrElse(currentMoment.minusYears(defaultFromYears))
     Iterator.iterate(startMoment)(_.plusHours(1))
       .takeWhile(_.toEpochSecond < currentMoment.toEpochSecond)
@@ -34,11 +34,12 @@ class CdmTable(name: String, storagePath: AdlsStoragePath, entityModel: SimpleCd
   /**
    * Read a table snapshot, taking optional start time. Lowest precision available is 1 hour
    * @param startDate Folders from Synapse export to include in the snapshot, based on the start date provided. If not provided, ALL folders from now - defaultFromYears will be included
+   * @param endDate Date to stop at when looking for prefixes. In production use None for this value to always look data up to current moment.
    * @return A stream of rows for this table
    */
-  def snapshot(startDate: Option[OffsetDateTime] = None): Future[LazyList[DataRow]] =
+  def snapshot(startDate: Option[OffsetDateTime] = None, endDate: Option[OffsetDateTime] = None): Future[LazyList[DataRow]] =
     // list all matching blobs
-    Future.sequence(getListPrefixes(startDate)
+    Future.sequence(getListPrefixes(startDate, endDate)
       .flatMap(prefix => reader.listPrefixes(storagePath + prefix))
       .flatMap(prefix => reader.listBlobs(storagePath + prefix.name + name))
       // exclude any files other than CSV

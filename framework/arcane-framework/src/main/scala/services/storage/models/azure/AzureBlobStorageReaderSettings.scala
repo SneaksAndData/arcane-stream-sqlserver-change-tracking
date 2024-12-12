@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.framework
 package services.storage.models.azure
 
 import java.time.Duration
-import scala.concurrent.duration.Duration
 
 case class AzureBlobStorageReaderSettings(httpMaxRetries: Int, httpRetryTimeout: Duration, httpMinRetryDelay: Duration, httpMaxRetryDelay: Duration, maxResultsPerPage: Int)
 

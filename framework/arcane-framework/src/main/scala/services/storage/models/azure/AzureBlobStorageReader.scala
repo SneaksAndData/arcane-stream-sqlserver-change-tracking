@@ -25,7 +25,7 @@ import scala.language.implicitConversions
  * @param tokenCredential Optional token credential provider
  * @param sharedKeyCredential Optional access key credential
  */
-final class AzureBlobStorageReader(accountName: String, tokenCredential: Option[TokenCredential], sharedKeyCredential: Option[StorageSharedKeyCredential], settings: Option[AzureBlobStorageReaderSettings] = None) extends BlobStorageReader[AdlsStoragePath]:
+final class AzureBlobStorageReader(accountName: String, endpoint: Option[String], tokenCredential: Option[TokenCredential], sharedKeyCredential: Option[StorageSharedKeyCredential], settings: Option[AzureBlobStorageReaderSettings] = None) extends BlobStorageReader[AdlsStoragePath]:
   private val serviceClientSettings = settings.getOrElse(AzureBlobStorageReaderSettings()) 
   private lazy val defaultCredential = new DefaultAzureCredentialBuilder().build()
   private lazy val serviceClient =
@@ -35,7 +35,7 @@ final class AzureBlobStorageReader(accountName: String, tokenCredential: Option[
       case (None, None) => new BlobServiceClientBuilder().credential(defaultCredential)
 
     builder
-      .endpoint(s"https://$accountName.blob.core.windows.net/")
+      .endpoint(endpoint.getOrElse("https://$accountName.blob.core.windows.net/"))
       .retryOptions(RequestRetryOptions(RetryPolicyType.EXPONENTIAL, serviceClientSettings.httpMaxRetries, serviceClientSettings.httpRetryTimeout.toSeconds.toInt, serviceClientSettings.httpMinRetryDelay.toMillis, serviceClientSettings.httpMaxRetryDelay.toMillis, null))
       .buildClient()
 
@@ -77,7 +77,7 @@ final class AzureBlobStorageReader(accountName: String, tokenCredential: Option[
     val client = getBlobContainerClient(rootPrefix)
     val listOptions = new ListBlobsOptions()
       .setPrefix(rootPrefix.blobPrefix)
-      .setMaxResultsPerPage(maxResultsPerPage)
+      .setMaxResultsPerPage(serviceClientSettings.maxResultsPerPage)
 
     LazyList.from(getPage(
       None,
@@ -89,7 +89,7 @@ final class AzureBlobStorageReader(accountName: String, tokenCredential: Option[
     val client = getBlobContainerClient(blobPath)
     val listOptions = new ListBlobsOptions()
       .setPrefix(blobPath.blobPrefix)
-      .setMaxResultsPerPage(maxResultsPerPage)
+      .setMaxResultsPerPage(serviceClientSettings.maxResultsPerPage)
 
     LazyList.from(getPage(
       None, 
@@ -104,7 +104,7 @@ object AzureBlobStorageReader:
    * @param credential TokenCredential (accessToken provider)
    * @return AzureBlobStorageReader instance
    */
-  def apply(accountName: String, credential: TokenCredential): AzureBlobStorageReader = new AzureBlobStorageReader(accountName, Some(credential), None)
+  def apply(accountName: String, credential: TokenCredential): AzureBlobStorageReader = new AzureBlobStorageReader(accountName, None, Some(credential), None)
 
   /**
    * Create AzureBlobStorageReader for the account using StorageSharedKeyCredential
@@ -113,12 +113,22 @@ object AzureBlobStorageReader:
    * @param credential  StorageSharedKeyCredential (account key)
    * @return AzureBlobStorageReader instance
    */
-  def apply(accountName: String, credential: StorageSharedKeyCredential): AzureBlobStorageReader = new AzureBlobStorageReader(accountName, None, Some(credential))
+  def apply(accountName: String, credential: StorageSharedKeyCredential): AzureBlobStorageReader = new AzureBlobStorageReader(accountName, None, None, Some(credential))
 
+  /**
+   * Create AzureBlobStorageReader for the account using StorageSharedKeyCredential and custom endpoint
+   *
+   * @param accountName Storage account name
+   * @param endpoint Storage account endpoint                    
+   * @param credential  StorageSharedKeyCredential (account key)
+   * @return AzureBlobStorageReader instance
+   */
+  def apply(accountName: String, endpoint: String, credential: StorageSharedKeyCredential): AzureBlobStorageReader = new AzureBlobStorageReader(accountName, Some(endpoint), None, Some(credential))
+  
   /**
    * Create AzureBlobStorageReader for the account using default credential chain
    *
    * @param accountName Storage account name
    * @return AzureBlobStorageReader instance
    */ 
-  def apply(accountName: String): AzureBlobStorageReader = new AzureBlobStorageReader(accountName, None, None)
+  def apply(accountName: String): AzureBlobStorageReader = new AzureBlobStorageReader(accountName, None, None, None)

@@ -93,3 +93,25 @@ services:
     volumes:
       - ./create-polaris-catalog.sh:/create-polaris-catalog.sh
     command: ["/bin/sh", "/create-polaris-catalog.sh"]
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    restart: always
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.6
+    command:
+      - azurite-blob
+      - "--blobHost"
+      - "10.1.0.6"
+    ports:
+      - "10000:10000"
+  create-cdm-container:
+    image: python:3.11-slim-bookworm
+    depends_on:
+      - azurite
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.7
+    volumes:
+      - ./populate-cdm-container.py:/populate-cdm-container.py
+    command: [ "/bin/sh", "-c", "pip install azure-storage-blob requests && python /populate-cdm-container.py" ]
