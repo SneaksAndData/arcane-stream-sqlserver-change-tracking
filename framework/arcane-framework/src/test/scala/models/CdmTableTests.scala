@@ -27,7 +27,11 @@ class CdmTableTests extends AsyncFlatSpec with Matchers {
   private val scanPeriods = Table(
     ("start", "end", "expected_rows"),
     (OffsetDateTime.of(2020, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC).minusHours(6), OffsetDateTime.of(2020, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC), 0),
-    (OffsetDateTime.of(2020, 1, 1, 1, 0, 0, 0, ZoneOffset.UTC).minusHours(1), OffsetDateTime.of(2020, 1, 1, 1, 0, 0, 0, ZoneOffset.UTC), 16)
+    (OffsetDateTime.of(2020, 1, 1, 1, 0, 0, 0, ZoneOffset.UTC).minusHours(1), OffsetDateTime.of(2020, 1, 1, 1, 0, 0, 0, ZoneOffset.UTC), 15),
+    (OffsetDateTime.of(2020, 1, 1, 2, 0, 0, 0, ZoneOffset.UTC).minusHours(2), OffsetDateTime.of(2020, 1, 1, 2, 0, 0, 0, ZoneOffset.UTC), 20),
+    (OffsetDateTime.of(2020, 1, 1, 3, 0, 0, 0, ZoneOffset.UTC).minusHours(3), OffsetDateTime.of(2020, 1, 1, 3, 0, 0, 0, ZoneOffset.UTC), 25),
+    (OffsetDateTime.of(2020, 1, 2, 2, 0, 0, 0, ZoneOffset.UTC).minusDays(3), OffsetDateTime.of(2020, 1, 2, 2, 0, 0, 0, ZoneOffset.UTC), 30),
+    (OffsetDateTime.of(2020, 2, 1, 1, 0, 0, 0, ZoneOffset.UTC).minusMonths(2), OffsetDateTime.of(2020, 2, 1, 2, 0, 0, 0, ZoneOffset.UTC), 35)
   )
 
   it should "read model schemas from Synapse Link blob storage" in {
