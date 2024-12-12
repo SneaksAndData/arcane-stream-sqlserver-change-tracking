@@ -104,7 +104,7 @@ services:
       - "--blobHost"
       - "10.1.0.6"
     ports:
-      - "10000:10000"
+      - "10001:10001"
   create-cdm-container:
     image: python:3.11-slim-bookworm
     depends_on:
