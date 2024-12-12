@@ -25,13 +25,8 @@ import scala.language.implicitConversions
  * @param tokenCredential Optional token credential provider
  * @param sharedKeyCredential Optional access key credential
  */
-final class AzureBlobStorageReader(accountName: String, tokenCredential: Option[TokenCredential], sharedKeyCredential: Option[StorageSharedKeyCredential]) extends BlobStorageReader[AdlsStoragePath]:
-  private val httpMaxRetries = 3
-  private val httpRetryTimeout = Duration.ofSeconds(60)
-  private val httpMinRetryDelay = Duration.ofMillis(500)
-  private val httpMaxRetryDelay = Duration.ofSeconds(3)
-  private val maxResultsPerPage = 5000
-
+final class AzureBlobStorageReader(accountName: String, tokenCredential: Option[TokenCredential], sharedKeyCredential: Option[StorageSharedKeyCredential], settings: Option[AzureBlobStorageReaderSettings] = None) extends BlobStorageReader[AdlsStoragePath]:
+  private val serviceClientSettings = settings.getOrElse(AzureBlobStorageReaderSettings()) 
   private lazy val defaultCredential = new DefaultAzureCredentialBuilder().build()
   private lazy val serviceClient =
     val builder = (tokenCredential, sharedKeyCredential) match
@@ -41,7 +36,7 @@ final class AzureBlobStorageReader(accountName: String, tokenCredential: Option[
 
     builder
       .endpoint(s"https://$accountName.blob.core.windows.net/")
-      .retryOptions(RequestRetryOptions(RetryPolicyType.EXPONENTIAL, httpMaxRetries, httpRetryTimeout.toSeconds.toInt, httpMinRetryDelay.toMillis, httpMaxRetryDelay.toMillis, null))
+      .retryOptions(RequestRetryOptions(RetryPolicyType.EXPONENTIAL, serviceClientSettings.httpMaxRetries, serviceClientSettings.httpRetryTimeout.toSeconds.toInt, serviceClientSettings.httpMinRetryDelay.toMillis, serviceClientSettings.httpMaxRetryDelay.toMillis, null))
       .buildClient()
 
   private val defaultTimeout = Duration.ofSeconds(30)
@@ -103,8 +98,6 @@ final class AzureBlobStorageReader(accountName: String, tokenCredential: Option[
     ))
 
 object AzureBlobStorageReader:
-  // TODO: move http settings etc to apply
-
   /**
    * Create AzureBlobStorageReader for the account using TokenCredential
    * @param accountName Storage account name
