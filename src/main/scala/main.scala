@@ -11,13 +11,15 @@ import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerServi
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.hooks.manager.EmptyHookManager
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
-import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
-import com.sneaksanddata.arcane.framework.services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider, MsSqlStreamingDataProvider}
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.base.GenericStreamingGraphBuilder
+import com.sneaksanddata.arcane.framework.services.merging.{JdbcMergeServiceClient, MutableSchemaCache}
+import com.sneaksanddata.arcane.framework.services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider, MsSqlHookManager, MsSqlStreamingDataProvider}
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.GenericGraphBuilderFactory
 import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericGroupingTransformer
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.{DisposeBatchProcessor, MergeBatchProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import org.slf4j.MDC
+import zio.Console.printLine
 import zio.logging.LogFormat
 import zio.logging.backend.SLF4J
 import zio.{Runtime, ZIO, ZIOAppDefault, ZLayer}
@@ -27,15 +29,17 @@ object main extends ZIOAppDefault {
   override val bootstrap: ZLayer[Any, Nothing, Unit] = Runtime.removeDefaultLoggers >>> SLF4J.slf4j
 
   private val appLayer  = for
-    _ <- ZIO.log("Application starting")
-    context <- ZIO.service[StreamContext]
+    _ <- zlog("Application starting")
     streamRunner <- ZIO.service[StreamRunnerService]
     _ <- streamRunner.run
+    _ <- ZIO.serviceWithZIO[StreamRunnerService](_.run)
   yield ()
+
+  private val schemaCache = MutableSchemaCache()
 
   private lazy val streamRunner = appLayer.provide(
       GenericStreamRunnerService.layer,
-      GenericStreamingGraphBuilder.layer,
+      GenericGraphBuilderFactory.composedLayer,
       GenericGroupingTransformer.layer,
       DisposeBatchProcessor.layer,
       FieldFilteringTransformer.layer,
@@ -49,9 +53,12 @@ object main extends ZIOAppDefault {
       IcebergS3CatalogWriter.layer,
       JdbcMergeServiceClient.layer,
       MsSqlStreamingDataProvider.layer,
-      EmptyHookManager.layer
-    )
-  
+      MsSqlHookManager.layer,
+      ZLayer.succeed(MutableSchemaCache()),
+      BackfillApplyBatchProcessor.layer,
+      Services.restCatalog
+  )
+
   @main
   def run: ZIO[Any, Throwable, Unit] =
     val app = streamRunner

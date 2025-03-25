@@ -38,7 +38,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
 
   override val rowsPerGroup: Int = spec.rowsPerGroup
   override val lookBackInterval: Duration = Duration.ofSeconds(spec.lookBackInterval)
-  override val changeCaptureInterval: Duration = Duration.ofSeconds(spec.changeCaptureIntervalSeconds)
+  override val changeCaptureInterval: Duration = Duration.ofSeconds(spec.sourceSettings.changeCaptureIntervalSeconds)
   override val changeCapturePeriod: Duration = Duration.ofSeconds(1)
   override val groupingInterval: Duration = Duration.ofSeconds(spec.groupingIntervalSeconds)
 
@@ -47,13 +47,16 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
   override val catalogUri: String = spec.stagingDataSettings.catalog.catalogUri
   override val stagingLocation: Option[String] = spec.stagingDataSettings.dataLocation
 
+  override val stagingCatalogName: String = spec.stagingDataSettings.catalog.catalogName
+  override val stagingSchemaName: String = spec.stagingDataSettings.catalog.schemaName
+
   override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
   override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
 
   val connectionString: String = sys.env("ARCANE_CONNECTIONSTRING")
 
   override val connectionUrl: String = sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")
-  
+
   override val targetTableFullName: String = spec.sinkSettings.targetTableName
 
   override val maintenanceSettings: TableMaintenanceSettings = new TableMaintenanceSettings:
@@ -74,20 +77,20 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
     })
 
   val database: String = spec.database
-  
+
   override val stagingTablePrefix: String = spec.stagingDataSettings.tableNamePrefix
 
   val partitionExpressions: Array[String] = spec.tableProperties.partitionExpressions
   val tableProperties: TablePropertiesSettings = spec.tableProperties
 
   val stagingCatalog: String = s"${spec.stagingDataSettings.catalog.catalogName}.${spec.stagingDataSettings.catalog.schemaName}"
-  
+
   val format: TableFormat = TableFormat.valueOf(spec.tableProperties.format)
   val sortedBy: Array[String] = spec.tableProperties.sortedBy
   val parquetBloomFilterColumns: Array[String] = spec.tableProperties.parquetBloomFilterColumns
-  
+
   override val backfillTableFullName: String = s"$stagingCatalog.${stagingTablePrefix}__backfill_${UUID.randomUUID().toString}".replace('-', '_')
-  
+
   override val rule: FieldSelectionRule = spec.fieldSelectionRule.ruleType match
     case "include" => FieldSelectionRule.IncludeFields(spec.fieldSelectionRule.fields.map(f => f.toLowerCase()).toSet)
     case "exclude" => FieldSelectionRule.ExcludeFields(spec.fieldSelectionRule.fields.map(f => f.toLowerCase()).toSet)
@@ -99,20 +102,20 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
     case _ => throw new IllegalArgumentException(s"Unknown backfill behavior: ${spec.backfillBehavior}")
 
   override val backfillStartDate: Option[OffsetDateTime] = parseBackfillStartDate(spec.backfillStartDate)
-  
+
   private def parseBackfillStartDate(str: String): Option[OffsetDateTime] =
     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ss'Z'").withZone(ZoneOffset.UTC)
     Try(OffsetDateTime.parse(str, formatter)) match
       case scala.util.Success(value) => Some(value)
       case scala.util.Failure(e) => throw new IllegalArgumentException(s"Invalid backfill start date: $str. The backfill start date must be in the format 'yyyy-MM-dd'T'HH.mm.ss'Z'", e)
-  
+
 given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
   def apply(context: SqlServerChangeTrackingStreamContext): ConnectionOptions =
     ConnectionOptions(context.connectionString,
       context.database,
       context.spec.schema,
       context.spec.table,
-      context.spec.partitionExpression)
+      None)
 
 object SqlServerChangeTrackingStreamContext:
   type Environment = StreamContext

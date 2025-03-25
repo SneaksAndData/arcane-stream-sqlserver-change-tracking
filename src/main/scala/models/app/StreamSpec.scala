@@ -40,7 +40,12 @@ case class SinkSettings(targetTableName: String,
 
 case class TablePropertiesSettingsSpec(partitionExpressions: Array[String], sortedBy: Array[String], parquetBloomFilterColumns: Array[String], format: String) derives ReadWriter
 
-case class FieldSelectionRuleSpec(ruleType: String, fields: Array[String])derives ReadWriter
+case class FieldSelectionRuleSpec(ruleType: String, fields: Array[String]) derives ReadWriter
+
+case class SourceSettings(name: String,
+                          baseLocation: String,
+                          changeCaptureIntervalSeconds: Int,
+                          changeCapturePeriodSeconds: Int) derives ReadWriter
 
 /**
  * The specification for the stream.
@@ -60,24 +65,19 @@ case class StreamSpec(database: String,
                       schema: String,
                       table: String,
                       rowsPerGroup: Int,
-                      groupingIntervalSeconds: Int,
                       groupsPerFile: Int,
                       lookBackInterval: Int,
                       commandTimeout: Int,
-                      changeCaptureIntervalSeconds: Int,
 
                       // Iceberg settings
                       stagingDataSettings: StagingDataSettingsSpec,
-                      catalogSettings: CatalogSettings,
-
+                      groupingIntervalSeconds: Int,
+                      sourceSettings: SourceSettings,
                       sinkSettings: SinkSettings,
                       backfillStartDate: String,
                       backfillBehavior: String,
                       fieldSelectionRule: FieldSelectionRuleSpec,
-                      tableProperties: TablePropertiesSettingsSpec,
-                      stagingLocation: Option[String],
-                      sinkLocation: String,
-                      partitionExpression: Option[String]) derives ReadWriter
+                      tableProperties: TablePropertiesSettingsSpec) derives ReadWriter
 
 
 object StreamSpec:
