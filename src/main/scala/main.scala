@@ -12,8 +12,9 @@ import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringServic
 import com.sneaksanddata.arcane.framework.services.hooks.manager.EmptyHookManager
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.merging.{JdbcMergeServiceClient, MutableSchemaCache}
-import com.sneaksanddata.arcane.framework.services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider, MsSqlHookManager, MsSqlStreamingDataProvider}
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.GenericGraphBuilderFactory
+import com.sneaksanddata.arcane.framework.services.mssql.{ConnectionOptions, MsSqlBackfillBatchFactory, MsSqlConnection, MsSqlDataProvider, MsSqlHookManager, MsSqlStreamingDataProvider}
+import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{GenericBackfillStreamingMergeDataProvider, GenericBackfillStreamingOverwriteDataProvider}
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{GenericGraphBuilderFactory, GenericStreamingGraphBuilder}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericGroupingTransformer
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
@@ -32,7 +33,6 @@ object main extends ZIOAppDefault {
     _ <- zlog("Application starting")
     streamRunner <- ZIO.service[StreamRunnerService]
     _ <- streamRunner.run
-    _ <- ZIO.serviceWithZIO[StreamRunnerService](_.run)
   yield ()
 
   private val schemaCache = MutableSchemaCache()
@@ -56,7 +56,11 @@ object main extends ZIOAppDefault {
       MsSqlHookManager.layer,
       ZLayer.succeed(MutableSchemaCache()),
       BackfillApplyBatchProcessor.layer,
-      Services.restCatalog
+      Services.restCatalog,
+      GenericBackfillStreamingOverwriteDataProvider.layer,
+      GenericBackfillStreamingMergeDataProvider.layer,
+      GenericStreamingGraphBuilder.backfillSubStreamLayer,
+      MsSqlBackfillBatchFactory.layer
   )
 
   @main
