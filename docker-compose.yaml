@@ -42,10 +42,9 @@ services:
       - "/bin/sh"
       - "-c"
       - |
-        sleep 15
         mc alias set e2e "http://10.1.0.2:9000" minioadmin minioadmin
         mc admin info e2e
-        mc mb e2e/tmp --ignore-existing && mc mb e2e/lakehouse --ignore-existing
+        mc mb e2e/tmp && mc mb e2e/lakehouse
   # https://github.com/databricks/docker-spark-iceberg/blob/main/docker-compose.yml
   # note there is no publicly available image for Polaris yet
   # follow guidelines from https://github.com/apache/polaris?tab=readme-ov-file#more-build-and-run-options to build one
@@ -146,3 +145,18 @@ services:
     image: "trinodb/trino:455"
     volumes:
       - ./integration-tests.properties:/etc/trino/catalog/iceberg.properties
+#  http-proxy:
+#    networks:
+#      mesh:
+#        ipv4_address: 10.1.0.10
+#    ports:
+#      - "9004:9004"
+#      - "9005:9005"
+#      - "443:443"
+#    image: "envoyproxy/envoy:v1.31.2"
+#    command:
+#      - envoy
+#      - "-c"
+#      - /etc/envoy/envoy.yaml
+#    volumes:
+#      - ./http-proxy-envoy-config.yaml:/etc/envoy/envoy.yaml
