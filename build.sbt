@@ -6,13 +6,27 @@ ThisBuild / exportJars := true
 ThisBuild / scalaVersion := "3.6.1"
 ThisBuild / organization := "com.sneaksanddata"
 
+resolvers += "Arcane framework repo" at "https://maven.pkg.github.com/SneaksAndData/arcane-framework-scala"
 
+credentials += Credentials(
+    "GitHub Package Registry",
+    "maven.pkg.github.com",
+    "_",
+    sys.env("GITHUB_TOKEN")
+)
+
+mainClass := Some("com.sneaksanddata.arcane.sql_server_change_tracking.main")
 
 lazy val plugin = (project in file("."))
   .settings(
     name := "arcane-stream-sqlserver-change-tracking",
     idePackagePrefix := Some("com.sneaksanddata.arcane.sql_server_change_tracking"),
-    libraryDependencies += "dev.zio" %% "zio-json" % "0.6.2",
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "0.5.1",
+    libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.65.Final",
+
+    // Test dependencies
+    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
+    libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test,
 
     assembly / mainClass := Some("com.sneaksanddata.arcane.sql_server_change_tracking.main"),
 
@@ -21,19 +35,23 @@ lazy val plugin = (project in file("."))
     assembly / assemblyJarName := "com.sneaksanddata.arcane.sql-server-change-tracking.assembly.jar",
 
     assembly / assemblyMergeStrategy := {
-        // Removes duplicate files from META-INF
-        // Mostly io.netty.versions.properties, license files, INDEX.LIST, MANIFEST.MF, etc.
         case "NOTICE" => MergeStrategy.discard
         case "LICENSE" => MergeStrategy.discard
+        case ps if ps.contains("META-INF/services/java.net.spi.InetAddressResolverProvider") => MergeStrategy.discard
+        case ps if ps.contains("META-INF/services/") => MergeStrategy.concat("\n")
+        case ps if ps.startsWith("META-INF/native") => MergeStrategy.first
+
+        // Removes duplicate files from META-INF
+        // Mostly io.netty.versions.properties, license files, INDEX.LIST, MANIFEST.MF, etc.
         case ps if ps.startsWith("META-INF") => MergeStrategy.discard
+        case ps if ps.endsWith("logback.xml") => MergeStrategy.discard
         case ps if ps.endsWith("module-info.class") => MergeStrategy.discard
         case ps if ps.endsWith("package-info.class") => MergeStrategy.discard
 
         // for javax.activation package take the first one
-        case PathList("javax", "activation", _*) => MergeStrategy.first
+        case PathList("javax", "activation", _*) => MergeStrategy.last
 
         // For other files we use the default strategy (deduplicate)
         case x => MergeStrategy.deduplicate
     }
   )
-  .dependsOn(ProjectRef(file("../../framework/arcane-framework"), "root"))
