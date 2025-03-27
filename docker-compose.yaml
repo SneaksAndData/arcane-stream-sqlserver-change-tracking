@@ -1,11 +1,4 @@
 version: '3.3'
-networks:
-  mesh:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 10.1.0.0/16
-          gateway: 10.1.0.1
 
 services:
   minio:
@@ -46,7 +39,6 @@ services:
     image: "trinodb/trino:474"
     volumes:
       - ./integration-tests.properties:/etc/trino/catalog/iceberg.properties
-
 ##  http-proxy:
 ##    image: "envoyproxy/envoy:v1.31.2"
 ##    command:
@@ -59,7 +51,7 @@ services:
     image: quay.io/lakekeeper/catalog:latest-main
     network_mode: host
     environment:
-      #      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
+#      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
       - LAKEKEEPER__LISTEN_PORT=20001
       - LAKEKEEPER__METRICS_PORT=20002
       - LAKEKEEPER__BASE_URI=http://localhost:20001
@@ -73,12 +65,18 @@ services:
       interval: 1s
       timeout: 10s
       retries: 30
-
+    depends_on:
+      lakekeeper_migrate:
+        condition: service_completed_successfully
+      lakekeeper_db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
   lakekeeper_migrate:
     image: quay.io/lakekeeper/catalog:latest-main
     network_mode: host
     environment:
-      #      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
+#      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
       - LAKEKEEPER__PG_DATABASE_URL_READ=postgresql://postgres:postgres@localhost:5432/postgres
       - LAKEKEEPER__PG_DATABASE_URL_WRITE=postgresql://postgres:postgres@localhost:5432/postgres
       - RUST_LOG=info
@@ -87,7 +85,6 @@ services:
     depends_on:
       lakekeeper_db:
         condition: service_healthy
-
   lakekeeper_prepare:
     image: python:3.11-slim-bookworm
     network_mode: host
@@ -101,7 +98,6 @@ services:
     volumes:
       - ./bootstrap-lk.py:/bootstrap-lk.py
     command: [ "/bin/sh", "-c", "pip install requests && python /bootstrap-lk.py"  ]
-
   lakekeeper_db:
     image: bitnami/postgresql:16.3.0
     network_mode: host
