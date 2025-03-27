@@ -282,14 +282,14 @@ spec:
                   properties:
                     name:
                       type: string
-                backfillBehavior: # TODO
+                backfillBehavior:
                   type: string
                   enum:
                     - merge
                     - overwrite
                   default:
                     overwrite
-                fieldSelectionRule: # TODO
+                fieldSelectionRule:
                   type: object
                   properties:
                     ruleType:
@@ -305,7 +305,7 @@ spec:
                   default:
                     ruleType: all
                     fields: [ ]
-                backfillStartDate: # TODO
+                backfillStartDate:
                   description: |
                     The date and time to start backfilling data from.
                     The date should be in the following format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
