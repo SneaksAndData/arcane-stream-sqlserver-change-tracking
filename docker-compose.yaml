@@ -1,29 +1,17 @@
 version: '3.3'
-networks:
-  mesh:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 10.1.0.0/16
-          gateway: 10.1.0.1
 
 services:
   minio:
     container_name: minio
-    hostname: minio-e2e
+    hostname: minio-test
+    network_mode: host
     image: quay.io/minio/minio
     restart: always
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.2
     command:
       - server
       - /data
       - "--console-address"
       - ":9001"
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9001" ]
       interval: 30s
@@ -32,9 +20,7 @@ services:
   prepare_buckets:
     container_name: minio-setup
     image: quay.io/minio/minio
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.3
+    network_mode: host
     depends_on:
       minio:
         condition: service_healthy
@@ -42,54 +28,104 @@ services:
       - "/bin/sh"
       - "-c"
       - |
-        mc alias set e2e "http://10.1.0.2:9000" minioadmin minioadmin
+        mc alias set e2e "http://localhost:9000" minioadmin minioadmin
         mc admin info e2e
         mc mb e2e/tmp && mc mb e2e/lakehouse
-  # https://github.com/databricks/docker-spark-iceberg/blob/main/docker-compose.yml
-  # note there is no publicly available image for Polaris yet
-  # follow guidelines from https://github.com/apache/polaris?tab=readme-ov-file#more-build-and-run-options to build one
-  polaris:
-    container_name: polaris
-    image: ghcr.io/sneaksanddata/apache-polaris:latest
-    restart: always
+  trino:
     depends_on:
-      prepare_buckets:
-        condition: service_completed_successfully
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.4
-    ports:
-      - "8181:8181"
-      - "8182:8182"
-    environment:
-      AWS_REGION: us-east-1
-      AWS_ENDPOINT_URL_S3: http://10.1.0.2:9000
-      AWS_ENDPOINT_URL_STS: http://10.1.0.2:9000
-      # add aws keys as dropwizard config
-      JAVA_OPTS: -Ddw.awsAccessKey=minioadmin -Ddw.awsSecretKey=minioadmin
-
-    healthcheck:
-      test: ["CMD", "curl", "http://localhost:8182/healthcheck"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-  create-polaris-catalog:
-    image: curlimages/curl
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.5
-    depends_on:
-      polaris:
+      lakekeeper:
         condition: service_healthy
+    network_mode: host
+    image: "trinodb/trino:474"
     volumes:
-      - ./create-polaris-catalog.sh:/create-polaris-catalog.sh
-    command: ["/bin/sh", "/create-polaris-catalog.sh"]
+      - ./integration-tests.properties:/etc/trino/catalog/iceberg.properties
+##  http-proxy:
+##    image: "envoyproxy/envoy:v1.31.2"
+##    command:
+##      - envoy
+##      - "-c"
+##      - /etc/envoy/envoy.yaml
+##    volumes:
+##      - ./http-proxy-envoy-config.yaml:/etc/envoy/envoy.yaml
+  lakekeeper:
+    image: quay.io/lakekeeper/catalog:latest-main
+    network_mode: host
+    environment:
+#      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
+      - LAKEKEEPER__LISTEN_PORT=20001
+      - LAKEKEEPER__METRICS_PORT=20002
+      - LAKEKEEPER__BASE_URI=http://localhost:20001
+      - ICEBERG_REST__BASE_URI=http://localhost:20001
+      - LAKEKEEPER__PG_DATABASE_URL_READ=postgresql://postgres:postgres@localhost:5432/postgres
+      - LAKEKEEPER__PG_DATABASE_URL_WRITE=postgresql://postgres:postgres@localhost:5432/postgres
+      - RUST_LOG=trace,axum=trace,sqlx=trace,iceberg-catalog=trace
+    command: [ "serve" ]
+    healthcheck:
+      test: [ "CMD", "/home/nonroot/iceberg-catalog", "healthcheck" ]
+      interval: 1s
+      timeout: 10s
+      retries: 30
+    depends_on:
+      lakekeeper_migrate:
+        condition: service_completed_successfully
+      lakekeeper_db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+  lakekeeper_migrate:
+    image: quay.io/lakekeeper/catalog:latest-main
+    network_mode: host
+    environment:
+#      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
+      - LAKEKEEPER__PG_DATABASE_URL_READ=postgresql://postgres:postgres@localhost:5432/postgres
+      - LAKEKEEPER__PG_DATABASE_URL_WRITE=postgresql://postgres:postgres@localhost:5432/postgres
+      - RUST_LOG=info
+    restart: "no"
+    command: [ "migrate" ]
+    depends_on:
+      lakekeeper_db:
+        condition: service_healthy
+  lakekeeper_prepare:
+    image: python:3.11-slim-bookworm
+    network_mode: host
+    environment:
+      CATALOG_HOST: localhost
+      CATALOG_WAREHOUSE: demo
+    depends_on:
+      lakekeeper:
+        condition: service_healthy
+    restart: "no"
+    volumes:
+      - ./bootstrap-lk.py:/bootstrap-lk.py
+    command: [ "/bin/sh", "-c", "pip install requests && python /bootstrap-lk.py"  ]
+  lakekeeper_db:
+    image: bitnami/postgresql:16.3.0
+    network_mode: host
+    restart: always
+    environment:
+      - POSTGRESQL_USERNAME=postgres
+      - POSTGRESQL_PASSWORD=postgres
+      - POSTGRESQL_DATABASE=postgres
+      - PGHOST=localhost
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -p 5432 -d postgres" ]
+      interval: 2s
+      timeout: 30s
+      retries: 8
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "tMIxN11yGZgMC"
+    container_name: sql-server
+    hostname: sql-server
+    restart: always
+    ports:
+      - "1433:1433"
+
   setup_mssql:
-    container_name: integration-setup
     image: mcr.microsoft.com/mssql-tools
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.6
     depends_on:
       - mssql
     restart: "no"
@@ -103,60 +139,20 @@ services:
           sleep 1
         done
         /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -i /app/integration-tests.sql
-  insert_changes:
-    container_name: insert-data
-    image: mcr.microsoft.com/mssql-tools
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.7
-    depends_on:
-      setup_mssql:
-        condition: service_completed_successfully
-    entrypoint:
-      - "bash"
-      - "-c"
-      - |
-        while true; do 
-          /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -Q "INSERT INTO IntegrationTests.dbo.TestTable (Id, Name) VALUES (ABS(CHECKSUM(NewId())) % 14000, 'Name' + CAST(RAND() as nvarchar(50)))";
-          sleep 5;
-        done
-  mssql:
-    container_name: sql-server
-    hostname: sql-server
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    restart: always
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.8
-    environment:
-      ACCEPT_EULA: "Y"
-      SA_PASSWORD: "tMIxN11yGZgMC"
-    ports:
-      - "1433:1433"
-  trino:
-    depends_on:
-      polaris:
-        condition: service_healthy
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.9
-    ports:
-      - "8080:8080"
-    image: "trinodb/trino:455"
-    volumes:
-      - ./integration-tests.properties:/etc/trino/catalog/iceberg.properties
-#  http-proxy:
+#  insert_changes:
+#    container_name: insert-data
+#    image: mcr.microsoft.com/mssql-tools
 #    networks:
 #      mesh:
-#        ipv4_address: 10.1.0.10
-#    ports:
-#      - "9004:9004"
-#      - "9005:9005"
-#      - "443:443"
-#    image: "envoyproxy/envoy:v1.31.2"
-#    command:
-#      - envoy
+#        ipv4_address: 10.1.0.7
+#    depends_on:
+#      setup_mssql:
+#        condition: service_completed_successfully
+#    entrypoint:
+#      - "bash"
 #      - "-c"
-#      - /etc/envoy/envoy.yaml
-#    volumes:
-#      - ./http-proxy-envoy-config.yaml:/etc/envoy/envoy.yaml
+#      - |
+#        while true; do
+#          /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -Q "INSERT INTO IntegrationTests.dbo.TestTable (Id, Name) VALUES (ABS(CHECKSUM(NewId())) % 14000, 'Name' + CAST(RAND() as nvarchar(50)))";
+#          sleep 5;
+#        done
