@@ -12,7 +12,7 @@ import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringServic
 import com.sneaksanddata.arcane.framework.services.hooks.manager.EmptyHookManager
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.merging.{JdbcMergeServiceClient, MutableSchemaCache}
-import com.sneaksanddata.arcane.framework.services.mssql.{ConnectionOptions, MsSqlBackfillBatchFactory, MsSqlConnection, MsSqlDataProvider, MsSqlHookManager, MsSqlStreamingDataProvider}
+import com.sneaksanddata.arcane.framework.services.mssql.{ConnectionOptions, MsSqlBackfillOverwriteBatchFactory, MsSqlConnection, MsSqlDataProvider, MsSqlHookManager, MsSqlStreamingDataProvider}
 import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{GenericBackfillStreamingMergeDataProvider, GenericBackfillStreamingOverwriteDataProvider}
 import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{GenericGraphBuilderFactory, GenericStreamingGraphBuilder}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericGroupingTransformer
@@ -60,7 +60,7 @@ object main extends ZIOAppDefault {
       GenericBackfillStreamingOverwriteDataProvider.layer,
       GenericBackfillStreamingMergeDataProvider.layer,
       GenericStreamingGraphBuilder.backfillSubStreamLayer,
-      MsSqlBackfillBatchFactory.layer
+      MsSqlBackfillOverwriteBatchFactory.layer
   )
 
   @main
