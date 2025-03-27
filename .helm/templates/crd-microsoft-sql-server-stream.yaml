@@ -1,0 +1,353 @@
+{{- if .Values.customResourceDefinitions.create }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: sql-server-ct-streams.streaming.sneaksanddata.com
+spec:
+  group: streaming.sneaksanddata.com
+  scope: Namespaced
+  names:
+    plural: microsoft-sql-server-streams
+    singular: microsoft-sql-server-stream
+    kind: MicrosoftSqlServerStream
+    shortNames:
+      - mssql-stream
+  versions:
+    - name: v1beta1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Table
+          type: string
+          jsonPath: .spec.table
+        - name: Schema
+          type: string
+          jsonPath: .spec.schema
+        - name: Refresh Interval
+          type: string
+          jsonPath: .spec.changeCaptureIntervalSeconds
+        - name: Sink location
+          type: string
+          jsonPath: .spec.sinkLocation
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                tableProperties:
+                  type: object
+                  default:
+                    partitionExpressions: []
+                    sortedBy: []
+                    parquetBloomFilterColumns: []
+                    format: PARQUET
+                  properties:
+                    partitionExpressions:
+                      type: array
+                      items:
+                        type: string
+                      default: []
+                    sortedBy:
+                      type: array
+                      items:
+                        type: string
+                      default: [ ]
+                    parquetBloomFilterColumns:
+                      type: array
+                      items:
+                        type: string
+                      default: [ ]
+                    format:
+                      type: string
+                      enum:
+                        - PARQUET
+                        - ORC
+                        - AVRO
+                      default: PARQUETT
+                sourceSettings:
+                  type: object
+                  properties:
+                    database:
+                      type: string
+                      description: The schema to track changes for.
+                    schema:
+                      type: string
+                      description: The schema to track changes for.
+                    table:
+                      type: string
+                      description: The table to track changes for.
+                    changeCaptureIntervalSeconds:
+                      type: integer
+                      description: How long to wait before polling for next result set. Can be from 1 to 1 hour.
+                      minimum: 1
+                      maximum: 3600
+                    changeCapturePeriodSeconds:
+                      type: integer
+                      description: How far back to look for changes. Can be from 1 to 1 hour.
+                      minimum: 1
+                      maximum: 3600
+                      default: 1200
+                connectionStringRef:
+                  description: |
+                    Name of the secret containing the connection string.
+                    The secret should have a key named 'ARCANE_CONNECTIONSTRING'.
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                jobTemplateRef:
+                  description: |
+                    Name of the job template to be used for the streaming job if stream is running in normal mode.
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    kind:
+                      type: string
+                    apiGroup:
+                      type: string
+                  default:
+                    apiGroup: streaming.sneaksanddata.com
+                    kind: StreamingJobTemplate
+                    name: standard-job
+                backfillJobTemplateRef:
+                  description: |
+                    Name of the job template to be used for the streaming job if stream is running in backfill mode.
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    kind:
+                      type: string
+                    apiGroup:
+                      type: string
+                  default:
+                    apiGroup: streaming.sneaksanddata.com
+                    kind: StreamingJobTemplate
+                    name: large-job
+                rowsPerGroup:
+                  type: integer
+                  description: Number of rows per parquet rowgroup.
+                groupingIntervalSeconds:
+                  type: integer
+                  description: Max time to wait for rowsPerGroup to accumulate. Can be from 1 to 60 seconds.
+                  minimum: 1
+                  maximum: 60
+                groupsPerFile:
+                  type: integer
+                  description: Number of row groups per file.
+                sinkLocation:
+                  type: string
+                  description: Data location for parquet files.
+                sinkSettings:
+                  type: object
+                  properties:
+                    optimizeSettings:
+                      type: object
+                      description: Data location for parquet files.
+                      properties:
+                        batchThreshold:
+                          type: integer
+                          default: 60
+                          description: Number of batches to accumulate before running the optimization query.
+                        fileSizeThreshold:
+                          type: string
+                          default: 100MB
+                          description: File size to accumulate in the optimization query.
+                      default:
+                        batchThreshold: 60
+                        fileSizeThreshold: 100MB
+                    snapshotExpirationSettings:
+                      type: object
+                      description: Data location for parquet files.
+                      properties:
+                        batchThreshold:
+                          type: integer
+                          default: 60
+                          description: Number of batches to accumulate before running the optimization query.
+                        retentionThreshold:
+                          type: string
+                          default: 6h
+                          description: File retention period.
+                      default:
+                        batchThreshold: 60
+                        retentionThreshold: 6h
+                    orphanFilesExpirationSettings:
+                      type: object
+                      description: Data location for parquet files.
+                      properties:
+                        batchThreshold:
+                          type: integer
+                          default: 60
+                          description: Number of batches to accumulate before running the optimization query.
+                        retentionThreshold:
+                          type: string
+                          default: 6h
+                          description: File retention period.
+                      default:
+                        batchThreshold: 60
+                        retentionThreshold: 6h
+                    targetTableName:
+                      type: string
+                      description: Data location for parquet files.
+                    archiveTableName:
+                      type: string
+                      description: Data location for parquet files.
+                lookBackInterval:
+                  type: integer
+                  description: |
+                    Number of seconds to look back when determining first set of changes to extract.
+                    Can be set in interval from 1 second to 10 hours. Default is 1 hour.
+                  minimum: 1
+                  maximum: 1209600
+                  default: 3600
+                catalogAuthSecretRef:
+                  description: |
+                    Name of the secret containing the catalog authentication.
+                    The secret should have the following mandatory keys:
+                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_URI
+                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_SCOPE
+                    And the authentication information in the following keys:
+                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_ID
+                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_SECRET
+                    OR
+                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_INIT_TOKEN
+
+                    The authentication information is mutually exclusive.
+                    If init token is provided, client id and secret are not used.
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                stagingDataSettings:
+                  type: object
+                  properties:
+                    dataLocation:
+                      type: string
+                    tableNamePrefix:
+                      type: string
+                    catalog:
+                      type: object
+                      properties:
+                        catalogName:
+                          type: string
+                        schemaName:
+                          type: string
+                        namespace:
+                          type: string
+                        warehouse:
+                          type: string
+                        catalogUri:
+                          type: string
+                mergeService:
+                  type: object
+                  properties:
+                    uri:
+                      type: string
+                    authSecretRef:
+                      description: |
+                        Not used in the operator version 0.0.x
+                        In operator version 0.1.x and above this field will replace the `mergeAuthSecretRef` field.
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                mergeAuthSecretRef:
+                  description: |
+                    Name of the secret containing the data storage authentication for the merge service.
+                    The secret should have a key named 'ARCANE_FRAMEWORK__MERGE_SERVICE__JDBC_URL'.
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                stagingStorageAuthSecretRef:
+                  description: |
+                    Name of the secret containing the data storage authentication for the S3 bucket containing staging data.
+                    The secret should have the following mandatory keys:
+                      - ARCANE_FRAMEWORK__S3_CATALOG_SECRET_ACCESS_KEY
+                      - ARCANE_FRAMEWORK__S3_CATALOG_ACCESS_KEY_ID
+                      - ARCANE_FRAMEWORK__S3_CATALOG_ENDPOINT
+                      - ARCANE_FRAMEWORK__S3_CATALOG_REGION
+                      - AWS_REGION
+                    The AWS_REGION key is used to set the region for the AWS SDK and it's value should be
+                    the same as ARCANE_FRAMEWORK__S3_STAGING_CATALOG_REGION.
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                backfillBehavior: # TODO
+                  type: string
+                  enum:
+                    - merge
+                    - overwrite
+                  default:
+                    overwrite
+                fieldSelectionRule: # TODO
+                  type: object
+                  properties:
+                    ruleType:
+                      type: string
+                      enum:
+                        - include
+                        - exclude
+                        - all
+                    fields:
+                      type: array
+                      items:
+                        type: string
+                  default:
+                    ruleType: all
+                    fields: [ ]
+                backfillStartDate: # TODO
+                  description: |
+                    The date and time to start backfilling data from.
+                    The date should be in the following format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+                  type: string
+                commandTimeout:
+                  type: integer
+                  description: Number of seconds to wait for result before sql commands should time out.
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                  enum:
+                    - RESTARTING
+                    - RUNNING
+                    - RELOADING
+                    - TERMINATING
+                    - STOPPED
+                    - SUSPENDED
+                    - FAILED
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - status
+                      - type
+                    properties:
+                      message:
+                        type: string
+                      phase:
+                        type: string
+                      type:
+                        type: string
+                        enum:
+                          - WARNING
+                          - ERROR
+                          - INFO
+                          - READY
+                      status:
+                        type: string
+                        enum:
+                          - "True"
+                          - "False"
+{{- end }}
