@@ -24,6 +24,12 @@ lazy val plugin = (project in file("."))
     libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "0.5.1",
     libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.65.Final",
 
+      libraryDependencies ++= Seq(
+          "dev.zio" %% "zio-test"          % "2.1.16" % Test,
+          "dev.zio" %% "zio-test-sbt"      % "2.1.16" % Test,
+          "dev.zio" %% "zio-test-magnolia" % "2.1.16" % Test
+      ),
+
     // Test dependencies
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
     libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test,

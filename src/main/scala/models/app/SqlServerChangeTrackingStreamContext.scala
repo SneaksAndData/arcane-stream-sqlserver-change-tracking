@@ -50,7 +50,10 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
   override val stagingCatalogName: String = spec.stagingDataSettings.catalog.catalogName
   override val stagingSchemaName: String = spec.stagingDataSettings.catalog.schemaName
 
-  override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
+  override val additionalProperties: Map[String, String] = sys.env.get("ARCANE_FRAMEWORK__CATALOG_NO_AUTH") match
+    case Some(_) => Map()
+    case None => IcebergCatalogCredential.oAuth2Properties
+
   override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
 
   val connectionString: String = sys.env("ARCANE_CONNECTIONSTRING")

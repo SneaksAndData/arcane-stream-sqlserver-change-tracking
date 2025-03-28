@@ -20,11 +20,11 @@ use IntegrationTests;
 ALTER TABLE IntegrationTests.dbo.TestTable ENABLE CHANGE_TRACKING;
 GO
 
-DECLARE @i int = 0
-WHILE @i < 300
-    BEGIN
-        SET @i = @i + 1
-        INSERT INTO IntegrationTests.dbo.TestTable (Id, Name) VALUES (@i, 'Name' + CAST(@i as nvarchar(50)))
-    END
-GO
-
+-- DECLARE @i int = 0
+-- WHILE @i < 300
+--     BEGIN
+--         SET @i = @i + 1
+--         INSERT INTO IntegrationTests.dbo.TestTable (Id, Name) VALUES (@i, 'Name' + CAST(@i as nvarchar(50)))
+--     END
+-- GO
+--

@@ -83,4 +83,7 @@ case class StreamSpec(database: String,
 object StreamSpec:
 
   def fromEnvironment(envVarName: String): Option[StreamSpec] =
-    sys.env.get(envVarName).map(env => read[StreamSpec](env))
+    sys.env.get(envVarName).map(env => fromString(env))
+
+  def fromString(source: String): StreamSpec =
+    read[StreamSpec](source)
