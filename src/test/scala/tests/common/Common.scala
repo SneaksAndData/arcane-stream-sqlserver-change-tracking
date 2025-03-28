@@ -67,6 +67,32 @@ object Common:
       yield ()
     }
 
+  
+  def updateData(connection: Connection, data: Seq[(Int, String)]): ZIO[Any, Throwable, Unit] = ZIO.scoped {
+    for
+      statement <- ZIO.attempt(connection.prepareStatement("UPDATE dbo.TestTable SET Name = ? WHERE Id = ?"))
+      _ <- ZIO.foreachDiscard(data) { case (number, string) =>
+        ZIO.attempt {
+          statement.setString(1, string)
+          statement.setInt(2, number)
+          statement.executeUpdate()
+        }
+      }
+    yield ()
+  }
+
+  def deleteData(connection: Connection, primaryKeys: Seq[Int]): ZIO[Any, Throwable, Unit] = ZIO.scoped {
+    for
+      statement <- ZIO.attempt(connection.prepareStatement("DELETE FROM dbo.TestTable WHERE Id = ?"))
+      _ <- ZIO.foreachDiscard(primaryKeys) { number =>
+        ZIO.attempt {
+          statement.setInt(1, number)
+          statement.executeUpdate()
+        }
+      }
+    yield ()
+  }
+
   def getData(targetTableName: String): ZIO[Any, Throwable, List[(Int, String)]] = ZIO.scoped {
         for
             connection <- ZIO.attempt(DriverManager.getConnection(trinoConnectionString))
