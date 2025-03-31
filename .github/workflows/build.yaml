@@ -6,11 +6,6 @@ on:
   pull_request:
     branches: [ main]
 
-env:
-  PROJECT_NAME: Arcane.Stream.SqlServerChangeTracking
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
   validate_commit:
     name: Validate commit
