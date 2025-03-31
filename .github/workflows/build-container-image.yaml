@@ -1,5 +1,5 @@
 name: Build Container Image
-run-name: Build Arcane.Stream.MicrosoftSqlServer Image for GHCR from ${{ github.ref }} by @${{ github.actor }}
+run-name: Build Arcane.Stream.SqlServerChangeTracking Image for GHCR from ${{ github.ref }} by @${{ github.actor }}
 
 on: workflow_dispatch
 
