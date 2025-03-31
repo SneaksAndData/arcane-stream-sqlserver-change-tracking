@@ -50,7 +50,10 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
   override val stagingCatalogName: String = spec.stagingDataSettings.catalog.catalogName
   override val stagingSchemaName: String = spec.stagingDataSettings.catalog.schemaName
 
-  override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
+  override val additionalProperties: Map[String, String] = sys.env.get("ARCANE_FRAMEWORK__CATALOG_NO_AUTH") match
+    case Some(_) => Map()
+    case None => IcebergCatalogCredential.oAuth2Properties
+
   override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
 
   val connectionString: String = sys.env("ARCANE_CONNECTIONSTRING")
@@ -75,8 +78,6 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
       override val retentionThreshold: String = spec.sinkSettings.orphanFilesExpirationSettings.retentionThreshold
 
     })
-
-  val database: String = spec.database
 
   override val stagingTablePrefix: String = spec.stagingDataSettings.tableNamePrefix
 
@@ -112,9 +113,9 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
 given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
   def apply(context: SqlServerChangeTrackingStreamContext): ConnectionOptions =
     ConnectionOptions(context.connectionString,
-      context.database,
-      context.spec.schema,
-      context.spec.table,
+      context.spec.sourceSettings.database,
+      context.spec.sourceSettings.schema,
+      context.spec.sourceSettings.table,
       None)
 
 object SqlServerChangeTrackingStreamContext:
