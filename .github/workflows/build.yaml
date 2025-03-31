@@ -2,12 +2,10 @@ name: Run tests with coverage
 
 on:
   push:
-    branches:
-      - scala
+    branches: [ main ]
   pull_request:
-    branches:
-      - scala
-    
+    branches: [ main]
+
 env:
   PROJECT_NAME: Arcane.Stream.SqlServerChangeTracking
   REGISTRY: ghcr.io
