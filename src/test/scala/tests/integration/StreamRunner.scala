@@ -118,7 +118,7 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
       _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
       afterBackfill <- Common.getData(streamingStreamContext.targetTableFullName, resultSetDecoder)
 
-      // Testing the stream runner in the backfill mode
+      // Testing the update and delete operations
       streamRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
       _ <- Common.updateData(sourceConnection, updatedData)
       _ <- Common.deleteData(sourceConnection, deletedData)
