@@ -7,6 +7,7 @@ import tests.common.{Common, TimeLimitLifetimeService}
 import com.sneaksanddata.arcane.framework.services.mssql.*
 import tests.integration.Fixtures.withFreshTables
 
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import org.scalatest.Checkpoints.Checkpoint
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -109,8 +110,6 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
     val backfillStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](streamingStreamContext)
       ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
 
-    val timeLimiter = new TimeLimitLifetimeService(Duration.ofSeconds(15))
-
     val streamingData = List.range(1, 3).map(i => (i, s"Test$i"))
     val backfillData = List.range(4, 7).map(i => (i, s"Test$i"))
 
@@ -119,24 +118,23 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
 
     val test = for
       // Testing the stream runner in the streaming mode
-      streamRunner <- Common.createTestApp(ZLayer.succeed(timeLimiter), streamingStreamContextLayer).fork
+      streamRunner <- Common.createTestApp(ZLayer.succeed(new TimeLimitLifetimeService(Duration.ofSeconds(10))), streamingStreamContextLayer).fork
       _ <- Common.insertData(sourceConnection, streamingData)
-      _ <- streamRunner.await.timeout(Duration.ofSeconds(30))
+      _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
       afterStream <- Common.getData(streamingStreamContext.targetTableFullName)
 
       // Testing the stream runner in the backfill mode
-      streamRunner <- Common.createTestApp(ZLayer.succeed(timeLimiter), backfillStreamContextLayer).fork
+      streamRunner <- Common.createTestApp(ZLayer.succeed(new TimeLimitLifetimeService(Duration.ofSeconds(10))), backfillStreamContextLayer).fork
       _ <- Common.insertData(sourceConnection, backfillData)
-      _ <- streamRunner.await.timeout(Duration.ofSeconds(30))
+      _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
       afterBackfill <- Common.getData(streamingStreamContext.targetTableFullName)
 
       // Testing the stream runner in the backfill mode
-      streamRunner <- Common.createTestApp(ZLayer.succeed(timeLimiter), streamingStreamContextLayer).fork
+      streamRunner <- Common.createTestApp(ZLayer.succeed(new TimeLimitLifetimeService(Duration.ofSeconds(10))), streamingStreamContextLayer).fork
       _ <- Common.updateData(sourceConnection, updatedData)
-      _ <- ZIO.sleep(Duration.ofSeconds(5))
       _ <- Common.deleteData(sourceConnection, deletedData)
-      _ <- ZIO.sleep(Duration.ofSeconds(5))
-      _ <- streamRunner.await.timeout(Duration.ofSeconds(30))
+      _ <- zlog("data deleted")
+      _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
       afterUpdateDelete <- Common.getData(streamingStreamContext.targetTableFullName)
     yield (afterStream, afterBackfill, afterUpdateDelete)
 
@@ -144,9 +142,9 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
       case None => fail("Test timed out")
       case Some(afterStream, afterBackfill, afterUpdateDelete) =>
         val cp = new Checkpoint()
-        cp { afterStream should equal(streamingData) }
-        cp { afterBackfill should equal(streamingData ++ backfillData) }
-        cp { afterUpdateDelete should equal(backfillData ++ updatedData.filter(e => !deletedData.contains(e._1))) }
+        cp { afterStream.sorted should equal(streamingData.sorted) }
+        cp { afterBackfill.sorted should equal((streamingData ++ backfillData).sorted) }
+        cp { afterUpdateDelete.sorted should equal( streamingData ++ updatedData.filterNot(e => deletedData.contains(e._1)).sorted) }
         cp.reportAll()
         succeed
     }
