@@ -118,19 +118,19 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
 
     val test = for
       // Testing the stream runner in the streaming mode
-      streamRunner <- Common.createTestApp(ZLayer.succeed(new TimeLimitLifetimeService(Duration.ofSeconds(10))), streamingStreamContextLayer).fork
+      streamRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
       _ <- Common.insertData(sourceConnection, streamingData)
       _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
       afterStream <- Common.getData(streamingStreamContext.targetTableFullName)
 
       // Testing the stream runner in the backfill mode
-      streamRunner <- Common.createTestApp(ZLayer.succeed(new TimeLimitLifetimeService(Duration.ofSeconds(10))), backfillStreamContextLayer).fork
+      streamRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, backfillStreamContextLayer).fork
       _ <- Common.insertData(sourceConnection, backfillData)
       _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
       afterBackfill <- Common.getData(streamingStreamContext.targetTableFullName)
 
       // Testing the stream runner in the backfill mode
-      streamRunner <- Common.createTestApp(ZLayer.succeed(new TimeLimitLifetimeService(Duration.ofSeconds(10))), streamingStreamContextLayer).fork
+      streamRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
       _ <- Common.updateData(sourceConnection, updatedData)
       _ <- Common.deleteData(sourceConnection, deletedData)
       _ <- zlog("data deleted")

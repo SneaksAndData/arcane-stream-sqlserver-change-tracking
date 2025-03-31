@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.sql_server_change_tracking
 package tests.common
 
 import main.appLayer
-import models.app.{SqlServerChangeTrackingStreamContext, given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions}
+import models.app.SqlServerChangeTrackingStreamContext
 
 import com.sneaksanddata.arcane.framework.services.app.GenericStreamRunnerService
 import com.sneaksanddata.arcane.framework.services.app.base.{InterruptionToken, StreamLifetimeService}
@@ -25,7 +25,11 @@ object Common:
   type StreamLifeTimeServiceLayer = ZLayer[Any, Nothing, StreamLifetimeService & InterruptionToken]
   type StreamContextLayer = ZLayer[Any, Nothing, SqlServerChangeTrackingStreamContext.Environment]
 
-  def createTestApp(lifetimeService: StreamLifeTimeServiceLayer, streamContextLayer: StreamContextLayer) = appLayer.provide(
+  def buildTestApp(lifetimeService: StreamLifeTimeServiceLayer, streamContextLayer: StreamContextLayer): ZIO[Any, Throwable, Unit] =
+    appLayer.provide(
+      streamContextLayer,
+      lifetimeService,
+      
       GenericStreamRunnerService.layer,
       GenericGraphBuilderFactory.composedLayer,
       GenericGroupingTransformer.layer,
@@ -47,9 +51,6 @@ object Common:
       GenericBackfillStreamingMergeDataProvider.layer,
       GenericStreamingGraphBuilder.backfillSubStreamLayer,
       MsSqlBackfillOverwriteBatchFactory.layer,
-
-      streamContextLayer,
-      lifetimeService
     )
 
   val trinoConnectionString = "jdbc:trino://localhost:8080/iceberg/test?user=test"
