@@ -79,8 +79,6 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
 
     })
 
-  val database: String = spec.database
-
   override val stagingTablePrefix: String = spec.stagingDataSettings.tableNamePrefix
 
   val partitionExpressions: Array[String] = spec.tableProperties.partitionExpressions
@@ -115,9 +113,9 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
 given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
   def apply(context: SqlServerChangeTrackingStreamContext): ConnectionOptions =
     ConnectionOptions(context.connectionString,
-      context.database,
-      context.spec.schema,
-      context.spec.table,
+      context.spec.sourceSettings.database,
+      context.spec.sourceSettings.schema,
+      context.spec.sourceSettings.table,
       None)
 
 object SqlServerChangeTrackingStreamContext:

@@ -14,6 +14,7 @@ import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.should
 import zio.{Runtime, Unsafe, ZIO, ZLayer}
 
+import java.sql.ResultSet
 import java.time.Duration
 
 class StreamRunner  extends AsyncFlatSpec with Matchers:
@@ -23,24 +24,8 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
   private val streamContextStr = """
     |
     | {
-    |  "database": "IntegrationTests",
-    |  "schema": "dbo",
-    |  "table": "TestTable",
-    |  "commandTimeout": 3600,
-    |  "backfillJobTemplateRef": {
-    |    "apiGroup": "streaming.sneaksanddata.com",
-    |    "kind": "StreamingJobTemplate",
-    |    "name": "arcane-stream-microsoft-synapse-link-large-job"
-    |  },
     |  "groupingIntervalSeconds": 1,
     |  "groupsPerFile": 1,
-    |  "httpClientMaxRetries": 3,
-    |  "httpClientRetryDelaySeconds": 1,
-    |  "jobTemplateRef": {
-    |    "apiGroup": "streaming.sneaksanddata.com",
-    |    "kind": "StreamingJobTemplate",
-    |    "name": "arcane-stream-microsoft-synapse-link-standard-job"
-    |  },
     |  "lookBackInterval": 21000,
     |  "tableProperties": {
     |    "partitionExpressions": [],
@@ -66,11 +51,13 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
     |    "targetTableName": "iceberg.test.test"
     |  },
     |  "sourceSettings": {
-    |    "baseLocation": "abfss://cdm-e2e@devstoreaccount1.dfs.core.windows.net/",
     |    "changeCaptureIntervalSeconds": 1,
     |    "changeCapturePeriodSeconds": 60,
-    |    "name": "synapsetable"
-    |  },
+    |    "commandTimeout": 3600,
+    |    "database": "IntegrationTests",
+    |    "schema": "dbo",
+    |    "table": "TestTable"
+    |   },
     |  "stagingDataSettings": {
     |    "catalog": {
     |      "catalogName": "iceberg",
@@ -80,7 +67,7 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
     |      "warehouse": "demo"
     |    },
     |    "dataLocation": "s3://tmp/initial-warehouse",
-    |    "tableNamePrefix": "staging_inventtrans"
+    |    "tableNamePrefix": "staging_integration_tests"
     |  },
     |  "fieldSelectionRule": {
     |    "ruleType": "all",
@@ -116,18 +103,20 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
     val updatedData = List.range(4, 7).map(i => (i, s"Update$i"))
     val deletedData = List(5)
 
+    val resultSetDecoder = (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
+
     val test = for
       // Testing the stream runner in the streaming mode
       streamRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
       _ <- Common.insertData(sourceConnection, streamingData)
       _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
-      afterStream <- Common.getData(streamingStreamContext.targetTableFullName)
+      afterStream <- Common.getData(streamingStreamContext.targetTableFullName, resultSetDecoder)
 
       // Testing the stream runner in the backfill mode
       streamRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, backfillStreamContextLayer).fork
       _ <- Common.insertData(sourceConnection, backfillData)
       _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
-      afterBackfill <- Common.getData(streamingStreamContext.targetTableFullName)
+      afterBackfill <- Common.getData(streamingStreamContext.targetTableFullName, resultSetDecoder)
 
       // Testing the stream runner in the backfill mode
       streamRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
@@ -135,7 +124,7 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
       _ <- Common.deleteData(sourceConnection, deletedData)
       _ <- zlog("data deleted")
       _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
-      afterUpdateDelete <- Common.getData(streamingStreamContext.targetTableFullName)
+      afterUpdateDelete <- Common.getData(streamingStreamContext.targetTableFullName, resultSetDecoder)
     yield (afterStream, afterBackfill, afterUpdateDelete)
 
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(test.timeout(testTimeout))).map {
@@ -149,6 +138,3 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
         succeed
     }
   }
-
-class TestStreamContext(spec: StreamSpec) extends SqlServerChangeTrackingStreamContext(spec):
-  override val IsBackfilling: Boolean = false

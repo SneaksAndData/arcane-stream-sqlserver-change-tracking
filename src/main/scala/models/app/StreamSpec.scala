@@ -42,32 +42,26 @@ case class TablePropertiesSettingsSpec(partitionExpressions: Array[String], sort
 
 case class FieldSelectionRuleSpec(ruleType: String, fields: Array[String]) derives ReadWriter
 
-case class SourceSettings(name: String,
-                          baseLocation: String,
+case class SourceSettings(database: String,
+                          schema: String,
+                          table: String,
                           changeCaptureIntervalSeconds: Int,
-                          changeCapturePeriodSeconds: Int) derives ReadWriter
+                          changeCapturePeriodSeconds: Int,
+                          commandTimeout: Int,
+                         ) derives ReadWriter
 
 /**
  * The specification for the stream.
  *
- * @param database The database name
- * @param schema The schema name
- * @param table The table name
  * @param rowsPerGroup The number of rows per group in the staging table
  * @param groupingIntervalSeconds The grouping interval in seconds
  * @param groupsPerFile The number of groups per file
  * @param lookBackInterval The look back interval in seconds
- * @param commandTimeout Timeout for the SQL command
- * @param changeCaptureIntervalSeconds The change capture interval in seconds
- * @param partitionExpression Partition expression for partitioning the data in the staging table (optional)
  */
-case class StreamSpec(database: String,
-                      schema: String,
-                      table: String,
-                      rowsPerGroup: Int,
+case class StreamSpec(rowsPerGroup: Int,
                       groupsPerFile: Int,
                       lookBackInterval: Int,
-                      commandTimeout: Int,
+                      
 
                       // Iceberg settings
                       stagingDataSettings: StagingDataSettingsSpec,

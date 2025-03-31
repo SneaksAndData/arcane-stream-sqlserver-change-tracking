@@ -4,13 +4,12 @@ package tests.integration
 import org.scalatest.Assertion
 
 import java.sql.{Connection, DriverManager}
-import java.util.Properties
 import scala.concurrent.Future
 
 object Fixtures:
 
-  val connectionString = "jdbc:sqlserver://localhost:1433;databaseName=IntegrationTests;user=sa;password=tMIxN11yGZgMC;encrypt=false;trustServerCertificate=true"
-  val trinoConnectionString = "jdbc:trino://localhost:8080/iceberg/test?user=test"
+  val connectionString: String = sys.env("ARCANE_CONNECTIONSTRING")
+  val trinoConnectionString: String = sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")
 
   def createFreshSource(tableName: String): Connection  =
     val con = DriverManager.getConnection(connectionString)
