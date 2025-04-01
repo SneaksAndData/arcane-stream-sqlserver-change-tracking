@@ -13,6 +13,6 @@ spec:
   apiGroupRef: streaming.sneaksanddata.com
   kindRef: MicrosoftSqlServerStream
   apiVersion: v1beta1
-  pluralName: microsoft-sql-server-stream
+  pluralName: microsoft-sql-server-streams
   secretRefs:
     - connectionStringRef
