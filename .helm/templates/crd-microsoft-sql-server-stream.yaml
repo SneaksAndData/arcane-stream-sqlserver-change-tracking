@@ -70,7 +70,7 @@ spec:
                         - PARQUET
                         - ORC
                         - AVRO
-                      default: PARQUETT
+                      default: PARQUET
                 sourceSettings:
                   type: object
                   properties:
