@@ -17,18 +17,21 @@ spec:
       served: true
       storage: true
       additionalPrinterColumns:
+        - name: Database
+          type: string
+          jsonPath: .spec.sourceSettings.database
         - name: Table
           type: string
-          jsonPath: .spec.table
+          jsonPath: .spec.sourceSettings.table
         - name: Schema
           type: string
-          jsonPath: .spec.schema
+          jsonPath: .spec.sourceSettings.schema
         - name: Refresh Interval
           type: string
-          jsonPath: .spec.changeCaptureIntervalSeconds
-        - name: Sink location
+          jsonPath: .spec.sourceSettings.changeCaptureIntervalSeconds
+        - name: Target table name
           type: string
-          jsonPath: .spec.sinkLocation
+          jsonPath: .spec.sinkSettings.targetTableName
         - name: Phase
           type: string
           jsonPath: .status.phase
@@ -88,12 +91,6 @@ spec:
                       description: How long to wait before polling for next result set. Can be from 1 to 1 hour.
                       minimum: 1
                       maximum: 3600
-                    changeCapturePeriodSeconds:
-                      type: integer
-                      description: How far back to look for changes. Can be from 1 to 1 hour.
-                      minimum: 1
-                      maximum: 3600
-                      default: 1200
                     commandTimeout:
                       type: integer
                       description: Number of seconds to wait for result before sql commands should time out.
@@ -195,9 +192,6 @@ spec:
                         batchThreshold: 60
                         retentionThreshold: 6h
                     targetTableName:
-                      type: string
-                      description: Data location for parquet files.
-                    archiveTableName:
                       type: string
                       description: Data location for parquet files.
                 lookBackInterval:
