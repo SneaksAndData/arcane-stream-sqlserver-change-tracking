@@ -11,8 +11,8 @@ metadata:
   {{- end }}
 spec:
   apiGroupRef: streaming.sneaksanddata.com
-  kindRef: SqlServerChangeTracking
+  kindRef: MicrosoftSqlServerStream
   apiVersion: v1beta1
-  pluralName: sql-server-ct-streams
+  pluralName: microsoft-sql-server-streams
   secretRefs:
     - connectionStringRef
