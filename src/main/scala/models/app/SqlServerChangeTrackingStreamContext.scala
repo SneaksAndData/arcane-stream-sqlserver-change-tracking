@@ -56,7 +56,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
 
   override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
 
-  val connectionString: String = sys.env("ARCANE_CONNECTIONSTRING")
+  val connectionString: String = sys.env("ARCANE__CONNECTIONSTRING")
 
   override val connectionUrl: String = sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")
 
