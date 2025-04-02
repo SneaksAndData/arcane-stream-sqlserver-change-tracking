@@ -97,18 +97,9 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
     case "exclude" => FieldSelectionRule.ExcludeFields(spec.fieldSelectionRule.fields.map(f => f.toLowerCase()).toSet)
     case _ => FieldSelectionRule.AllFields
 
-  override val backfillBehavior: BackfillBehavior = spec.backfillBehavior match
-    case "merge" => BackfillBehavior.Merge
-    case "overwrite" => BackfillBehavior.Overwrite
-    case _ => throw new IllegalArgumentException(s"Unknown backfill behavior: ${spec.backfillBehavior}")
+  override val backfillBehavior: BackfillBehavior = BackfillBehavior.Overwrite
 
-  override val backfillStartDate: Option[OffsetDateTime] = parseBackfillStartDate(spec.backfillStartDate)
-
-  private def parseBackfillStartDate(str: String): Option[OffsetDateTime] =
-    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ss'Z'").withZone(ZoneOffset.UTC)
-    Try(OffsetDateTime.parse(str, formatter)) match
-      case scala.util.Success(value) => Some(value)
-      case scala.util.Failure(e) => throw new IllegalArgumentException(s"Invalid backfill start date: $str. The backfill start date must be in the format 'yyyy-MM-dd'T'HH.mm.ss'Z'", e)
+  override val backfillStartDate: Option[OffsetDateTime] = None
 
 given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
   def apply(context: SqlServerChangeTrackingStreamContext): ConnectionOptions =
