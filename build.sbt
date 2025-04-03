@@ -21,7 +21,7 @@ lazy val plugin = (project in file("."))
   .settings(
     name := "arcane-stream-sqlserver-change-tracking",
     idePackagePrefix := Some("com.sneaksanddata.arcane.sql_server_change_tracking"),
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "0.6.0-11-g1a3770f",
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "0.6.0-12-g88e29b1",
     libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.65.Final",
 
     // Test dependencies
