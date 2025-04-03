@@ -50,7 +50,7 @@ object main extends ZIOAppDefault {
       PosixStreamLifetimeService.layer,
       MsSqlConnection.layer,
       MsSqlDataProvider.layer,
-      IcebergS3CatalogWriter.autoReloadable,
+      IcebergS3CatalogWriter.layer,
       JdbcMergeServiceClient.layer,
       MsSqlStreamingDataProvider.layer,
       MsSqlHookManager.layer,
