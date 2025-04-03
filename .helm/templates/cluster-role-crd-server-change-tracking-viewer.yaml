@@ -22,6 +22,6 @@ rules:
       apiGroups:
         - streaming.sneaksanddata.com
       resources:
-        - sql-server-ct-streams
-        - sql-server-ct-streams/status
+        - microsoft-sql-server-streams
+        - microsoft-sql-server-streams/status
 {{- end }}

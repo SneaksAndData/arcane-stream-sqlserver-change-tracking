@@ -12,7 +12,7 @@ case class CatalogSettings(namespace: String,
                            catalogName: String,
                            schemaName: String)derives ReadWriter
 
-case class StagingDataSettingsSpec(tableNamePrefix: String, catalog: CatalogSettings, dataLocation: Option[String]) derives ReadWriter
+case class StagingDataSettingsSpec(tableNamePrefix: String, catalog: CatalogSettings, dataLocation: Option[String]=None) derives ReadWriter
 
 /**
  * The configuration of Iceberg sink.
@@ -33,7 +33,6 @@ case class OrphanFilesExpirationSettings(batchThreshold: Int,
  * The configuration of Iceberg sink.
  */
 case class SinkSettings(targetTableName: String,
-                        archiveTableName: String,
                         optimizeSettings: OptimizeSettingsSpec,
                         snapshotExpirationSettings: SnapshotExpirationSettingsSpec,
                         orphanFilesExpirationSettings: OrphanFilesExpirationSettings) derives ReadWriter
@@ -46,7 +45,6 @@ case class SourceSettings(database: String,
                           schema: String,
                           table: String,
                           changeCaptureIntervalSeconds: Int,
-                          changeCapturePeriodSeconds: Int,
                           commandTimeout: Int,
                          ) derives ReadWriter
 
@@ -68,8 +66,6 @@ case class StreamSpec(rowsPerGroup: Int,
                       groupingIntervalSeconds: Int,
                       sourceSettings: SourceSettings,
                       sinkSettings: SinkSettings,
-                      backfillStartDate: String,
-                      backfillBehavior: String,
                       fieldSelectionRule: FieldSelectionRuleSpec,
                       tableProperties: TablePropertiesSettingsSpec) derives ReadWriter
 
