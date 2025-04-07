@@ -104,7 +104,6 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
 given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
   def apply(context: SqlServerChangeTrackingStreamContext): ConnectionOptions =
     ConnectionOptions(context.connectionString,
-      context.spec.sourceSettings.database,
       context.spec.sourceSettings.schema,
       context.spec.sourceSettings.table,
       None)
