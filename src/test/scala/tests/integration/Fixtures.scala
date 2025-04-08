@@ -8,7 +8,7 @@ import scala.concurrent.Future
 
 object Fixtures:
 
-  val connectionString: String = sys.env("ARCANE_CONNECTIONSTRING")
+  val connectionString: String = sys.env("ARCANE__CONNECTIONSTRING")
   val trinoConnectionString: String = sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")
 
   def createFreshSource(tableName: String): Connection  =
