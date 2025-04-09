@@ -69,13 +69,13 @@ object main extends ZIOAppDefault {
     app
       .catchAllDefect { cause =>
         for {
-          _ <- zlog(s"Application failed: ${cause.getMessage}")
+          _ <- zlog(s"Application failed with defect: $cause")
           _ <- exit(zio.ExitCode(1))
         } yield ()
       }
       .catchAll{ cause =>
         for {
-          _ <- zlog(s"Application failed: ${cause.getMessage}")
+          _ <- zlog(s"Application failed all: $cause")
           _ <- exit(zio.ExitCode(1))
         } yield ()
       }
