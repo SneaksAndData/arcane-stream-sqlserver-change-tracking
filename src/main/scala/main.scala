@@ -66,20 +66,7 @@ object main extends ZIOAppDefault {
   def run: ZIO[Any, Throwable, Unit] =
     val app = streamRunner
 
-    app
-      .catchAllDefect { cause =>
-        for {
-          _ <- zlog(s"Application failed with defect: $cause")
-          _ <- exit(zio.ExitCode(1))
-        } yield ()
-      }
-      .catchAll{ cause =>
-        for {
-          _ <- zlog(s"Application failed all: $cause")
-          _ <- exit(zio.ExitCode(1))
-        } yield ()
-      }
-      .catchAllCause { cause =>
+    app.catchAllCause { cause =>
       for {
         _ <- zlog(s"Application failed: ${cause.squashTrace.getMessage}", cause)
         _ <- exit(zio.ExitCode(1))
