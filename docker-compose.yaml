@@ -39,6 +39,7 @@ services:
     image: "trinodb/trino:474"
     volumes:
       - ./integration-tests.properties:/etc/trino/catalog/iceberg.properties
+      - ./config.properties:/etc/trino/config.properties
 ##  http-proxy:
 ##    image: "envoyproxy/envoy:v1.31.2"
 ##    command:
