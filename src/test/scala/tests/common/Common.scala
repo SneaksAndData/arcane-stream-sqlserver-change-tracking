@@ -55,7 +55,6 @@ object Common:
       MsSqlHookManager.layer,
       ZLayer.succeed(MutableSchemaCache()),
       BackfillApplyBatchProcessor.layer,
-      Services.restCatalog,
       GenericBackfillStreamingOverwriteDataProvider.layer,
       GenericBackfillStreamingMergeDataProvider.layer,
       GenericStreamingGraphBuilder.backfillSubStreamLayer,

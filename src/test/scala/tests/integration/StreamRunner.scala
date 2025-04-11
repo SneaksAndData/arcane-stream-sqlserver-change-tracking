@@ -35,7 +35,6 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
     |  },
     |  "rowsPerGroup": 10000,
     |  "sinkSettings": {
-    |    "archiveTableName": "iceberg.test.archive_test",
     |    "optimizeSettings": {
     |      "batchThreshold": 60,
     |      "fileSizeThreshold": "512MB"
@@ -52,7 +51,6 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
     |  },
     |  "sourceSettings": {
     |    "changeCaptureIntervalSeconds": 1,
-    |    "changeCapturePeriodSeconds": 60,
     |    "commandTimeout": 3600,
     |    "database": "IntegrationTests",
     |    "schema": "dbo",
@@ -66,15 +64,12 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
     |      "schemaName": "test",
     |      "warehouse": "demo"
     |    },
-    |    "dataLocation": "s3://tmp/initial-warehouse",
     |    "tableNamePrefix": "staging_integration_tests"
     |  },
     |  "fieldSelectionRule": {
     |    "ruleType": "all",
     |    "fields": []
-    |  },
-    |  "backfillBehavior": "overwrite",
-    |  "backfillStartDate": "2025-03-04T07.00.00Z"
+    |  }
     |}
     |
     |""".stripMargin
