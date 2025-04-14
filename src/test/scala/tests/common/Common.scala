@@ -67,9 +67,9 @@ object Common:
    * @param data The data to insert.
    * @return A ZIO effect that inserts the data.
    */
-  def insertData(connection: Connection, data: Seq[(Int, String)]): ZIO[Any, Throwable, Unit] = ZIO.scoped {
+  def insertData(connection: Connection, tableName: String, data: Seq[(Int, String)]): ZIO[Any, Throwable, Unit] = ZIO.scoped {
       for
-          statement <- ZIO.attempt(connection.prepareStatement("INSERT INTO dbo.TestTable (Id, Name) VALUES (?, ?)"))
+          statement <- ZIO.attempt(connection.prepareStatement(s"INSERT INTO $tableName (Id, Name) VALUES (?, ?)"))
           _ <- ZIO.foreachDiscard(data) { case (number, string) =>
             ZIO.attempt {
               statement.setInt(1, number)
@@ -79,7 +79,26 @@ object Common:
           }
       yield ()
     }
-
+  
+  /**
+   * Inserts data into the test table.
+   * @param connection The connection to the database.
+   * @param data The data to insert.
+   * @return A ZIO effect that inserts the data.
+   */
+  def insertUpdatedData(connection: Connection, tableName: String, data: Seq[(Int, String, String)]): ZIO[Any, Throwable, Unit] = ZIO.scoped {
+    for
+      statement <- ZIO.attempt(connection.prepareStatement(s"INSERT INTO $tableName (Id, Name, NewName) VALUES (?, ?, ?)"))
+      _ <- ZIO.foreachDiscard(data) { case (number, string, second_string) =>
+        ZIO.attempt {
+          statement.setInt(1, number)
+          statement.setString(2, string)
+          statement.setString(3, second_string)
+          statement.executeUpdate()
+        }
+      }
+    yield ()
+  }
 
   /**
    * Updates the data in the test table.
@@ -126,11 +145,11 @@ object Common:
    * @tparam Result The type of the result.
    * @return A ZIO effect that gets the data.
    */
-  def getData[Result](targetTableName: String, decoder: ResultSet => Result): ZIO[Any, Throwable, List[Result]] = ZIO.scoped {
+  def getData[Result](targetTableName: String, columnList: String, decoder: ResultSet => Result): ZIO[Any, Throwable, List[Result]] = ZIO.scoped {
         for
             connection <- ZIO.attempt(DriverManager.getConnection(sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")))
             statement <- ZIO.attempt(connection.createStatement())
-            resultSet <- ZIO.fromAutoCloseable(ZIO.attempt(statement.executeQuery(s"SELECT Id, Name from $targetTableName")))
+            resultSet <- ZIO.fromAutoCloseable(ZIO.attempt(statement.executeQuery(s"SELECT $columnList from $targetTableName")))
             data <- ZIO.attempt {
                 Iterator.continually((resultSet.next(), resultSet))
                   .takeWhile(_._1)
@@ -139,3 +158,33 @@ object Common:
             }
         yield data
     }
+
+  /**
+   * Inserts columns into the test table.
+   *
+   * @param connection The connection to the database.
+   * @param tableName  The name of the table.
+   * @param migrationExpression The migration expression to add the column.
+   * @return A ZIO effect that inserts the data.
+   */
+  def addColumns(connection: Connection, tableName: String, migrationExpression: String): ZIO[Any, Throwable, Unit] = ZIO.scoped {
+    for
+      statement <- ZIO.attempt(connection.prepareStatement(s"ALTER TABLE $tableName ADD $migrationExpression"))
+      _ <- ZIO.attempt(statement.execute())
+    yield ()
+  }
+
+  /**
+   * Inserts data into the test table.
+   *
+   * @param connection          The connection to the database.
+   * @param tableName           The name of the table.
+   * @param migrationExpression The migration expression to add the column.
+   * @return A ZIO effect that inserts the data.
+   */
+  def removeColumns(connection: Connection, tableName: String, migrationExpression: String): ZIO[Any, Throwable, Unit] = ZIO.scoped {
+    for
+      statement <- ZIO.attempt(connection.prepareStatement(s"ALTER TABLE $tableName DROP COLUMN $migrationExpression"))
+      _ <- ZIO.attempt(statement.execute())
+    yield ()
+  }
