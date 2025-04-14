@@ -100,7 +100,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
   override val backfillBehavior: BackfillBehavior = BackfillBehavior.Overwrite
 
   override val backfillStartDate: Option[OffsetDateTime] = None
-  override val maxRowsPerFile: Option[Int] = None
+  override val maxRowsPerFile: Option[Int] = Some(spec.maxRowsPerFile)
 
 given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
   def apply(context: SqlServerChangeTrackingStreamContext): ConnectionOptions =
