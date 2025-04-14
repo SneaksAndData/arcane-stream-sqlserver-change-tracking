@@ -8,10 +8,12 @@ import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
 import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, PosixStreamLifetimeService, StreamRunnerServiceImpl}
+import com.sneaksanddata.arcane.framework.services.base.DeclaredMetrics
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.hooks.manager.EmptyHookManager
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.merging.{JdbcMergeServiceClient, MutableSchemaCache}
+import com.sneaksanddata.arcane.framework.services.metrics.ArcaneDimensionsProvider
 import com.sneaksanddata.arcane.framework.services.mssql.{ConnectionOptions, MsSqlBackfillOverwriteBatchFactory, MsSqlConnection, MsSqlDataProvider, MsSqlHookManager, MsSqlStreamingDataProvider}
 import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{GenericBackfillStreamingMergeDataProvider, GenericBackfillStreamingOverwriteDataProvider}
 import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{GenericGraphBuilderFactory, GenericStreamingGraphBuilder}
@@ -23,7 +25,10 @@ import org.slf4j.MDC
 import zio.Console.printLine
 import zio.logging.LogFormat
 import zio.logging.backend.SLF4J
+import zio.metrics.connectors.{MetricsConfig, datadog}
 import zio.{Runtime, ZIO, ZIOAppDefault, ZLayer}
+
+import java.time.Duration
 
 object main extends ZIOAppDefault {
 
@@ -37,7 +42,7 @@ object main extends ZIOAppDefault {
 
   private val schemaCache = MutableSchemaCache()
 
-  private lazy val streamRunner = appLayer.provide(
+  WIP
       GenericStreamRunnerService.layer,
       GenericGraphBuilderFactory.composedLayer,
       GenericGroupingTransformer.layer,
@@ -59,7 +64,13 @@ object main extends ZIOAppDefault {
       GenericBackfillStreamingOverwriteDataProvider.layer,
       GenericBackfillStreamingMergeDataProvider.layer,
       GenericStreamingGraphBuilder.backfillSubStreamLayer,
-      MsSqlBackfillOverwriteBatchFactory.layer
+      MsSqlBackfillOverwriteBatchFactory.layer,
+
+      ZLayer.succeed(datadog.DatadogConfig("localhost", 8125)),
+      ZLayer.succeed(MetricsConfig(Duration.ofMillis(100))),
+      datadog.datadogLayer,
+      ArcaneDimensionsProvider.layer,
+      DeclaredMetrics.layer
   )
 
   @main
