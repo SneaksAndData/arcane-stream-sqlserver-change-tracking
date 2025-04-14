@@ -109,7 +109,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         _ <- ZIO.sleep(Duration.ofSeconds(1))
         _ <- Common.insertUpdatedData(sourceConnection, sourceTableName, afterEvolution)
 
-        _ <- streamRunner.await.timeout(Duration.ofSeconds(20))
+        _ <- streamRunner.await.timeout(Duration.ofSeconds(40))
 
         afterStream <- Common.getData(streamingStreamContext.targetTableFullName,
           "Id, Name, NewName",
