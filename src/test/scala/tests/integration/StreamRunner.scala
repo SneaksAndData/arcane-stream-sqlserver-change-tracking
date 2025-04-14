@@ -25,7 +25,7 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
     |
     | {
     |  "groupingIntervalSeconds": 1,
-    |  "groupsPerFile": 1,
+    |  "maxRowsPerFile": 1,
     |  "lookBackInterval": 21000,
     |  "tableProperties": {
     |    "partitionExpressions": [],
