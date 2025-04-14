@@ -105,6 +105,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
         _ <- ZIO.sleep(Duration.ofSeconds(5))
         _ <- Common.addColumns(sourceConnection, sourceTableName, "NewName VARCHAR(100)")
+        _ <- ZIO.sleep(Duration.ofSeconds(1))
         _ <- Common.insertUpdatedData(sourceConnection, sourceTableName, afterEvolution)
 
         _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
