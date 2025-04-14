@@ -140,9 +140,10 @@ spec:
                   description: Max time to wait for rowsPerGroup to accumulate. Can be from 1 to 60 seconds.
                   minimum: 1
                   maximum: 60
-                groupsPerFile:
+                maxRowsPerFile:
                   type: integer
-                  description: Number of row groups per file.
+                  description: The maximum number of rows per file in the staging table.
+                  default: 10000
                 sinkSettings:
                   type: object
                   properties:

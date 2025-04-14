@@ -53,13 +53,13 @@ case class SourceSettings(database: String,
  *
  * @param rowsPerGroup The number of rows per group in the staging table
  * @param groupingIntervalSeconds The grouping interval in seconds
- * @param groupsPerFile The number of groups per file
+ * @param maxRowsPerFile The maximum number of rows per file in the staging table.
  * @param lookBackInterval The look back interval in seconds
  */
 case class StreamSpec(rowsPerGroup: Int,
-                      groupsPerFile: Int,
+                      maxRowsPerFile: Int,
                       lookBackInterval: Int,
-                      
+
 
                       // Iceberg settings
                       stagingDataSettings: StagingDataSettingsSpec,
