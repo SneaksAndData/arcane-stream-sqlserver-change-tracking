@@ -83,7 +83,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Throwable] = suite("StreamRunner") (
 
-    test("handle schema migration (column insertions)") {
+    test("handle the schema migration (column insertions)") {
       val streamingData = List.range(1, 4).map(i => (i, s"Test$i"))
       val afterEvolution = List.range(4, 7).map(i => (i, s"Test$i", s"Updated $i"))
 
@@ -96,8 +96,9 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(15)))
         streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
         _ <- Common.insertData(sourceConnection, sourceTableName, streamingData)
-        _ <- ZIO.sleep(Duration.ofSeconds(5))
+        _ <- ZIO.sleep(Duration.ofSeconds(15))
 
+        _ <- ZIO.log("Checking if the data is in the target table")
         beforeEvolution <- Common.getData(
           streamingStreamContext.targetTableFullName,
           "Id, Name",
@@ -118,7 +119,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
       } yield assertTrue(beforeEvolution.sorted == streamingData) && assertTrue(afterStream.sorted == afterEvolutionExpected)
     },
 
-    test("handle schema migration (column deletions)") {
+    test("handle the schema migration (column deletions)") {
       val streamingData = List.range(1, 4).map(i => (i, s"Test$i", s"Updated $i"))
       val afterEvolution = List.range(4, 7).map(i => (i, s"Test$i"))
 
