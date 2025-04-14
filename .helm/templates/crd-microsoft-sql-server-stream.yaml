@@ -17,9 +17,6 @@ spec:
       served: true
       storage: true
       additionalPrinterColumns:
-        - name: Database
-          type: string
-          jsonPath: .spec.sourceSettings.database
         - name: Table
           type: string
           jsonPath: .spec.sourceSettings.table
@@ -77,9 +74,6 @@ spec:
                 sourceSettings:
                   type: object
                   properties:
-                    database:
-                      type: string
-                      description: The schema to track changes for.
                     schema:
                       type: string
                       description: The schema to track changes for.
