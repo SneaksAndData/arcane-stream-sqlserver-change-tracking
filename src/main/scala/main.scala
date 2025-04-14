@@ -42,7 +42,7 @@ object main extends ZIOAppDefault {
 
   private val schemaCache = MutableSchemaCache()
 
-  WIP
+  private lazy val streamRunner = appLayer.provide(
       GenericStreamRunnerService.layer,
       GenericGraphBuilderFactory.composedLayer,
       GenericGroupingTransformer.layer,
