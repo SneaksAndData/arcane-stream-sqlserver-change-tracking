@@ -169,7 +169,7 @@ object Common:
    */
   def addColumns(connection: Connection, tableName: String, migrationExpression: String): ZIO[Any, Throwable, Unit] = ZIO.scoped {
     for
-      statement <- ZIO.attempt(connection.prepareStatement(s"ALTER TABLE $tableName ADD $migrationExpression"))
+      statement <- ZIO.fromAutoCloseable(ZIO.attempt(connection.prepareStatement(s"ALTER TABLE $tableName ADD $migrationExpression")))
       _ <- ZIO.attempt(statement.execute())
     yield ()
   }
@@ -184,7 +184,7 @@ object Common:
    */
   def removeColumns(connection: Connection, tableName: String, migrationExpression: String): ZIO[Any, Throwable, Unit] = ZIO.scoped {
     for
-      statement <- ZIO.attempt(connection.prepareStatement(s"ALTER TABLE $tableName DROP COLUMN $migrationExpression"))
+      statement <- ZIO.fromAutoCloseable(ZIO.attempt(connection.prepareStatement(s"ALTER TABLE $tableName DROP COLUMN $migrationExpression")))
       _ <- ZIO.attempt(statement.execute())
     yield ()
   }
