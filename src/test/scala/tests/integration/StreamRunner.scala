@@ -103,15 +103,15 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
     val test = for
       // Testing the stream runner in the streaming mode
       streamRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
-      _ <- Common.insertData(sourceConnection, streamingData)
+      _ <- Common.insertData(sourceConnection, "dbo.TestTable", streamingData)
       _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
-      afterStream <- Common.getData(streamingStreamContext.targetTableFullName, resultSetDecoder)
+      afterStream <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
 
       // Testing the stream runner in the backfill mode
       streamRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, backfillStreamContextLayer).fork
-      _ <- Common.insertData(sourceConnection, backfillData)
+      _ <- Common.insertData(sourceConnection, "dbo.TestTable", backfillData)
       _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
-      afterBackfill <- Common.getData(streamingStreamContext.targetTableFullName, resultSetDecoder)
+      afterBackfill <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
 
       // Testing the update and delete operations
       streamRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
@@ -119,7 +119,7 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
       _ <- Common.deleteData(sourceConnection, deletedData)
       _ <- zlog("data deleted")
       _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
-      afterUpdateDelete <- Common.getData(streamingStreamContext.targetTableFullName, resultSetDecoder)
+      afterUpdateDelete <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
     yield (afterStream, afterBackfill, afterUpdateDelete)
 
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(test.timeout(testTimeout))).map {
