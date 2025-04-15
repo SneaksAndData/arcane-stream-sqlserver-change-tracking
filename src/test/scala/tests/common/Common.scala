@@ -6,11 +6,9 @@ import models.app.SqlServerChangeTrackingStreamContext
 
 import com.sneaksanddata.arcane.framework.services.app.GenericStreamRunnerService
 import com.sneaksanddata.arcane.framework.services.app.base.{InterruptionToken, StreamLifetimeService}
-import com.sneaksanddata.arcane.framework.services.base.DeclaredMetrics
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.merging.{JdbcMergeServiceClient, MutableSchemaCache}
-import com.sneaksanddata.arcane.framework.services.metrics.ArcaneDimensionsProvider
 import com.sneaksanddata.arcane.framework.services.mssql.*
 import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{GenericBackfillStreamingMergeDataProvider, GenericBackfillStreamingOverwriteDataProvider}
 import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{GenericGraphBuilderFactory, GenericStreamingGraphBuilder}
@@ -18,7 +16,6 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericG
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
-import zio.metrics.connectors.{MetricsConfig, datadog}
 import zio.{ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
@@ -63,8 +60,6 @@ object Common:
       GenericBackfillStreamingMergeDataProvider.layer,
       GenericStreamingGraphBuilder.backfillSubStreamLayer,
       MsSqlBackfillOverwriteBatchFactory.layer,
-      ArcaneDimensionsProvider.layer,
-      DeclaredMetrics.layer
     )
 
   /**
