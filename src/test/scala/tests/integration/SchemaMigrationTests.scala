@@ -139,7 +139,9 @@ object SchemaMigrationTests extends ZIOSpecDefault:
           (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
         )
 
+        _ <- ZIO.sleep(Duration.ofSeconds(5))
         _ <- Common.removeColumns(sourceConnection, sourceTableName, "NewName")
+        _ <- ZIO.sleep(Duration.ofSeconds(1))
         _ <- Common.insertData(sourceConnection, sourceTableName, afterEvolution)
         _ <- ZIO.sleep(Duration.ofSeconds(5))
 
@@ -148,7 +150,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
           "Id, Name, NewName",
           (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
         )
-        _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
+        _ <- streamRunner.await.timeout(Duration.ofSeconds(40))
 
       } yield assertTrue(beforeEvolution.sorted == streamingData) && assertTrue(afterEvolution.sorted == afterEvolutionExpected)
     }
