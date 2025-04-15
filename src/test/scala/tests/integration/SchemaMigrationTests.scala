@@ -95,9 +95,8 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
         lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(15)))
         streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
-        _ <- ZIO.sleep(Duration.ofSeconds(10))
         _ <- Common.insertData(sourceConnection, sourceTableName, streamingData)
-        _ <- ZIO.sleep(Duration.ofSeconds(5))
+        _ <- ZIO.sleep(Duration.ofSeconds(15))
 
         _ <- ZIO.log("Checking if the data is in the target table")
         beforeEvolution <- Common.getData(
