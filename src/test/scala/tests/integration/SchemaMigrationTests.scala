@@ -132,8 +132,8 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
         streamRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
         _ <- Common.insertUpdatedData(sourceConnection, sourceTableName, streamingData)
-        _ <- ZIO.sleep(Duration.ofSeconds(5))
 
+        _ <- ZIO.sleep(Duration.ofSeconds(15))
         beforeEvolution <- Common.getData(streamingStreamContext.targetTableFullName,
           "Id, Name, NewName",
           (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
@@ -143,7 +143,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         _ <- Common.removeColumns(sourceConnection, sourceTableName, "NewName")
         _ <- ZIO.sleep(Duration.ofSeconds(1))
         _ <- Common.insertData(sourceConnection, sourceTableName, afterEvolution)
-        _ <- ZIO.sleep(Duration.ofSeconds(5))
+        _ <- ZIO.sleep(Duration.ofSeconds(15))
 
         afterEvolution <- Common.getData(
           streamingStreamContext.targetTableFullName,
