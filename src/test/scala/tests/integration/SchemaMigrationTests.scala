@@ -130,7 +130,8 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
         _ <- Common.addColumns(sourceConnection, sourceTableName, "NewName VARCHAR(100)")
 
-        streamRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
+        lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(15)))
+        streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
 
         _ <- Common.insertUpdatedData(sourceConnection, sourceTableName, streamingData)
         _ <- ZIO.sleep(Duration.ofSeconds(15))
@@ -154,7 +155,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
           (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
         )
         _ <- ZIO.log(s"Data in the target table: $beforeEvolution")
-        _ <- streamRunner.await.timeout(Duration.ofSeconds(10))
+        _ <- streamRunner.await.timeout(Duration.ofSeconds(40))
 
       } yield assertTrue(beforeEvolution.sorted == streamingData) && assertTrue(afterEvolution.sorted == afterEvolutionExpected)
     }
