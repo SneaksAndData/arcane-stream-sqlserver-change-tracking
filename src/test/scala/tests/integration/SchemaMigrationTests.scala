@@ -95,8 +95,9 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
         lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(15)))
         streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
+        _ <- ZIO.sleep(Duration.ofSeconds(10))
         _ <- Common.insertData(sourceConnection, sourceTableName, streamingData)
-        _ <- ZIO.sleep(Duration.ofSeconds(15))
+        _ <- ZIO.sleep(Duration.ofSeconds(5))
 
         _ <- ZIO.log("Checking if the data is in the target table")
         beforeEvolution <- Common.getData(
@@ -130,11 +131,12 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
         _ <- Common.addColumns(sourceConnection, sourceTableName, "NewName VARCHAR(100)")
 
-        lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(15)))
+        lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(35)))
         streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
+        _ <- ZIO.sleep(Duration.ofSeconds(10))
 
         _ <- Common.insertUpdatedData(sourceConnection, sourceTableName, streamingData)
-        _ <- ZIO.sleep(Duration.ofSeconds(15))
+        _ <- ZIO.sleep(Duration.ofSeconds(5))
         _ <- ZIO.log("Checking if the data is in the target table")
         beforeEvolution <- Common.getData(streamingStreamContext.targetTableFullName,
           "Id, Name, NewName",
