@@ -17,9 +17,6 @@ spec:
       served: true
       storage: true
       additionalPrinterColumns:
-        - name: Database
-          type: string
-          jsonPath: .spec.sourceSettings.database
         - name: Table
           type: string
           jsonPath: .spec.sourceSettings.table
@@ -77,9 +74,6 @@ spec:
                 sourceSettings:
                   type: object
                   properties:
-                    database:
-                      type: string
-                      description: The schema to track changes for.
                     schema:
                       type: string
                       description: The schema to track changes for.
@@ -139,7 +133,7 @@ spec:
                   type: integer
                   description: Max time to wait for rowsPerGroup to accumulate. Can be from 1 to 60 seconds.
                   minimum: 1
-                  maximum: 60
+                  maximum: 3600
                 maxRowsPerFile:
                   type: integer
                   description: The maximum number of rows per file in the staging table.

@@ -52,7 +52,6 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
     |  "sourceSettings": {
     |    "changeCaptureIntervalSeconds": 1,
     |    "commandTimeout": 3600,
-    |    "database": "IntegrationTests",
     |    "schema": "dbo",
     |    "table": "TestTable"
     |   },
