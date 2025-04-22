@@ -19,6 +19,7 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.transfor
 import zio.{ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
+import java.time.Duration
 
 /**
  * Common utilities for tests.

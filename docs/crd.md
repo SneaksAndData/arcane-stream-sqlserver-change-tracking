@@ -16,20 +16,20 @@ metadata:
   name: msql-sample-stream
   namespace: arcane
 spec:
-  # The reference to the job template using in the backfill mode
+  # The reference to the job template used in the backfill mode.
   backfillJobTemplateRef:
     apiGroup: streaming.sneaksanddata.com
     kind: StreamingJobTemplate
     name: backfill-job-template
 
-  # The reference to the job template using in the streaming mode
+  # The reference to the job template used in the streaming mode
   jobTemplateRef:
     apiGroup: streaming.sneaksanddata.com
     kind: StreamingJobTemplate
     name: arcane-stream-sqlserver-change-tracking-medium-public-scala-job
 
-  # The reference to the secret containing the connection string to the SQL Server.
-  # Must be in the same namespace as the stream definition
+  # The reference to the secret containing the connection string to the SQL Server,
+  # which must be in the same namespace as the stream definition.
   connectionStringRef:
     name: arcane-connection-string
 
@@ -52,7 +52,7 @@ spec:
   # will increase the number of files in the staging table.
   maxRowsPerFile: 1000
 
-  # Source settings
+  # The settings of the source table
   sourceSettings:
     
     # Interval to capture changes in the source table if the stream is running in the streaming mode.
@@ -156,18 +156,17 @@ spec:
   # The table properties used to create the staging and the target table
   # See https://trino.io/docs/current/connector/iceberg.html#table-properties for details
   # Example
-    # tableProperties:
-    #   format: PARQUET
-    #   parquetBloomFilterColumns:
-    #     - field1
-    #     - field2
-    #   partitionExpressions:
-    #     - bucket(arcane_merge_key, 10) 
-    #     - month(order_date)
-    #   sortedBy:
-    #     - order_date ASC NULLS LAST
-    #     - order_id
-    
+  # tableProperties:
+  #   format: PARQUET
+  #   parquetBloomFilterColumns:
+  #     - field1
+  #     - field2
+  #   partitionExpressions:
+  #     - bucket(arcane_merge_key, 10) 
+  #     - month(order_date)
+  #   sortedBy:
+  #     - order_date ASC NULLS LAST
+  #     - order_id
   tableProperties:
     
     # Specifies the format of table data files

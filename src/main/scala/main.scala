@@ -25,6 +25,8 @@ import zio.logging.LogFormat
 import zio.logging.backend.SLF4J
 import zio.{Runtime, ZIO, ZIOAppDefault, ZLayer}
 
+import java.time.Duration
+
 object main extends ZIOAppDefault {
 
   override val bootstrap: ZLayer[Any, Nothing, Unit] = Runtime.removeDefaultLoggers >>> SLF4J.slf4j
@@ -59,7 +61,7 @@ object main extends ZIOAppDefault {
       GenericBackfillStreamingOverwriteDataProvider.layer,
       GenericBackfillStreamingMergeDataProvider.layer,
       GenericStreamingGraphBuilder.backfillSubStreamLayer,
-      MsSqlBackfillOverwriteBatchFactory.layer
+      MsSqlBackfillOverwriteBatchFactory.layer,
   )
 
   @main

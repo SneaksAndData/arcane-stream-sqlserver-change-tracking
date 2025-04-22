@@ -136,7 +136,7 @@ spec:
                   type: integer
                   description: Max time to wait for rowsPerGroup to accumulate. Can be from 1 to 60 seconds.
                   minimum: 1
-                  maximum: 60
+                  maximum: 3600
                 sinkSettings:
                   type: object
                   properties:
