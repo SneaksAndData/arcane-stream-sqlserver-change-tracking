@@ -102,6 +102,12 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
   override val backfillStartDate: Option[OffsetDateTime] = None
   override val maxRowsPerFile: Option[Int] = Some(spec.maxRowsPerFile)
 
+  /**
+   * SQL Server stream always emits the same schema. Schema change normally causes CDC to break.
+   * There are, however, cases when this doesn't seem to happen - to be investigated.
+   */
+  val isUnifiedSchema: Boolean = true
+
 given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
   def apply(context: SqlServerChangeTrackingStreamContext): ConnectionOptions =
     ConnectionOptions(context.connectionString,
