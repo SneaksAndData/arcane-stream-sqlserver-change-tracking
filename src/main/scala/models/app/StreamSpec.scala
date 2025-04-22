@@ -51,17 +51,12 @@ case class SourceSettings(schema: String, table: String, changeCaptureIntervalSe
  *
  * @param rowsPerGroup The number of rows per group in the staging table
  * @param groupingIntervalSeconds The grouping interval in seconds
- * @param maxRowsPerFile The maximum number of rows per file in the staging table.
  * @param lookBackInterval The look back interval in seconds
  */
 case class StreamSpec(rowsPerGroup: Int,
-                      maxRowsPerFile: Int,
                       lookBackInterval: Int,
-
-
-                      // Iceberg settings
-                      stagingDataSettings: StagingDataSettingsSpec,
                       groupingIntervalSeconds: Int,
+                      stagingDataSettings: StagingDataSettingsSpec,
                       sourceSettings: SourceSettings,
                       sinkSettings: SinkSettings,
                       fieldSelectionRule: FieldSelectionRuleSpec,
