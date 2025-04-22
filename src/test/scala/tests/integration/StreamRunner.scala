@@ -61,8 +61,8 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
     |      "namespace": "test",
     |      "schemaName": "test",
     |      "warehouse": "demo"
-    |      "maxRowsPerFile": 1
     |    },
+    |    "maxRowsPerFile": 1,
     |    "tableNamePrefix": "staging_integration_tests"
     |  },
     |  "fieldSelectionRule": {
