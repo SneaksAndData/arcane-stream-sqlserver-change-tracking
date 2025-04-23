@@ -6,7 +6,7 @@ import models.app.SqlServerChangeTrackingStreamContext
 
 import com.sneaksanddata.arcane.framework.services.app.GenericStreamRunnerService
 import com.sneaksanddata.arcane.framework.services.app.base.{InterruptionToken, StreamLifetimeService}
-import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
+import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.merging.{JdbcMergeServiceClient, MutableSchemaCache}
 import com.sneaksanddata.arcane.framework.services.mssql.*
@@ -60,6 +60,7 @@ object Common:
       GenericBackfillStreamingMergeDataProvider.layer,
       GenericStreamingGraphBuilder.backfillSubStreamLayer,
       MsSqlBackfillOverwriteBatchFactory.layer,
+      ColumnSummaryFieldsFilteringService.layer
     )
 
   /**
