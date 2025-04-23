@@ -118,7 +118,7 @@ given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
     ConnectionOptions(context.connectionString,
       context.spec.sourceSettings.schema,
       context.spec.sourceSettings.table,
-      None)
+      Some(context.spec.sourceSettings.fetchSize))
 
 object SqlServerChangeTrackingStreamContext:
   type Environment = StreamContext
