@@ -51,6 +51,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |    "database": "IntegrationTests",
        |    "schema": "dbo",
        |    "table": "$sourceTableName"
+       |    "fetchSize": 1024
        |   },
        |  "stagingDataSettings": {
        |    "catalog": {
