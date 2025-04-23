@@ -88,6 +88,10 @@ spec:
                     commandTimeout:
                       type: integer
                       description: Number of seconds to wait for result before sql commands should time out.
+                    fetchSize:
+                      type: integer
+                      description: Gives the JDBC driver a hint as to the number of rows that should be fetched from the database when more rows are needed
+                      default: 1000
                 connectionStringRef:
                   description: |
                     Name of the secret containing the connection string.
