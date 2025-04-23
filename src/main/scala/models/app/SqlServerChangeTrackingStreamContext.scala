@@ -97,6 +97,11 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
     case "exclude" => FieldSelectionRule.ExcludeFields(spec.fieldSelectionRule.fields.map(f => f.toLowerCase()).toSet)
     case _ => FieldSelectionRule.AllFields
 
+  override val essentialFields: Set[String] = Set("sys_change_version",
+    "sys_change_operation",
+    "changetrackingversion",
+    "arcane_merge_key")
+
   override val backfillBehavior: BackfillBehavior = BackfillBehavior.Overwrite
 
   override val backfillStartDate: Option[OffsetDateTime] = None
