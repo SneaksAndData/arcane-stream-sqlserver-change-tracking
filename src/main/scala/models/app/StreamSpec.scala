@@ -44,7 +44,7 @@ case class TablePropertiesSettingsSpec(partitionExpressions: Array[String], sort
 
 case class FieldSelectionRuleSpec(ruleType: String, fields: Array[String]) derives ReadWriter
 
-case class SourceSettings(schema: String, table: String, changeCaptureIntervalSeconds: Int) derives ReadWriter
+case class SourceSettings(schema: String, table: String, changeCaptureIntervalSeconds: Int, fetchSize: Int) derives ReadWriter
 
 /**
  * The specification for the stream.

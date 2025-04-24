@@ -85,6 +85,10 @@ spec:
                       description: How long to wait before polling for next result set. Can be from 1 to 1 hour.
                       minimum: 1
                       maximum: 3600
+                    fetchSize:
+                      type: integer
+                      description: Gives the JDBC driver a hint as to the number of rows that should be fetched from the database when more rows are needed
+                      default: 1024
                 connectionStringRef:
                   description: |
                     Name of the secret containing the connection string.

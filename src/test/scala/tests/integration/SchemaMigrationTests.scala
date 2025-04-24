@@ -49,7 +49,8 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |    "commandTimeout": 3600,
        |    "database": "IntegrationTests",
        |    "schema": "dbo",
-       |    "table": "$sourceTableName"
+       |    "table": "$sourceTableName",
+       |    "fetchSize": 1024
        |   },
        |  "stagingDataSettings": {
        |    "catalog": {
