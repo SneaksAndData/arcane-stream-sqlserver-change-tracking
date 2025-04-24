@@ -105,7 +105,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
   override val backfillBehavior: BackfillBehavior = BackfillBehavior.Overwrite
 
   override val backfillStartDate: Option[OffsetDateTime] = None
-  override val maxRowsPerFile: Option[Int] = Some(spec.maxRowsPerFile)
+  override val maxRowsPerFile: Option[Int] = Some(spec.stagingDataSettings.maxRowsPerFile)
 
   /**
    * SQL Server stream always emits the same schema. Schema change normally causes CDC to break.

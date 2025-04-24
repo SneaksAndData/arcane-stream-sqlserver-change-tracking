@@ -12,7 +12,10 @@ case class CatalogSettings(namespace: String,
                            catalogName: String,
                            schemaName: String)derives ReadWriter
 
-case class StagingDataSettingsSpec(tableNamePrefix: String, catalog: CatalogSettings, dataLocation: Option[String]=None) derives ReadWriter
+case class StagingDataSettingsSpec(tableNamePrefix: String,
+                                   catalog: CatalogSettings,
+                                   maxRowsPerFile: Int,
+                                   dataLocation: Option[String]=None) derives ReadWriter
 
 /**
  * The configuration of Iceberg sink.
@@ -41,24 +44,19 @@ case class TablePropertiesSettingsSpec(partitionExpressions: Array[String], sort
 
 case class FieldSelectionRuleSpec(ruleType: String, fields: Array[String]) derives ReadWriter
 
-case class SourceSettings(schema: String, table: String, changeCaptureIntervalSeconds: Int, commandTimeout: Int, fetchSize: Int) derives ReadWriter
+case class SourceSettings(schema: String, table: String, changeCaptureIntervalSeconds: Int, fetchSize: Int) derives ReadWriter
 
 /**
  * The specification for the stream.
  *
  * @param rowsPerGroup The number of rows per group in the staging table
  * @param groupingIntervalSeconds The grouping interval in seconds
- * @param maxRowsPerFile The maximum number of rows per file in the staging table.
  * @param lookBackInterval The look back interval in seconds
  */
 case class StreamSpec(rowsPerGroup: Int,
-                      maxRowsPerFile: Int,
                       lookBackInterval: Int,
-
-
-                      // Iceberg settings
-                      stagingDataSettings: StagingDataSettingsSpec,
                       groupingIntervalSeconds: Int,
+                      stagingDataSettings: StagingDataSettingsSpec,
                       sourceSettings: SourceSettings,
                       sinkSettings: SinkSettings,
                       fieldSelectionRule: FieldSelectionRuleSpec,

@@ -21,7 +21,6 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |
        | {
        |  "groupingIntervalSeconds": 1,
-       |  "maxRowsPerFile": 1,
        |  "lookBackInterval": 21000,
        |  "tableProperties": {
        |    "partitionExpressions": [],
@@ -61,6 +60,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |      "schemaName": "test",
        |      "warehouse": "demo"
        |    },
+       |    "maxRowsPerFile": 1,
        |    "tableNamePrefix": "staging_integration_tests"
        |  },
        |  "fieldSelectionRule": {

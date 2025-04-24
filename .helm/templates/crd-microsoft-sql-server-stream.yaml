@@ -85,9 +85,6 @@ spec:
                       description: How long to wait before polling for next result set. Can be from 1 to 1 hour.
                       minimum: 1
                       maximum: 3600
-                    commandTimeout:
-                      type: integer
-                      description: Number of seconds to wait for result before sql commands should time out.
                     fetchSize:
                       type: integer
                       description: Gives the JDBC driver a hint as to the number of rows that should be fetched from the database when more rows are needed
@@ -138,10 +135,6 @@ spec:
                   description: Max time to wait for rowsPerGroup to accumulate. Can be from 1 to 60 seconds.
                   minimum: 1
                   maximum: 3600
-                maxRowsPerFile:
-                  type: integer
-                  description: The maximum number of rows per file in the staging table.
-                  default: 10000
                 sinkSettings:
                   type: object
                   properties:
@@ -206,6 +199,10 @@ spec:
                   properties:
                     dataLocation:
                       type: string
+                    maxRowsPerFile:
+                      type: integer
+                      description: The maximum number of rows per file in the staging table.
+                      default: 10000
                     tableNamePrefix:
                       type: string
                     catalog:
@@ -221,13 +218,6 @@ spec:
                           type: string
                         catalogUri:
                           type: string
-                backfillBehavior:
-                  type: string
-                  enum:
-                    - merge
-                    - overwrite
-                  default:
-                    overwrite
                 fieldSelectionRule:
                   type: object
                   properties:
