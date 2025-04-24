@@ -26,7 +26,7 @@ spec:
   jobTemplateRef:
     apiGroup: streaming.sneaksanddata.com
     kind: StreamingJobTemplate
-    name: arcane-stream-sqlserver-change-tracking-medium-public-scala-job
+    name: job-template
 
   # The reference to the secret containing the connection string to the SQL Server,
   # which must be in the same namespace as the stream definition.
@@ -58,6 +58,9 @@ spec:
     # Interval to capture changes in the source table if the stream is running in the streaming mode.
     # If the source is not updated, the stream will wait for the interval to expire checking for changes again.
     changeCaptureIntervalSeconds: 15
+
+    # The number of rows to be fetched by the JDBC driver on each scanning iteration.
+    fetchSize: 2048
     
     # The schema name that contains the source table
     schema: schema
