@@ -193,10 +193,12 @@ spec:
                 stagingDataSettings:
                   type: object
                   properties:
-                  maxRowsPerFile:
-                    type: integer
-                    description: The maximum number of rows per file in the staging table.
-                    default: 10000
+                    dataLocation:
+                      type: string
+                    maxRowsPerFile:
+                      type: integer
+                      description: The maximum number of rows per file in the staging table.
+                      default: 10000
                     tableNamePrefix:
                       type: string
                     catalog:
