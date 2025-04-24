@@ -26,7 +26,7 @@ spec:
   jobTemplateRef:
     apiGroup: streaming.sneaksanddata.com
     kind: StreamingJobTemplate
-    name: arcane-stream-sqlserver-change-tracking-medium-public-scala-job
+    name: job-template
 
   # The reference to the secret containing the connection string to the SQL Server,
   # which must be in the same namespace as the stream definition.
