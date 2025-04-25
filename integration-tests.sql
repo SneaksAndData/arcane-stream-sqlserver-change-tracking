@@ -11,7 +11,8 @@ DROP TABLE IF EXISTS IntegrationTests.dbo.TestTable
 CREATE TABLE IntegrationTests.dbo.TestTable
 (
     Id int not null primary key,
-    Name nvarchar(50) not null
+    Name nvarchar(50) not null,
+    d datetime null
 );
 GO
 
@@ -24,7 +25,7 @@ DECLARE @i int = 0
 WHILE @i < 300
     BEGIN
         SET @i = @i + 1
-        INSERT INTO IntegrationTests.dbo.TestTable (Id, Name) VALUES (@i, 'Name' + CAST(@i as nvarchar(50)))
+        INSERT INTO IntegrationTests.dbo.TestTable (Id, Name, d) VALUES (@i, 'Name' + CAST(@i as nvarchar(50)), null)
     END
 GO
 
