@@ -7,7 +7,6 @@ import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergCatalogCrede
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.{IcebergCatalogSettings, S3CatalogFileIO}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClientOptions
 import com.sneaksanddata.arcane.framework.services.mssql.ConnectionOptions
-import org.apache.iceberg.CatalogProperties
 import zio.ZLayer
 
 import java.time.format.DateTimeFormatter
@@ -53,9 +52,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
 
   override val additionalProperties: Map[String, String] = sys.env.get("ARCANE_FRAMEWORK__CATALOG_NO_AUTH") match
     case Some(_) => Map()
-    case None => IcebergCatalogCredential.oAuth2Properties ++ Map(
-      CatalogProperties.METRICS_REPORTER_IMPL -> "org.apache.iceberg.metrics.InMemoryMetricsReporter",
-    )
+    case None => IcebergCatalogCredential.oAuth2Properties
 
   override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
 
