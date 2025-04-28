@@ -1,5 +1,9 @@
 # How to debug
 
+# Connecting to the JVM
+
+## Source of the container
+https://github.com/GoogleContainerTools/distroless
 
 # Collecting stack traces
 JStack
