@@ -50,7 +50,6 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
     |  },
     |  "sourceSettings": {
     |    "changeCaptureIntervalSeconds": 1,
-    |    "commandTimeout": 3600,
     |    "schema": "dbo",
     |    "table": "TestTable",
     |    "fetchSize": 1024
@@ -63,7 +62,7 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
     |      "schemaName": "test",
     |      "warehouse": "demo"
     |    },
-    |    "maxRowsPerFile": 1,
+    |    "maxRowsPerFile": 100,
     |    "tableNamePrefix": "staging_integration_tests"
     |  },
     |  "fieldSelectionRule": {

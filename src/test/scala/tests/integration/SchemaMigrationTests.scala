@@ -46,7 +46,6 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |  },
        |  "sourceSettings": {
        |    "changeCaptureIntervalSeconds": 1,
-       |    "commandTimeout": 3600,
        |    "database": "IntegrationTests",
        |    "schema": "dbo",
        |    "table": "$sourceTableName",
@@ -60,7 +59,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |      "schemaName": "test",
        |      "warehouse": "demo"
        |    },
-       |    "maxRowsPerFile": 1,
+       |    "maxRowsPerFile": 100,
        |    "tableNamePrefix": "staging_integration_tests"
        |  },
        |  "fieldSelectionRule": {
