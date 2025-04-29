@@ -1,5 +1,5 @@
-name: Publish Arcane.Stream.SqlServerChangeTracking to ECR public registry (GraalVM)
-run-name: Publish Arcane.Stream.SqlServerChangeTracking to public.ecr.aws by @${{ github.actor }} (GraalVM)
+name: Publish Stream Plugin to ECR public registry (GraalVM)
+run-name: Publish Stream Plugin to public.ecr.aws by @${{ github.actor }} (GraalVM)
 
 on:
   workflow_dispatch:
