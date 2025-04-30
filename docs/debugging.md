@@ -1,8 +1,9 @@
 # Debugging guide
 
 # Connecting to the pod
-We are using a [distroless image](https://github.com/GoogleContainerTools/distroless
-), so the production image does not contain a shell.
+We are using a [distroless image](https://github.com/GoogleContainerTools/distroless),
+so the production image does not contain a shell or any other tools that we can use to debug the application.
+
 To debug the application, we need to use a debug image.
 
 To be able to do that, we need to go to the .container directory and add the debug tag to the image name in the
