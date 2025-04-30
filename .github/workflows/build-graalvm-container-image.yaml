@@ -1,5 +1,5 @@
 name: Build Container Image (GraalVM)
-run-name: Build Arcane.Stream.SqlServerChangeTracking Image (GraalVM) for GHCR from ${{ github.ref }} by @${{ github.actor }}
+run-name: Build Stream Plugin Image (GraalVM) for GHCR from ${{ github.ref }} by @${{ github.actor }}
 
 on: workflow_dispatch
 
