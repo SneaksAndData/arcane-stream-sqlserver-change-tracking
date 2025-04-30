@@ -32,8 +32,8 @@ lazy val plugin = (project in file("."))
     libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.16" % Test,
 
     // For datadog
-    libraryDependencies += "com.github.s-vitaliy" %% "zio-metrics-connectors-datadog" % "0.0.2",
-    libraryDependencies += "com.github.s-vitaliy" %% "zio-metrics-connectors" % "0.0.2",
+    libraryDependencies += "com.github.s-vitaliy" %% "zio-metrics-connectors-datadog" % "0.0.4",
+    libraryDependencies += "com.github.s-vitaliy" %% "zio-metrics-connectors" % "0.0.4",
 
 
     assembly / mainClass := Some("com.sneaksanddata.arcane.sql_server_change_tracking.main"),

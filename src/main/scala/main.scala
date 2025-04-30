@@ -24,7 +24,10 @@ import org.slf4j.MDC
 import zio.Console.printLine
 import zio.logging.LogFormat
 import zio.logging.backend.SLF4J
+import zio.metrics.connectors.{MetricsConfig, datadog, statsd}
 import zio.{Runtime, ZIO, ZIOAppDefault, ZLayer}
+import zio.metrics.connectors.datadog.DatadogConfig
+
 
 import java.time.Duration
 
@@ -66,6 +69,12 @@ object main extends ZIOAppDefault {
       ColumnSummaryFieldsFilteringService.layer,
       DeclaredMetrics.layer,
       ArcaneDimensionsProvider.layer,
+
+    ZLayer.succeed(DatadogConfig.default),
+    ZLayer.succeed(MetricsConfig(Duration.ofMillis(1000))),
+    datadog.datadogLayer,
+    statsd.statsdClient,
+    ZLayer.succeed(statsd.StatsdUdsConfig("/Users/visa/socket/aSocket.sock")),
   )
 
   @main
