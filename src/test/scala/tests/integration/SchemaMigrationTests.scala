@@ -51,10 +51,6 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |    "schema": "dbo",
        |    "table": "$sourceTableName",
        |    "fetchSize": 1024,
-       |    "buffering": {
-       |      "strategy": "buffering",
-       |      "maxBufferSize": 10,
-       |     }
        |   },
        |  "stagingDataSettings": {
        |    "catalog": {
