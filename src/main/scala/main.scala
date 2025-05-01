@@ -20,6 +20,7 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericG
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import com.sneaksanddata.arcane.sql_server_change_tracking.metrics.StatsdUdsClient
 import org.slf4j.MDC
 import zio.Console.printLine
 import zio.logging.LogFormat
@@ -27,7 +28,6 @@ import zio.logging.backend.SLF4J
 import zio.metrics.connectors.{MetricsConfig, datadog, statsd}
 import zio.{Runtime, ZIO, ZIOAppDefault, ZLayer}
 import zio.metrics.connectors.datadog.DatadogConfig
-
 
 import java.time.Duration
 
@@ -73,8 +73,8 @@ object main extends ZIOAppDefault {
     ZLayer.succeed(DatadogConfig.default),
     ZLayer.succeed(MetricsConfig(Duration.ofMillis(1000))),
     datadog.datadogLayer,
-    statsd.statsdClient,
-    ZLayer.succeed(statsd.StatsdUdsConfig(sys.env.getOrElse("SOCKET_PATH", "/var/run/datadog.sock"))),
+    StatsdUdsClient.layer,
+    ZLayer.succeed(statsd.StatsdUdsConfig(sys.env.getOrElse("SOCKET_PATH", "/tmp/datadog/datadog.2.socket"))),
   )
 
   @main
