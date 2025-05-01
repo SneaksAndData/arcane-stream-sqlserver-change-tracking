@@ -74,7 +74,7 @@ object main extends ZIOAppDefault {
     ZLayer.succeed(MetricsConfig(Duration.ofMillis(1000))),
     datadog.datadogLayer,
     statsd.statsdClient,
-    ZLayer.succeed(statsd.StatsdUdsConfig("/Users/visa/socket/aSocket.sock")),
+    ZLayer.succeed(statsd.StatsdUdsConfig(sys.env.getOrElse("SOCKET_PATH", "/tmp/arcane.sock"))),
   )
 
   @main
