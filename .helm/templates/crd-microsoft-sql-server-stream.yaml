@@ -89,6 +89,31 @@ spec:
                       type: integer
                       description: Gives the JDBC driver a hint as to the number of rows that should be fetched from the database when more rows are needed
                       default: 1024
+                    buffering:
+                      type: object
+                      properties:
+                        strategy:
+                          type: string
+                          enum:
+                            - unbounded
+                            - buffering
+                        maxBufferSize:
+                          type: integer
+                          description: The maximum number of rows to buffer before sending to the sink.
+                      description: |
+                        Sets the buffering strategy for the source. Which allows the source to run independently of
+                        the sink in parallel. Has two strategies:
+                          - unbounded: The source will run independently of the sink and will not wait for the sink to
+                            process the data. In this case the source will buffer it's output to the unbounded buffer.
+                            This strategy can significantly increase both the memory usage by the pod and the throughput
+                            of the stream, which can be desirable for backfill jobs.
+                            This is the default strategy for backfill jobs.
+                          - buffering: The source will run independently of the sink and will not wait for the sink to
+                            process the data. In this case the source will buffer it's output to the bounded buffer.
+                            If the buffer is full, the source will wait for the sink to process the data before
+                            continuing. If this strategy is used the maxBufferSize must be set.
+                        By default Arcane uses unbounded buffering for backfill jobs and don't use buffering for
+                        the streaming jobs.
                 connectionStringRef:
                   description: |
                     Name of the secret containing the connection string.

@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.sql_server_change_tracking
 package models.app
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.models.settings.{BackfillBehavior, BackfillSettings, FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, StagingDataSettings, TableFormat, TableMaintenanceSettings, TablePropertiesSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
+import com.sneaksanddata.arcane.framework.models.settings.{BackfillBehavior, BackfillSettings, BufferingStrategy, FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, SourceBufferingSettings, StagingDataSettings, TableFormat, TableMaintenanceSettings, TablePropertiesSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergCatalogCredential
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.{IcebergCatalogSettings, S3CatalogFileIO}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClientOptions
@@ -34,7 +34,8 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
   with StagingDataSettings
   with TablePropertiesSettings
   with BackfillSettings
-  with FieldSelectionRuleSettings:
+  with FieldSelectionRuleSettings
+  with SourceBufferingSettings:
 
   override val rowsPerGroup: Int = spec.rowsPerGroup
   override val lookBackInterval: Duration = Duration.ofSeconds(spec.lookBackInterval)
@@ -92,7 +93,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
 
   override val backfillTableFullName: String = s"$stagingCatalog.${stagingTablePrefix}__backfill_${UUID.randomUUID().toString}".replace('-', '_')
 
-  override val rule: FieldSelectionRule = spec.fieldSelectionRule.ruleType match
+  override val rule: FieldSelectionRule = spec.fieldSelectionRule.ruleType.toLowerCase match
     case "include" => FieldSelectionRule.IncludeFields(spec.fieldSelectionRule.fields.map(f => f.toLowerCase()).toSet)
     case "exclude" => FieldSelectionRule.ExcludeFields(spec.fieldSelectionRule.fields.map(f => f.toLowerCase()).toSet)
     case _ => FieldSelectionRule.AllFields
@@ -106,6 +107,15 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
 
   override val backfillStartDate: Option[OffsetDateTime] = None
   override val maxRowsPerFile: Option[Int] = Some(spec.stagingDataSettings.maxRowsPerFile)
+
+  override val bufferingEnabled: Boolean = IsBackfilling || spec.sourceSettings.buffering.isDefined
+
+  override val bufferingStrategy: BufferingStrategy = (IsBackfilling, spec.sourceSettings.buffering) match
+    case (true, _) => BufferingStrategy.Unbounded
+    case (false, None) => BufferingStrategy.Buffering(0)
+    case (false, Some(buffering)) => buffering.strategy.toLowerCase match
+      case "buffering" => BufferingStrategy.Buffering(buffering.maxBufferSize)
+      case "unbounded" => BufferingStrategy.Unbounded
 
   /**
    * SQL Server stream always emits the same schema. Schema change normally causes CDC to break.
@@ -132,6 +142,7 @@ object SqlServerChangeTrackingStreamContext:
     & TablePropertiesSettings
     & BackfillSettings
     & FieldSelectionRuleSettings
+    & SourceBufferingSettings
 
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.
