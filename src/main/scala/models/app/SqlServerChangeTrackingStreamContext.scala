@@ -111,11 +111,12 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
   override val bufferingEnabled: Boolean = IsBackfilling || spec.sourceSettings.buffering.isDefined
 
   override val bufferingStrategy: BufferingStrategy = (IsBackfilling, spec.sourceSettings.buffering) match
-    case (true, _) => BufferingStrategy.Unbounded
+    case (true, None) => BufferingStrategy.Unbounded
     case (false, None) => BufferingStrategy.Buffering(0)
-    case (false, Some(buffering)) => buffering.strategy.toLowerCase match
+    case (_, Some(buffering)) => buffering.strategy.toLowerCase match
       case "buffering" => BufferingStrategy.Buffering(buffering.maxBufferSize)
       case "unbounded" => BufferingStrategy.Unbounded
+      case _ => throw new IllegalArgumentException(s"Unknown buffering strategy: ${buffering.strategy}")
 
   /**
    * SQL Server stream always emits the same schema. Schema change normally causes CDC to break.
