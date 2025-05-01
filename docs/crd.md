@@ -127,11 +127,11 @@ spec:
           #              This strategy can significantly increase both the memory usage by the pod and the throughput
           #              of the stream, which can be desirable for backfill jobs.
           #              This is the default strategy for backfill jobs.
-          # - buffering: The source will run independently of the sink and will not wait for the sink to
+          # - bounded:   The source will run independently of the sink and will not wait for the sink to
           #              process the data. In this case the source will buffer it's output to the bounded buffer.
           #              If the buffer is full, the source will wait for the sink to process the data before
           #              continuing. If this strategy is used the maxBufferSize must be set.
-          strategy: buffering
+          strategy: bounded
           
           # The maximum size of the buffer in rows for the buffering strategy
           maxBufferSize: 1000

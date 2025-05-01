@@ -114,7 +114,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec) extends Stream
     case (true, None) => BufferingStrategy.Unbounded
     case (false, None) => BufferingStrategy.Buffering(0)
     case (_, Some(buffering)) => buffering.strategy.toLowerCase match
-      case "buffering" => BufferingStrategy.Buffering(buffering.maxBufferSize)
+      case "bounded" => BufferingStrategy.Buffering(buffering.maxBufferSize)
       case "unbounded" => BufferingStrategy.Unbounded
       case _ => throw new IllegalArgumentException(s"Unknown buffering strategy: ${buffering.strategy}")
 
