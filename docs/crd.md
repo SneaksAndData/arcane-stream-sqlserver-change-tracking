@@ -47,11 +47,6 @@ spec:
   # a larger value.
   lookBackInterval: 3600
 
-  # The maximum number of rows in a file when writing to the staging table.
-  # The files are written in the staging table in parallel, so decreasing the number of rows
-  # will increase the number of files in the staging table.
-  maxRowsPerFile: 1000
-
   # The settings of the source table
   sourceSettings:
     
@@ -95,6 +90,11 @@ spec:
     # running in the backfill mode. In the backfill mode the staging table is kept to speed up the backfill process.
     # When stream starts, it will look for the staging tables with the prefix and drop them.
     tableNamePrefix: staging_a503
+
+    # The maximum number of rows in a file when writing to the staging table.
+    # The files are written in the staging table in parallel, so decreasing the number of rows
+    # will increase the number of files in the staging table.
+    maxRowsPerFile: 1000
     
   # The target data settings
   sinkSettings:
