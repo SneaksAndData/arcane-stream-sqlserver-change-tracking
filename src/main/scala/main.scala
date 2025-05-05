@@ -12,6 +12,7 @@ import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsF
 import com.sneaksanddata.arcane.framework.services.hooks.manager.EmptyHookManager
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.merging.{JdbcMergeServiceClient, MutableSchemaCache}
+import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import com.sneaksanddata.arcane.framework.services.mssql.{ConnectionOptions, MsSqlBackfillOverwriteBatchFactory, MsSqlConnection, MsSqlDataProvider, MsSqlHookManager, MsSqlStreamingDataProvider}
 import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{GenericBackfillStreamingMergeDataProvider, GenericBackfillStreamingOverwriteDataProvider}
 import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{GenericGraphBuilderFactory, GenericStreamingGraphBuilder}
@@ -19,11 +20,14 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericG
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import com.sneaksanddata.arcane.sql_server_change_tracking.metrics.StatsdUdsClient
 import org.slf4j.MDC
 import zio.Console.printLine
 import zio.logging.LogFormat
 import zio.logging.backend.SLF4J
+import zio.metrics.connectors.{MetricsConfig, datadog, statsd}
 import zio.{Runtime, ZIO, ZIOAppDefault, ZLayer}
+import zio.metrics.connectors.datadog.DatadogConfig
 
 import java.time.Duration
 
@@ -62,7 +66,15 @@ object main extends ZIOAppDefault {
       GenericBackfillStreamingMergeDataProvider.layer,
       GenericStreamingGraphBuilder.backfillSubStreamLayer,
       MsSqlBackfillOverwriteBatchFactory.layer,
-      ColumnSummaryFieldsFilteringService.layer
+      ColumnSummaryFieldsFilteringService.layer,
+      DeclaredMetrics.layer,
+      ArcaneDimensionsProvider.layer,
+
+    ZLayer.succeed(DatadogConfig.default),
+    ZLayer.succeed(MetricsConfig(Duration.ofMillis(1000))),
+    datadog.datadogLayer,
+    StatsdUdsClient.layer,
+    ZLayer.succeed(statsd.StatsdUdsConfig(sys.env.getOrElse("SOCKET_PATH", "/tmp/datadog/datadog.2.socket"))),
   )
 
   @main
