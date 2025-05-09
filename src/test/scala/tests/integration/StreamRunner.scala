@@ -1,7 +1,11 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package tests.integration
 
-import models.app.{SqlServerChangeTrackingStreamContext, StreamSpec, given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions}
+import models.app.{
+  SqlServerChangeTrackingStreamContext,
+  StreamSpec,
+  given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions
+}
 import tests.common.{Common, TimeLimitLifetimeService}
 
 import com.sneaksanddata.arcane.framework.services.mssql.*
@@ -17,7 +21,7 @@ import zio.{Runtime, Unsafe, ZIO, ZLayer}
 import java.sql.ResultSet
 import java.time.Duration
 
-class StreamRunner  extends AsyncFlatSpec with Matchers:
+class StreamRunner extends AsyncFlatSpec with Matchers:
 
   private val runtime = Runtime.default
 
@@ -74,8 +78,6 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
     |
     |""".stripMargin
 
-
-
   it should "run a stream in backfill mode" in withFreshTables("TestTable", "iceberg.test.test") { sourceConnection =>
     val testTimeout = Duration.ofSeconds(600)
 
@@ -93,7 +95,7 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
       ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
 
     val streamingData = List.range(1, 3).map(i => (i, s"Test$i"))
-    val backfillData = List.range(4, 7).map(i => (i, s"Test$i"))
+    val backfillData  = List.range(4, 7).map(i => (i, s"Test$i"))
 
     val updatedData = List.range(4, 7).map(i => (i, s"Update$i"))
     val deletedData = List(5)
@@ -103,22 +105,22 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
     val test = for
       // Testing the stream runner in the streaming mode
       streamRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
-      _ <- Common.insertData(sourceConnection, "dbo.TestTable", streamingData)
-      _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
-      afterStream <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
+      _            <- Common.insertData(sourceConnection, "dbo.TestTable", streamingData)
+      _            <- streamRunner.await.timeout(Duration.ofSeconds(15))
+      afterStream  <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
 
       // Testing the stream runner in the backfill mode
-      streamRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, backfillStreamContextLayer).fork
-      _ <- Common.insertData(sourceConnection, "dbo.TestTable", backfillData)
-      _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
+      streamRunner  <- Common.buildTestApp(TimeLimitLifetimeService.layer, backfillStreamContextLayer).fork
+      _             <- Common.insertData(sourceConnection, "dbo.TestTable", backfillData)
+      _             <- streamRunner.await.timeout(Duration.ofSeconds(15))
       afterBackfill <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
 
       // Testing the update and delete operations
-      streamRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
-      _ <- Common.updateData(sourceConnection, updatedData)
-      _ <- Common.deleteData(sourceConnection, deletedData)
-      _ <- zlog("data deleted")
-      _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
+      streamRunner      <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
+      _                 <- Common.updateData(sourceConnection, updatedData)
+      _                 <- Common.deleteData(sourceConnection, deletedData)
+      _                 <- zlog("data deleted")
+      _                 <- streamRunner.await.timeout(Duration.ofSeconds(15))
       afterUpdateDelete <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
     yield (afterStream, afterBackfill, afterUpdateDelete)
 
@@ -128,7 +130,11 @@ class StreamRunner  extends AsyncFlatSpec with Matchers:
         val cp = new Checkpoint()
         cp { afterStream.sorted should equal(streamingData.sorted) }
         cp { afterBackfill.sorted should equal((streamingData ++ backfillData).sorted) }
-        cp { afterUpdateDelete.sorted should equal( streamingData ++ updatedData.filterNot(e => deletedData.contains(e._1)).sorted) }
+        cp {
+          afterUpdateDelete.sorted should equal(
+            streamingData ++ updatedData.filterNot(e => deletedData.contains(e._1)).sorted
+          )
+        }
         cp.reportAll()
         succeed
     }

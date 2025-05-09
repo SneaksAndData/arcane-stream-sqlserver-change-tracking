@@ -38,6 +38,12 @@ jobs:
         shell: bash
         run: sbt clean coverage test coverageReport
 
+      - name: Validate formatting
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: sbt scalafmtCheckAll
+
       - uses: 5monkeys/cobertura-action@v14
         with:
           path: ./target/scala-3.6.1/coverage-report/cobertura.xml
