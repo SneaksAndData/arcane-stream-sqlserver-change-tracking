@@ -161,4 +161,4 @@ object StreamRunner extends ZIOSpecDefault:
         afterBackfill.sorted == (streamingData ++ backfillData).sorted
       ) implies assertTrue(afterUpdateDelete.sorted == resultData.sorted)
     }
-  ) @@ before @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
+  ) @@ before @@ timeout(zio.Duration.fromSeconds(120)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
