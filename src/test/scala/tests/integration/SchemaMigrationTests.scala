@@ -100,14 +100,18 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         // launch stream and wait for it to create target with streamingData rows (initial table)
         streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
         _            <- Common.insertData(sourceConnection, sourceTableName, streamingData)
-        _            <- ZIO.sleep(Duration.ofSeconds(1)).repeatUntilZIO(_ => (for {
-          _ <- ZIO.log("Checking if the data is in the target table")
-          inserted <- Common.getData(
-            streamingStreamContext.targetTableFullName,
-            "Id, Name",
-            (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
+        _ <- ZIO
+          .sleep(Duration.ofSeconds(1))
+          .repeatUntilZIO(_ =>
+            (for {
+              _ <- ZIO.log("Checking if the data is in the target table")
+              inserted <- Common.getData(
+                streamingStreamContext.targetTableFullName,
+                "Id, Name",
+                (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
+              )
+            } yield inserted.length == streamingData.length).orElseSucceed(false)
           )
-        } yield inserted.length == streamingData.length).orElseSucceed(false))
 
         // update SOURCE (SQL) schema with a new column
         _ <- Common.addColumns(sourceConnection, sourceTableName, "NewName VARCHAR(100)")
@@ -122,9 +126,9 @@ object SchemaMigrationTests extends ZIOSpecDefault:
           "Id, Name, NewName",
           (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
         )
-        
+
         // overall test timeout
-        _ <- streamRunner.await.timeout(Duration.ofSeconds(30))        
+        _ <- streamRunner.await.timeout(Duration.ofSeconds(30))
       } yield assertTrue(
         afterStream.sorted == afterEvolutionExpected
       )
@@ -142,14 +146,18 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
         lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(35)))
         streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
-        _            <- ZIO.sleep(Duration.ofSeconds(1)).repeatUntilZIO(_ => (for {
-          _ <- ZIO.log("Checking if the data is in the target table")
-          inserted <- Common.getData(
-            streamingStreamContext.targetTableFullName,
-            "Id, Name",
-            (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
+        _ <- ZIO
+          .sleep(Duration.ofSeconds(1))
+          .repeatUntilZIO(_ =>
+            (for {
+              _ <- ZIO.log("Checking if the data is in the target table")
+              inserted <- Common.getData(
+                streamingStreamContext.targetTableFullName,
+                "Id, Name",
+                (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
+              )
+            } yield inserted.length == streamingData.length).orElseSucceed(false)
           )
-        } yield inserted.length == streamingData.length).orElseSucceed(false))        
 
         _ <- Common.insertUpdatedData(sourceConnection, sourceTableName, streamingData)
         _ <- ZIO.sleep(Duration.ofSeconds(5))
@@ -174,7 +182,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
           (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
         )
         _ <- ZIO.log(s"Data in the target table: $beforeEvolution")
-        
+
         _ <- streamRunner.await.timeout(Duration.ofSeconds(40))
 
       } yield assertTrue(beforeEvolution.sorted == streamingData) && assertTrue(
