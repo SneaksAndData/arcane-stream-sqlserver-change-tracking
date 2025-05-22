@@ -129,7 +129,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         )
 
         // overall test timeout
-        _ <- streamRunner.await.timeout(Duration.ofSeconds(10))
+        _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
       } yield assertTrue(
         afterStream.sorted == afterEvolutionExpected
       )
@@ -171,10 +171,10 @@ object SchemaMigrationTests extends ZIOSpecDefault:
           Common.IntStrStrDecoder
         )
 
-        _ <- streamRunner.await.timeout(Duration.ofSeconds(10))
+        _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
 
       } yield assertTrue(
         afterEvolution.sorted == afterEvolutionExpected
       )
     }
-  ) @@ before @@ timeout(zio.Duration.fromSeconds(120)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
+  ) @@ before @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
