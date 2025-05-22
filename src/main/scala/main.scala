@@ -3,7 +3,6 @@ package com.sneaksanddata.arcane.sql_server_change_tracking
 import models.app.SqlServerChangeTrackingStreamContext
 
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
-import com.sneaksanddata.arcane.framework.models.DataRow
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
@@ -12,10 +11,11 @@ import com.sneaksanddata.arcane.framework.services.app.{
   PosixStreamLifetimeService,
   StreamRunnerServiceImpl
 }
+import com.sneaksanddata.arcane.framework.services.caching.schema_cache.MutableSchemaCache
 import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
 import com.sneaksanddata.arcane.framework.services.hooks.manager.EmptyHookManager
-import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
-import com.sneaksanddata.arcane.framework.services.merging.{JdbcMergeServiceClient, MutableSchemaCache}
+import com.sneaksanddata.arcane.framework.services.iceberg.IcebergS3CatalogWriter
+import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.mssql.{
   ConnectionOptions,
   MsSqlBackfillOverwriteBatchFactory,
@@ -59,8 +59,6 @@ object main extends ZIOAppDefault {
     streamRunner <- ZIO.service[StreamRunnerService]
     _            <- streamRunner.run
   yield ()
-
-  private val schemaCache = MutableSchemaCache()
 
   private lazy val streamRunner = appLayer.provide(
     GenericStreamRunnerService.layer,

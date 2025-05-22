@@ -9,6 +9,8 @@ import com.sneaksanddata.arcane.framework.models.settings.{
   FieldSelectionRule,
   FieldSelectionRuleSettings,
   GroupingSettings,
+  IcebergCatalogSettings,
+  JdbcMergeServiceClientSettings,
   OptimizeSettings,
   OrphanFilesExpirationSettings,
   SnapshotExpirationSettings,
@@ -20,9 +22,8 @@ import com.sneaksanddata.arcane.framework.models.settings.{
   TargetTableSettings,
   VersionedDataGraphBuilderSettings
 }
-import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergCatalogCredential
-import com.sneaksanddata.arcane.framework.services.lakehouse.base.{IcebergCatalogSettings, S3CatalogFileIO}
-import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClientOptions
+import com.sneaksanddata.arcane.framework.services.iceberg.IcebergCatalogCredential
+import com.sneaksanddata.arcane.framework.services.iceberg.base.S3CatalogFileIO
 import com.sneaksanddata.arcane.framework.services.mssql.ConnectionOptions
 import zio.ZLayer
 
@@ -46,7 +47,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
     extends StreamContext
     with GroupingSettings
     with IcebergCatalogSettings
-    with JdbcMergeServiceClientOptions
+    with JdbcMergeServiceClientSettings
     with VersionedDataGraphBuilderSettings
     with TargetTableSettings
     with StagingDataSettings
@@ -58,7 +59,6 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
   override val rowsPerGroup: Int               = spec.rowsPerGroup
   override val lookBackInterval: Duration      = Duration.ofSeconds(spec.lookBackInterval)
   override val changeCaptureInterval: Duration = Duration.ofSeconds(spec.sourceSettings.changeCaptureIntervalSeconds)
-  override val changeCapturePeriod: Duration   = Duration.ofSeconds(1)
   override val groupingInterval: Duration      = Duration.ofSeconds(spec.groupingIntervalSeconds)
 
   override val namespace: String               = spec.stagingDataSettings.catalog.namespace
@@ -157,7 +157,7 @@ given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
 
 object SqlServerChangeTrackingStreamContext:
   type Environment = StreamContext & ConnectionOptions & GroupingSettings & IcebergCatalogSettings &
-    JdbcMergeServiceClientOptions & VersionedDataGraphBuilderSettings & TargetTableSettings & StagingDataSettings &
+    JdbcMergeServiceClientSettings & VersionedDataGraphBuilderSettings & TargetTableSettings & StagingDataSettings &
     TablePropertiesSettings & BackfillSettings & FieldSelectionRuleSettings & SourceBufferingSettings
 
   /** The ZLayer that creates the VersionedDataGraphBuilder.
