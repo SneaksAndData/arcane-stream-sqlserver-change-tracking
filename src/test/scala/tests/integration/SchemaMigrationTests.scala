@@ -108,12 +108,12 @@ object SchemaMigrationTests extends ZIOSpecDefault:
           (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
         )
 
-        _ <- ZIO.sleep(Duration.ofSeconds(5))
+        _ <- ZIO.sleep(Duration.ofSeconds(2))
         _ <- Common.addColumns(sourceConnection, sourceTableName, "NewName VARCHAR(100)")
         _ <- ZIO.sleep(Duration.ofSeconds(1))
         _ <- Common.insertUpdatedData(sourceConnection, sourceTableName, afterEvolution)
 
-        _ <- streamRunner.await.timeout(Duration.ofSeconds(40))
+        _ <- streamRunner.await.timeout(Duration.ofSeconds(30))
 
         afterStream <- Common.getData(
           streamingStreamContext.targetTableFullName,

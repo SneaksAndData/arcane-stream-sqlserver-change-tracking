@@ -91,7 +91,7 @@ class StreamRunner extends AsyncFlatSpec with Matchers:
     val streamingStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](streamingStreamContext)
       ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
 
-    val backfillStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](streamingStreamContext)
+    val backfillStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](backfillStreamContext)
       ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
 
     val streamingData = List.range(1, 3).map(i => (i, s"Test$i"))
