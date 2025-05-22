@@ -79,7 +79,7 @@ class StreamRunner extends AsyncFlatSpec with Matchers:
     |""".stripMargin
 
   it should "run a stream in backfill mode" in withFreshTables("TestTable", "iceberg.test.test") { sourceConnection =>
-    val testTimeout = Duration.ofSeconds(600)
+    val testTimeout = Duration.ofSeconds(60)
 
     val parsedSpec = StreamSpec.fromString(streamContextStr)
     val streamingStreamContext = new SqlServerChangeTrackingStreamContext(parsedSpec):
@@ -100,27 +100,62 @@ class StreamRunner extends AsyncFlatSpec with Matchers:
     val updatedData = List.range(4, 7).map(i => (i, s"Update$i"))
     val deletedData = List(5)
 
+    val resultData = streamingData ++ updatedData.filterNot(e => deletedData.contains(e._1))
+
     val resultSetDecoder = (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
 
     val test = for
       // Testing the stream runner in the streaming mode
-      streamRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
+      insertRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
       _            <- Common.insertData(sourceConnection, "dbo.TestTable", streamingData)
-      _            <- streamRunner.await.timeout(Duration.ofSeconds(15))
-      afterStream  <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
+
+      _ <- ZIO
+        .sleep(Duration.ofSeconds(1))
+        .repeatUntilZIO(_ =>
+          (for {
+            _        <- ZIO.log("Checking if the data is in the target table")
+            inserted <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
+          } yield inserted.length == streamingData.length).orElseSucceed(false)
+        )
+
+      _ <- insertRunner.await.timeout(Duration.ofSeconds(15))
+
+      afterStream <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
 
       // Testing the stream runner in the backfill mode
-      streamRunner  <- Common.buildTestApp(TimeLimitLifetimeService.layer, backfillStreamContextLayer).fork
-      _             <- Common.insertData(sourceConnection, "dbo.TestTable", backfillData)
-      _             <- streamRunner.await.timeout(Duration.ofSeconds(15))
+      backfillRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, backfillStreamContextLayer).fork
+      _              <- Common.insertData(sourceConnection, "dbo.TestTable", backfillData)
+
+      _ <- ZIO
+        .sleep(Duration.ofSeconds(1))
+        .repeatUntilZIO(_ =>
+          (for {
+            _        <- ZIO.log("Checking if the data is in the target table")
+            inserted <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
+          } yield inserted.length == backfillData.length).orElseSucceed(false)
+        )
+
+      _ <- backfillRunner.await.timeout(Duration.ofSeconds(15))
+
       afterBackfill <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
 
       // Testing the update and delete operations
-      streamRunner      <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
-      _                 <- Common.updateData(sourceConnection, updatedData)
-      _                 <- Common.deleteData(sourceConnection, deletedData)
-      _                 <- zlog("data deleted")
-      _                 <- streamRunner.await.timeout(Duration.ofSeconds(15))
+      deleteUpdateRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
+      _                  <- Common.updateData(sourceConnection, updatedData)
+      _                  <- Common.deleteData(sourceConnection, deletedData)
+      _                  <- zlog("data deleted")
+
+      _ <- ZIO
+        .sleep(Duration.ofSeconds(1))
+        .repeatUntilZIO(_ =>
+          (for {
+            _        <- ZIO.log("Checking if the data is in the target table")
+            inserted <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
+          } yield inserted.length == resultData.length).orElseSucceed(false)
+        )
+
+      _ <- deleteUpdateRunner.await.timeout(Duration.ofSeconds(15))
+
       afterUpdateDelete <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
     yield (afterStream, afterBackfill, afterUpdateDelete)
 
@@ -131,9 +166,7 @@ class StreamRunner extends AsyncFlatSpec with Matchers:
         cp { afterStream.sorted should equal(streamingData.sorted) }
         cp { afterBackfill.sorted should equal((streamingData ++ backfillData).sorted) }
         cp {
-          afterUpdateDelete.sorted should equal(
-            streamingData ++ updatedData.filterNot(e => deletedData.contains(e._1)).sorted
-          )
+          afterUpdateDelete.sorted should equal(resultData.sorted)
         }
         cp.reportAll()
         succeed
