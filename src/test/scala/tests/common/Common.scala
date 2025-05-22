@@ -221,6 +221,29 @@ object Common:
       yield ()
     }
 
+  def waitForColumns(connection: Connection, tableName: String, expectedCount: Int): ZIO[Any, Throwable, Unit] =
+    for _ <- ZIO
+        .sleep(Duration.ofSeconds(1))
+        .repeatUntilZIO(_ =>
+          ZIO
+            .scoped {
+              for {
+                _ <- ZIO.log("Waiting for table schema to be updated")
+                statement <- ZIO.fromAutoCloseable(
+                  ZIO.attempt(
+                    connection.prepareStatement(
+                      s"select count(1) from information_schema.columns where table_name = N'$tableName'"
+                    )
+                  )
+                )
+                result <- ZIO.attempt(statement.executeQuery())
+                _ <- ZIO.succeed(result.next())
+              } yield result.getInt(1) == expectedCount
+            }
+            .orElseSucceed(false)
+        )
+    yield ()
+
   /** Inserts data into the test table.
     *
     * @param connection
@@ -241,3 +264,25 @@ object Common:
         _ <- ZIO.attempt(statement.execute())
       yield ()
     }
+
+  val IntStrDecoder: ResultSet => (Int, String) = (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
+  val IntStrStrDecoder: ResultSet => (Int, String, String) = (rs: ResultSet) =>
+    (rs.getInt(1), rs.getString(2), rs.getString(3))
+
+  def waitForData[T](
+      tableName: String,
+      columnList: String,
+      decoder: ResultSet => T,
+      expectedSize: Int
+  ): ZIO[Any, Nothing, Unit] = ZIO
+    .sleep(Duration.ofSeconds(1))
+    .repeatUntilZIO(_ =>
+      (for {
+        _ <- ZIO.log("Waiting for data to be loaded")
+        inserted <- Common.getData(
+          tableName,
+          columnList,
+          decoder
+        )
+      } yield inserted.length == expectedSize).orElseSucceed(false)
+    )
