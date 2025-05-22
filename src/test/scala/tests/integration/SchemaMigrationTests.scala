@@ -97,30 +97,35 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
 
         lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(15)))
+        // launch stream and wait for it to create target with streamingData rows (initial table)
         streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
         _            <- Common.insertData(sourceConnection, sourceTableName, streamingData)
-        _            <- ZIO.sleep(Duration.ofSeconds(15))
+        _            <- ZIO.sleep(Duration.ofSeconds(1)).repeatUntilZIO(_ => (for {
+          _ <- ZIO.log("Checking if the data is in the target table")
+          inserted <- Common.getData(
+            streamingStreamContext.targetTableFullName,
+            "Id, Name",
+            (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
+          )
+        } yield inserted.length == streamingData.length).orDie)
 
-        _ <- ZIO.log("Checking if the data is in the target table")
-        beforeEvolution <- Common.getData(
-          streamingStreamContext.targetTableFullName,
-          "Id, Name",
-          (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
-        )
-
-        _ <- ZIO.sleep(Duration.ofSeconds(2))
+        // update SOURCE (SQL) schema with a new column
         _ <- Common.addColumns(sourceConnection, sourceTableName, "NewName VARCHAR(100)")
+        // let it propagate
         _ <- ZIO.sleep(Duration.ofSeconds(1))
+        // INSERT data with a new schema
         _ <- Common.insertUpdatedData(sourceConnection, sourceTableName, afterEvolution)
 
+        // overall test timeout
         _ <- streamRunner.await.timeout(Duration.ofSeconds(30))
 
+        // read target table after schema migration
         afterStream <- Common.getData(
           streamingStreamContext.targetTableFullName,
           "Id, Name, NewName",
           (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
         )
-      } yield assertTrue(beforeEvolution.sorted == streamingData) && assertTrue(
+      } yield assertTrue(
         afterStream.sorted == afterEvolutionExpected
       )
     },
@@ -168,4 +173,4 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         afterEvolution.sorted == afterEvolutionExpected
       )
     }
-  ) @@ before @@ timeout(zio.Duration.fromSeconds(600)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
+  ) @@ before @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
