@@ -107,7 +107,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
             "Id, Name",
             (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
           )
-        } yield inserted.length == streamingData.length).orDie)
+        } yield inserted.length == streamingData.length).orElseSucceed(false))
 
         // update SOURCE (SQL) schema with a new column
         _ <- Common.addColumns(sourceConnection, sourceTableName, "NewName VARCHAR(100)")
