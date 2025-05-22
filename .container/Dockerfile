@@ -8,7 +8,7 @@ COPY . .
 
 RUN sbt assembly
 
-FROM gcr.io/distroless/java21-debian12
+FROM gcr.io/distroless/java21-debian12:debug
 
 COPY --from=build /build/target/scala-3.6.1 /app
 
