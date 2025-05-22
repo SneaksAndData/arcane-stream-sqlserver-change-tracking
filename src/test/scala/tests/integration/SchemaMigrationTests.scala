@@ -85,7 +85,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
   private def before = TestAspect.before(Fixtures.withFreshTablesZIO(sourceTableName, targetTableName))
 
-  def spec: Spec[TestEnvironment & Scope, Throwable] = suite("StreamRunner")(
+  def spec: Spec[TestEnvironment & Scope, Throwable] = suite("SchemaMigrationTests")(
     test("handle the schema migration (column insertions)") {
       val streamingData  = List.range(1, 4).map(i => (i, s"Test$i"))
       val afterEvolution = List.range(4, 7).map(i => (i, s"Test$i", s"Updated $i"))
@@ -118,7 +118,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
           streamingStreamContext.targetTableFullName,
           "Id, Name, NewName",
           Common.IntStrStrDecoder,
-          streamingData.length + afterEvolution.length          
+          streamingData.length + afterEvolution.length
         )
 
         // read target table after schema migration
@@ -146,14 +146,24 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
         lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(35)))
         streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
-        _ <- Common.insertUpdatedData(sourceConnection, sourceTableName, streamingData)
-        _ <- Common.waitForData[(Int, String, String)](streamingStreamContext.targetTableFullName, "Id, Name, NewName", Common.IntStrStrDecoder, streamingData.length)
+        _            <- Common.insertUpdatedData(sourceConnection, sourceTableName, streamingData)
+        _ <- Common.waitForData[(Int, String, String)](
+          streamingStreamContext.targetTableFullName,
+          "Id, Name, NewName",
+          Common.IntStrStrDecoder,
+          streamingData.length
+        )
 
         _ <- Common.removeColumns(sourceConnection, sourceTableName, "NewName")
         _ <- Common.waitForColumns(sourceConnection, sourceTableName, 2)
-        
+
         _ <- Common.insertData(sourceConnection, sourceTableName, afterEvolution)
-        _ <- Common.waitForData[(Int, String, String)](streamingStreamContext.targetTableFullName, "Id, Name, NewName", Common.IntStrStrDecoder, streamingData.length + afterEvolution.length)
+        _ <- Common.waitForData[(Int, String, String)](
+          streamingStreamContext.targetTableFullName,
+          "Id, Name, NewName",
+          Common.IntStrStrDecoder,
+          streamingData.length + afterEvolution.length
+        )
 
         afterEvolution <- Common.getData(
           streamingStreamContext.targetTableFullName,

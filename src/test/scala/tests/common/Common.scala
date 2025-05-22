@@ -136,18 +136,19 @@ object Common:
     *   The data to update.
     * @return
     */
-  def updateData(connection: Connection, data: Seq[(Int, String)]): ZIO[Any, Throwable, Unit] = ZIO.scoped {
-    for
-      statement <- ZIO.attempt(connection.prepareStatement("UPDATE dbo.TestTable SET Name = ? WHERE Id = ?"))
-      _ <- ZIO.foreachDiscard(data) { case (number, string) =>
-        ZIO.attempt {
-          statement.setString(1, string)
-          statement.setInt(2, number)
-          statement.executeUpdate()
+  def updateData(connection: Connection, tableName: String, data: Seq[(Int, String)]): ZIO[Any, Throwable, Unit] =
+    ZIO.scoped {
+      for
+        statement <- ZIO.attempt(connection.prepareStatement(s"UPDATE $tableName SET Name = ? WHERE Id = ?"))
+        _ <- ZIO.foreachDiscard(data) { case (number, string) =>
+          ZIO.attempt {
+            statement.setString(1, string)
+            statement.setInt(2, number)
+            statement.executeUpdate()
+          }
         }
-      }
-    yield ()
-  }
+      yield ()
+    }
 
   /** Deletes the data from the test table.
     * @param connection
@@ -156,17 +157,18 @@ object Common:
     *   The primary keys of the data to delete.
     * @return
     */
-  def deleteData(connection: Connection, primaryKeys: Seq[Int]): ZIO[Any, Throwable, Unit] = ZIO.scoped {
-    for
-      statement <- ZIO.attempt(connection.prepareStatement("DELETE FROM dbo.TestTable WHERE Id = ?"))
-      _ <- ZIO.foreachDiscard(primaryKeys) { number =>
-        ZIO.attempt {
-          statement.setInt(1, number)
-          statement.executeUpdate()
+  def deleteData(connection: Connection, tableName: String, primaryKeys: Seq[Int]): ZIO[Any, Throwable, Unit] =
+    ZIO.scoped {
+      for
+        statement <- ZIO.attempt(connection.prepareStatement(s"DELETE FROM $tableName WHERE Id = ?"))
+        _ <- ZIO.foreachDiscard(primaryKeys) { number =>
+          ZIO.attempt {
+            statement.setInt(1, number)
+            statement.executeUpdate()
+          }
         }
-      }
-    yield ()
-  }
+      yield ()
+    }
 
   /** Gets the data from the *target* table. Using the connection string provided in the
     * `ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI` environment variable.
@@ -237,7 +239,7 @@ object Common:
                   )
                 )
                 result <- ZIO.attempt(statement.executeQuery())
-                _ <- ZIO.succeed(result.next())
+                _      <- ZIO.succeed(result.next())
               } yield result.getInt(1) == expectedCount
             }
             .orElseSucceed(false)

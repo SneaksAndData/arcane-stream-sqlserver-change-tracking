@@ -16,16 +16,20 @@ import org.scalatest.Checkpoints.Checkpoint
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.should
-import zio.{Runtime, Unsafe, ZIO, ZLayer}
+import zio.test.TestAspect.timeout
+import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.{Runtime, Scope, Unsafe, ZIO, ZLayer}
 
 import java.sql.ResultSet
 import java.time.Duration
+import scala.language.postfixOps
 
-class StreamRunner extends AsyncFlatSpec with Matchers:
+object StreamRunner extends ZIOSpecDefault:
 
-  private val runtime = Runtime.default
+  val sourceTableName = "StreamRunner"
+  val targetTableName = "iceberg.test.stream_run"
 
-  private val streamContextStr = """
+  private val streamContextStr = s"""
     |
     | {
     |  "groupingIntervalSeconds": 1,
@@ -50,13 +54,13 @@ class StreamRunner extends AsyncFlatSpec with Matchers:
     |      "batchThreshold": 60,
     |      "retentionThreshold": "6h"
     |    },
-    |    "targetTableName": "iceberg.test.test"
+    |    "targetTableName": "$targetTableName"
     |  },
     |  "sourceSettings": {
     |    "changeCaptureIntervalSeconds": 1,
     |    "commandTimeout": 3600,
     |    "schema": "dbo",
-    |    "table": "TestTable",
+    |    "table": "$sourceTableName",
     |    "fetchSize": 1024
     |   },
     |  "stagingDataSettings": {
@@ -78,97 +82,83 @@ class StreamRunner extends AsyncFlatSpec with Matchers:
     |
     |""".stripMargin
 
-  it should "run a stream in backfill mode" in withFreshTables("TestTable", "iceberg.test.test") { sourceConnection =>
-    val testTimeout = Duration.ofSeconds(60)
+  private val parsedSpec = StreamSpec.fromString(streamContextStr)
 
-    val parsedSpec = StreamSpec.fromString(streamContextStr)
-    val streamingStreamContext = new SqlServerChangeTrackingStreamContext(parsedSpec):
-      override val IsBackfilling: Boolean = false
+  private val streamingStreamContext = new SqlServerChangeTrackingStreamContext(parsedSpec):
+    override val IsBackfilling: Boolean = false
 
-    val backfillStreamContext = new SqlServerChangeTrackingStreamContext(parsedSpec):
-      override val IsBackfilling: Boolean = true
+  private val backfillStreamContext = new SqlServerChangeTrackingStreamContext(parsedSpec):
+    override val IsBackfilling: Boolean = true
 
-    val streamingStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](streamingStreamContext)
-      ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
+  private val streamingStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](streamingStreamContext)
+    ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
 
-    val backfillStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](backfillStreamContext)
-      ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
+  private val backfillStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](backfillStreamContext)
+    ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
 
-    val streamingData = List.range(1, 3).map(i => (i, s"Test$i"))
-    val backfillData  = List.range(4, 7).map(i => (i, s"Test$i"))
+  private val streamingData = List.range(1, 3).map(i => (i, s"Test$i"))
+  private val backfillData  = List.range(4, 7).map(i => (i, s"Test$i"))
 
-    val updatedData = List.range(4, 7).map(i => (i, s"Update$i"))
-    val deletedData = List(5)
+  private val updatedData = List.range(4, 7).map(i => (i, s"Update$i"))
+  private val deletedData = List(5)
 
-    val resultData = streamingData ++ updatedData.filterNot(e => deletedData.contains(e._1))
+  private val resultData = streamingData ++ updatedData.filterNot(e => deletedData.contains(e._1))
 
-    val resultSetDecoder = (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
+  private def before = TestAspect.before(Fixtures.withFreshTablesZIO(sourceTableName, targetTableName))
 
-    val test = for
-      // Testing the stream runner in the streaming mode
-      insertRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
-      _            <- Common.insertData(sourceConnection, "dbo.TestTable", streamingData)
+  override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
+    test("stream, backfill and stream again successfully") {
+      for
+        sourceConnection <- ZIO.succeed(Fixtures.getConnection)
+        // Testing the stream runner in the streaming mode
+        insertRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
+        _            <- Common.insertData(sourceConnection, parsedSpec.sourceSettings.table, streamingData)
 
-      _ <- ZIO
-        .sleep(Duration.ofSeconds(1))
-        .repeatUntilZIO(_ =>
-          (for {
-            _        <- ZIO.log("Checking if the data is in the target table")
-            inserted <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
-          } yield inserted.length == streamingData.length).orElseSucceed(false)
+        _ <- Common.waitForData[(Int, String)](
+          streamingStreamContext.targetTableFullName,
+          "Id, Name",
+          Common.IntStrDecoder,
+          streamingData.length
+        )
+        _ <- insertRunner.await.timeout(Duration.ofSeconds(5))
+
+        afterStream <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", Common.IntStrDecoder)
+
+        // Testing the stream runner in the backfill mode
+        backfillRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, backfillStreamContextLayer).fork
+        _              <- Common.insertData(sourceConnection, parsedSpec.sourceSettings.table, backfillData)
+        _ <- Common.waitForData[(Int, String)](
+          streamingStreamContext.targetTableFullName,
+          "Id, Name",
+          Common.IntStrDecoder,
+          backfillData.length
         )
 
-      _ <- insertRunner.await.timeout(Duration.ofSeconds(15))
+        _ <- backfillRunner.await.timeout(Duration.ofSeconds(5))
 
-      afterStream <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
+        afterBackfill <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", Common.IntStrDecoder)
 
-      // Testing the stream runner in the backfill mode
-      backfillRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, backfillStreamContextLayer).fork
-      _              <- Common.insertData(sourceConnection, "dbo.TestTable", backfillData)
-
-      _ <- ZIO
-        .sleep(Duration.ofSeconds(1))
-        .repeatUntilZIO(_ =>
-          (for {
-            _        <- ZIO.log("Checking if the data is in the target table")
-            inserted <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
-          } yield inserted.length == backfillData.length).orElseSucceed(false)
+        // Testing the update and delete operations
+        deleteUpdateRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
+        _                  <- Common.updateData(sourceConnection, parsedSpec.sourceSettings.table, updatedData)
+        _                  <- ZIO.sleep(Duration.ofSeconds(1))
+        _                  <- Common.deleteData(sourceConnection, parsedSpec.sourceSettings.table, deletedData)
+        _ <- Common.waitForData[(Int, String)](
+          streamingStreamContext.targetTableFullName,
+          "Id, Name",
+          Common.IntStrDecoder,
+          resultData.length
         )
 
-      _ <- backfillRunner.await.timeout(Duration.ofSeconds(15))
+        _ <- deleteUpdateRunner.await.timeout(Duration.ofSeconds(5))
 
-      afterBackfill <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
-
-      // Testing the update and delete operations
-      deleteUpdateRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
-      _                  <- Common.updateData(sourceConnection, updatedData)
-      _                  <- Common.deleteData(sourceConnection, deletedData)
-      _                  <- zlog("data deleted")
-
-      _ <- ZIO
-        .sleep(Duration.ofSeconds(1))
-        .repeatUntilZIO(_ =>
-          (for {
-            _        <- ZIO.log("Checking if the data is in the target table")
-            inserted <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
-          } yield inserted.length == resultData.length).orElseSucceed(false)
+        afterUpdateDelete <- Common.getData(
+          streamingStreamContext.targetTableFullName,
+          "Id, Name",
+          Common.IntStrDecoder
         )
-
-      _ <- deleteUpdateRunner.await.timeout(Duration.ofSeconds(15))
-
-      afterUpdateDelete <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", resultSetDecoder)
-    yield (afterStream, afterBackfill, afterUpdateDelete)
-
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(test.timeout(testTimeout))).map {
-      case None => fail("Test timed out")
-      case Some(afterStream, afterBackfill, afterUpdateDelete) =>
-        val cp = new Checkpoint()
-        cp { afterStream.sorted should equal(streamingData.sorted) }
-        cp { afterBackfill.sorted should equal((streamingData ++ backfillData).sorted) }
-        cp {
-          afterUpdateDelete.sorted should equal(resultData.sorted)
-        }
-        cp.reportAll()
-        succeed
+      yield assertTrue(afterStream.sorted == streamingData.sorted) implies assertTrue(
+        afterBackfill.sorted == (streamingData ++ backfillData).sorted
+      ) implies assertTrue(afterUpdateDelete.sorted == resultData.sorted)
     }
-  }
+  ) @@ before @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
