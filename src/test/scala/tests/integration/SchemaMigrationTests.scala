@@ -129,7 +129,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         )
 
         // overall test timeout
-        _ <- streamRunner.await.timeout(Duration.ofSeconds(45))
+        _ <- streamRunner.await.timeout(Duration.ofSeconds(5))
       } yield assertTrue(
         afterStream.sorted == afterEvolutionExpected
       )
@@ -171,7 +171,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
           Common.IntStrStrDecoder
         )
 
-        _ <- streamRunner.await.timeout(Duration.ofSeconds(45))
+        _ <- streamRunner.await.timeout(Duration.ofSeconds(5))
 
       } yield assertTrue(
         afterEvolution.sorted == afterEvolutionExpected
