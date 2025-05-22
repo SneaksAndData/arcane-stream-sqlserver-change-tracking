@@ -94,7 +94,7 @@ object StreamRunner extends ZIOSpecDefault:
     ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
 
   private val backfillStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](backfillStreamContext)
-    ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
+    ++ ZLayer.succeed[ConnectionOptions](backfillStreamContext)
 
   private val streamingData = List.range(1, 3).map(i => (i, s"Test$i"))
   private val backfillData  = List.range(4, 7).map(i => (i, s"Test$i"))
@@ -131,7 +131,7 @@ object StreamRunner extends ZIOSpecDefault:
           streamingStreamContext.targetTableFullName,
           "Id, Name",
           Common.IntStrDecoder,
-          backfillData.length
+          backfillData.length + streamingData.length
         )
 
         _ <- backfillRunner.await.timeout(Duration.ofSeconds(5))
@@ -161,4 +161,4 @@ object StreamRunner extends ZIOSpecDefault:
         afterBackfill.sorted == (streamingData ++ backfillData).sorted
       ) implies assertTrue(afterUpdateDelete.sorted == resultData.sorted)
     }
-  ) @@ before @@ timeout(zio.Duration.fromSeconds(120)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
+  ) @@ before @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
