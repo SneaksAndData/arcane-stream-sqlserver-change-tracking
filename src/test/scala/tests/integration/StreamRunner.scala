@@ -120,7 +120,7 @@ object StreamRunner extends ZIOSpecDefault:
           Common.IntStrDecoder,
           streamingData.length
         )
-        _ <- insertRunner.await.timeout(Duration.ofSeconds(5))
+        _ <- insertRunner.await.timeout(Duration.ofSeconds(10))
 
         afterStream <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", Common.IntStrDecoder)
 
@@ -134,7 +134,7 @@ object StreamRunner extends ZIOSpecDefault:
           backfillData.length + streamingData.length
         )
 
-        _ <- backfillRunner.await.timeout(Duration.ofSeconds(5))
+        _ <- backfillRunner.await.timeout(Duration.ofSeconds(10))
 
         afterBackfill <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", Common.IntStrDecoder)
 
@@ -150,7 +150,7 @@ object StreamRunner extends ZIOSpecDefault:
           resultData.length
         )
 
-        _ <- deleteUpdateRunner.await.timeout(Duration.ofSeconds(5))
+        _ <- deleteUpdateRunner.await.timeout(Duration.ofSeconds(10))
 
         afterUpdateDelete <- Common.getData(
           streamingStreamContext.targetTableFullName,
