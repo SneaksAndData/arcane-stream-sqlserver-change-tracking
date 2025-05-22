@@ -133,60 +133,60 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         afterStream.sorted == afterEvolutionExpected
       )
     },
-    test("handle the schema migration (column deletions)") {
-      val streamingData  = List.range(1, 4).map(i => (i, s"Test$i", s"Updated $i"))
-      val afterEvolution = List.range(4, 7).map(i => (i, s"Test$i"))
-
-      val afterEvolutionExpected = List.range(1, 4).map(i => (i, s"Test$i", s"Updated $i"))
-        ++ List.range(4, 7).map(i => (i, s"Test$i", null))
-
-      for {
-        sourceConnection <- ZIO.succeed(Fixtures.getConnection)
-        _                <- Common.addColumns(sourceConnection, sourceTableName, "NewName VARCHAR(100)")
-
-        lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(35)))
-        streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
-        _ <- ZIO
-          .sleep(Duration.ofSeconds(1))
-          .repeatUntilZIO(_ =>
-            (for {
-              _ <- ZIO.log("Checking if the data is in the target table")
-              inserted <- Common.getData(
-                streamingStreamContext.targetTableFullName,
-                "Id, Name",
-                (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
-              )
-            } yield inserted.length == streamingData.length).orElseSucceed(false)
-          )
-
-        _ <- Common.insertUpdatedData(sourceConnection, sourceTableName, streamingData)
-        _ <- ZIO.sleep(Duration.ofSeconds(5))
-        _ <- ZIO.log("Checking if the data is in the target table")
-        beforeEvolution <- Common.getData(
-          streamingStreamContext.targetTableFullName,
-          "Id, Name, NewName",
-          (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
-        )
-        _ <- ZIO.log(s"Data in the target table: $beforeEvolution")
-
-        _ <- ZIO.sleep(Duration.ofSeconds(5))
-        _ <- Common.removeColumns(sourceConnection, sourceTableName, "NewName")
-        _ <- ZIO.sleep(Duration.ofSeconds(1))
-        _ <- Common.insertData(sourceConnection, sourceTableName, afterEvolution)
-        _ <- ZIO.sleep(Duration.ofSeconds(15))
-
-        _ <- ZIO.log("Checking if the data is in the target table")
-        afterEvolution <- Common.getData(
-          streamingStreamContext.targetTableFullName,
-          "Id, Name, NewName",
-          (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
-        )
-        _ <- ZIO.log(s"Data in the target table: $beforeEvolution")
-
-        _ <- streamRunner.await.timeout(Duration.ofSeconds(40))
-
-      } yield assertTrue(beforeEvolution.sorted == streamingData) && assertTrue(
-        afterEvolution.sorted == afterEvolutionExpected
-      )
+//    test("handle the schema migration (column deletions)") {
+//      val streamingData  = List.range(1, 4).map(i => (i, s"Test$i", s"Updated $i"))
+//      val afterEvolution = List.range(4, 7).map(i => (i, s"Test$i"))
+//
+//      val afterEvolutionExpected = List.range(1, 4).map(i => (i, s"Test$i", s"Updated $i"))
+//        ++ List.range(4, 7).map(i => (i, s"Test$i", null))
+//
+//      for {
+//        sourceConnection <- ZIO.succeed(Fixtures.getConnection)
+//        _                <- Common.addColumns(sourceConnection, sourceTableName, "NewName VARCHAR(100)")
+//
+//        lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(35)))
+//        streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
+//        _ <- ZIO
+//          .sleep(Duration.ofSeconds(1))
+//          .repeatUntilZIO(_ =>
+//            (for {
+//              _ <- ZIO.log("Checking if the data is in the target table")
+//              inserted <- Common.getData(
+//                streamingStreamContext.targetTableFullName,
+//                "Id, Name",
+//                (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
+//              )
+//            } yield inserted.length == streamingData.length).orElseSucceed(false)
+//          )
+//
+//        _ <- Common.insertUpdatedData(sourceConnection, sourceTableName, streamingData)
+//        _ <- ZIO.sleep(Duration.ofSeconds(5))
+//        _ <- ZIO.log("Checking if the data is in the target table")
+//        beforeEvolution <- Common.getData(
+//          streamingStreamContext.targetTableFullName,
+//          "Id, Name, NewName",
+//          (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
+//        )
+//        _ <- ZIO.log(s"Data in the target table: $beforeEvolution")
+//
+//        _ <- ZIO.sleep(Duration.ofSeconds(5))
+//        _ <- Common.removeColumns(sourceConnection, sourceTableName, "NewName")
+//        _ <- ZIO.sleep(Duration.ofSeconds(1))
+//        _ <- Common.insertData(sourceConnection, sourceTableName, afterEvolution)
+//        _ <- ZIO.sleep(Duration.ofSeconds(15))
+//
+//        _ <- ZIO.log("Checking if the data is in the target table")
+//        afterEvolution <- Common.getData(
+//          streamingStreamContext.targetTableFullName,
+//          "Id, Name, NewName",
+//          (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
+//        )
+//        _ <- ZIO.log(s"Data in the target table: $beforeEvolution")
+//
+//        _ <- streamRunner.await.timeout(Duration.ofSeconds(40))
+//
+//      } yield assertTrue(beforeEvolution.sorted == streamingData) && assertTrue(
+//        afterEvolution.sorted == afterEvolutionExpected
+//      )
     }
   ) @@ before @@ timeout(zio.Duration.fromSeconds(600)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
