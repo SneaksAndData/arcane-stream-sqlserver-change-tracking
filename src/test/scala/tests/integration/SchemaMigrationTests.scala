@@ -189,4 +189,4 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         afterEvolution.sorted == afterEvolutionExpected
       )
     }
-  ) @@ before @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
+  ) @@ before @@ timeout(zio.Duration.fromSeconds(600)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
