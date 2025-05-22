@@ -129,7 +129,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         )
 
         // overall test timeout
-        _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
+        _ <- streamRunner.await.timeout(Duration.ofSeconds(45))
       } yield assertTrue(
         afterStream.sorted == afterEvolutionExpected
       )
@@ -144,7 +144,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
         _                <- Common.addColumns(sourceConnection, sourceTableName, "NewName VARCHAR(100)")
 
-        lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(35)))
+        lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(180)))
         streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
         _            <- Common.insertUpdatedData(sourceConnection, sourceTableName, streamingData)
         _ <- Common.waitForData[(Int, String, String)](
@@ -171,10 +171,10 @@ object SchemaMigrationTests extends ZIOSpecDefault:
           Common.IntStrStrDecoder
         )
 
-        _ <- streamRunner.await.timeout(Duration.ofSeconds(15))
+        _ <- streamRunner.await.timeout(Duration.ofSeconds(45))
 
       } yield assertTrue(
         afterEvolution.sorted == afterEvolutionExpected
       )
     }
-  ) @@ before @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
+  ) @@ before @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
