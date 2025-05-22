@@ -153,8 +153,8 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 //              _ <- ZIO.log("Checking if the data is in the target table")
 //              inserted <- Common.getData(
 //                streamingStreamContext.targetTableFullName,
-//                "Id, Name",
-//                (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
+//                "Id, Name, NewName",
+//                (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
 //              )
 //            } yield inserted.length == streamingData.length).orElseSucceed(false)
 //          )
@@ -188,5 +188,5 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 //      } yield assertTrue(beforeEvolution.sorted == streamingData) && assertTrue(
 //        afterEvolution.sorted == afterEvolutionExpected
 //      )
-    }
+//    }
   ) @@ before @@ timeout(zio.Duration.fromSeconds(600)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
