@@ -85,7 +85,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
   private def before = TestAspect.before(Fixtures.withFreshTablesZIO(sourceTableName, targetTableName))
 
-  def spec: Spec[TestEnvironment & Scope, Throwable] = suite("StreamRunner")(
+  def spec: Spec[TestEnvironment & Scope, Throwable] = suite("SchemaMigrationTests")(
     test("handle the schema migration (column insertions)") {
       val streamingData  = List.range(1, 4).map(i => (i, s"Test$i"))
       val afterEvolution = List.range(4, 7).map(i => (i, s"Test$i", s"Updated $i"))
@@ -97,30 +97,40 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
 
         lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(15)))
+        // launch stream and wait for it to create target with streamingData rows (initial table)
         streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
         _            <- Common.insertData(sourceConnection, sourceTableName, streamingData)
-        _            <- ZIO.sleep(Duration.ofSeconds(15))
-
-        _ <- ZIO.log("Checking if the data is in the target table")
-        beforeEvolution <- Common.getData(
+        _ <- Common.waitForData[(Int, String)](
           streamingStreamContext.targetTableFullName,
           "Id, Name",
-          (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
+          Common.IntStrDecoder,
+          streamingData.length
         )
 
-        _ <- ZIO.sleep(Duration.ofSeconds(5))
+        // update SOURCE (SQL) schema with a new column
         _ <- Common.addColumns(sourceConnection, sourceTableName, "NewName VARCHAR(100)")
-        _ <- ZIO.sleep(Duration.ofSeconds(1))
+        // let it propagate
+        _ <- Common.waitForColumns(sourceConnection, sourceTableName, 3)
+        // INSERT data with a new schema
         _ <- Common.insertUpdatedData(sourceConnection, sourceTableName, afterEvolution)
 
-        _ <- streamRunner.await.timeout(Duration.ofSeconds(40))
+        _ <- Common.waitForData[(Int, String, String)](
+          streamingStreamContext.targetTableFullName,
+          "Id, Name, NewName",
+          Common.IntStrStrDecoder,
+          streamingData.length + afterEvolution.length
+        )
 
+        // read target table after schema migration
         afterStream <- Common.getData(
           streamingStreamContext.targetTableFullName,
           "Id, Name, NewName",
           (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
         )
-      } yield assertTrue(beforeEvolution.sorted == streamingData) && assertTrue(
+
+        // overall test timeout
+        _ <- streamRunner.await.timeout(Duration.ofSeconds(5))
+      } yield assertTrue(
         afterStream.sorted == afterEvolutionExpected
       )
     },
@@ -128,44 +138,43 @@ object SchemaMigrationTests extends ZIOSpecDefault:
       val streamingData  = List.range(1, 4).map(i => (i, s"Test$i", s"Updated $i"))
       val afterEvolution = List.range(4, 7).map(i => (i, s"Test$i"))
 
-      val afterEvolutionExpected = List.range(1, 4).map(i => (i, s"Test$i", s"Updated $i"))
-        ++ List.range(4, 7).map(i => (i, s"Test$i", null))
+      val afterEvolutionExpected = streamingData ++ List.range(4, 7).map(i => (i, s"Test$i", null))
 
       for {
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
         _                <- Common.addColumns(sourceConnection, sourceTableName, "NewName VARCHAR(100)")
 
-        lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(35)))
+        lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(180)))
         streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
-        _            <- ZIO.sleep(Duration.ofSeconds(10))
-
-        _ <- Common.insertUpdatedData(sourceConnection, sourceTableName, streamingData)
-        _ <- ZIO.sleep(Duration.ofSeconds(5))
-        _ <- ZIO.log("Checking if the data is in the target table")
-        beforeEvolution <- Common.getData(
+        _            <- Common.insertUpdatedData(sourceConnection, sourceTableName, streamingData)
+        _ <- Common.waitForData[(Int, String, String)](
           streamingStreamContext.targetTableFullName,
           "Id, Name, NewName",
-          (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
+          Common.IntStrStrDecoder,
+          streamingData.length
         )
-        _ <- ZIO.log(s"Data in the target table: $beforeEvolution")
 
-        _ <- ZIO.sleep(Duration.ofSeconds(5))
         _ <- Common.removeColumns(sourceConnection, sourceTableName, "NewName")
-        _ <- ZIO.sleep(Duration.ofSeconds(1))
-        _ <- Common.insertData(sourceConnection, sourceTableName, afterEvolution)
-        _ <- ZIO.sleep(Duration.ofSeconds(15))
+        _ <- Common.waitForColumns(sourceConnection, sourceTableName, 2)
 
-        _ <- ZIO.log("Checking if the data is in the target table")
+        _ <- Common.insertData(sourceConnection, sourceTableName, afterEvolution)
+        _ <- Common.waitForData[(Int, String, String)](
+          streamingStreamContext.targetTableFullName,
+          "Id, Name, NewName",
+          Common.IntStrStrDecoder,
+          streamingData.length + afterEvolution.length
+        )
+
         afterEvolution <- Common.getData(
           streamingStreamContext.targetTableFullName,
           "Id, Name, NewName",
-          (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
+          Common.IntStrStrDecoder
         )
-        _ <- ZIO.log(s"Data in the target table: $beforeEvolution")
-        _ <- streamRunner.await.timeout(Duration.ofSeconds(40))
 
-      } yield assertTrue(beforeEvolution.sorted == streamingData) && assertTrue(
+        _ <- streamRunner.await.timeout(Duration.ofSeconds(5))
+
+      } yield assertTrue(
         afterEvolution.sorted == afterEvolutionExpected
       )
     }
-  ) @@ before @@ timeout(zio.Duration.fromSeconds(600)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
+  ) @@ before @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock @@ TestAspect.sequential

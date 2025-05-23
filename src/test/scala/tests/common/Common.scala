@@ -6,9 +6,10 @@ import models.app.SqlServerChangeTrackingStreamContext
 
 import com.sneaksanddata.arcane.framework.services.app.GenericStreamRunnerService
 import com.sneaksanddata.arcane.framework.services.app.base.{InterruptionToken, StreamLifetimeService}
+import com.sneaksanddata.arcane.framework.services.caching.schema_cache.MutableSchemaCache
 import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
-import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
-import com.sneaksanddata.arcane.framework.services.merging.{JdbcMergeServiceClient, MutableSchemaCache}
+import com.sneaksanddata.arcane.framework.services.iceberg.IcebergS3CatalogWriter
+import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.mssql.*
 import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
   GenericBackfillStreamingMergeDataProvider,
@@ -135,18 +136,19 @@ object Common:
     *   The data to update.
     * @return
     */
-  def updateData(connection: Connection, data: Seq[(Int, String)]): ZIO[Any, Throwable, Unit] = ZIO.scoped {
-    for
-      statement <- ZIO.attempt(connection.prepareStatement("UPDATE dbo.TestTable SET Name = ? WHERE Id = ?"))
-      _ <- ZIO.foreachDiscard(data) { case (number, string) =>
-        ZIO.attempt {
-          statement.setString(1, string)
-          statement.setInt(2, number)
-          statement.executeUpdate()
+  def updateData(connection: Connection, tableName: String, data: Seq[(Int, String)]): ZIO[Any, Throwable, Unit] =
+    ZIO.scoped {
+      for
+        statement <- ZIO.attempt(connection.prepareStatement(s"UPDATE $tableName SET Name = ? WHERE Id = ?"))
+        _ <- ZIO.foreachDiscard(data) { case (number, string) =>
+          ZIO.attempt {
+            statement.setString(1, string)
+            statement.setInt(2, number)
+            statement.executeUpdate()
+          }
         }
-      }
-    yield ()
-  }
+      yield ()
+    }
 
   /** Deletes the data from the test table.
     * @param connection
@@ -155,17 +157,18 @@ object Common:
     *   The primary keys of the data to delete.
     * @return
     */
-  def deleteData(connection: Connection, primaryKeys: Seq[Int]): ZIO[Any, Throwable, Unit] = ZIO.scoped {
-    for
-      statement <- ZIO.attempt(connection.prepareStatement("DELETE FROM dbo.TestTable WHERE Id = ?"))
-      _ <- ZIO.foreachDiscard(primaryKeys) { number =>
-        ZIO.attempt {
-          statement.setInt(1, number)
-          statement.executeUpdate()
+  def deleteData(connection: Connection, tableName: String, primaryKeys: Seq[Int]): ZIO[Any, Throwable, Unit] =
+    ZIO.scoped {
+      for
+        statement <- ZIO.attempt(connection.prepareStatement(s"DELETE FROM $tableName WHERE Id = ?"))
+        _ <- ZIO.foreachDiscard(primaryKeys) { number =>
+          ZIO.attempt {
+            statement.setInt(1, number)
+            statement.executeUpdate()
+          }
         }
-      }
-    yield ()
-  }
+      yield ()
+    }
 
   /** Gets the data from the *target* table. Using the connection string provided in the
     * `ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI` environment variable.
@@ -220,6 +223,29 @@ object Common:
       yield ()
     }
 
+  def waitForColumns(connection: Connection, tableName: String, expectedCount: Int): ZIO[Any, Throwable, Unit] =
+    for _ <- ZIO
+        .sleep(Duration.ofSeconds(1))
+        .repeatUntilZIO(_ =>
+          ZIO
+            .scoped {
+              for {
+                _ <- ZIO.log("Waiting for table schema to be updated")
+                statement <- ZIO.fromAutoCloseable(
+                  ZIO.attempt(
+                    connection.prepareStatement(
+                      s"select count(1) from information_schema.columns where table_name = N'$tableName'"
+                    )
+                  )
+                )
+                result <- ZIO.attempt(statement.executeQuery())
+                _      <- ZIO.succeed(result.next())
+              } yield result.getInt(1) == expectedCount
+            }
+            .orElseSucceed(false)
+        )
+    yield ()
+
   /** Inserts data into the test table.
     *
     * @param connection
@@ -240,3 +266,25 @@ object Common:
         _ <- ZIO.attempt(statement.execute())
       yield ()
     }
+
+  val IntStrDecoder: ResultSet => (Int, String) = (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
+  val IntStrStrDecoder: ResultSet => (Int, String, String) = (rs: ResultSet) =>
+    (rs.getInt(1), rs.getString(2), rs.getString(3))
+
+  def waitForData[T](
+      tableName: String,
+      columnList: String,
+      decoder: ResultSet => T,
+      expectedSize: Int
+  ): ZIO[Any, Nothing, Unit] = ZIO
+    .sleep(Duration.ofSeconds(1))
+    .repeatUntilZIO(_ =>
+      (for {
+        _ <- ZIO.log("Waiting for data to be loaded")
+        inserted <- Common.getData(
+          tableName,
+          columnList,
+          decoder
+        )
+      } yield inserted.length == expectedSize).orElseSucceed(false)
+    )

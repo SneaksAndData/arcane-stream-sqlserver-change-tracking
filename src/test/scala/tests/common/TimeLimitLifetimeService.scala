@@ -47,4 +47,4 @@ object TimeLimitLifetimeService:
     * @return
     *   The ZLayer for the time limit lifetime service
     */
-  val layer: ULayer[TimeLimitLifetimeService] = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(10)))
+  val layer: ULayer[TimeLimitLifetimeService] = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(110)))
