@@ -56,7 +56,9 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
     with FieldSelectionRuleSettings
     with SourceBufferingSettings:
 
-  override val rowsPerGroup: Int               = spec.rowsPerGroup
+  override val rowsPerGroup: Int = sys.env.get("STREAMCONTEXT__ROWS_PER_GROUP") match
+    case Some(value) => value.toInt
+    case None        => spec.rowsPerGroup
   override val lookBackInterval: Duration      = Duration.ofSeconds(spec.lookBackInterval)
   override val changeCaptureInterval: Duration = Duration.ofSeconds(spec.sourceSettings.changeCaptureIntervalSeconds)
   override val groupingInterval: Duration      = Duration.ofSeconds(spec.groupingIntervalSeconds)
@@ -134,10 +136,10 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
 
   override val bufferingEnabled: Boolean = IsBackfilling || spec.sourceSettings.buffering.isDefined
 
-  override val bufferingStrategy: BufferingStrategy = (IsBackfilling, spec.sourceSettings.buffering) match
-    case (true, None)  => BufferingStrategy.Unbounded
-    case (false, None) => BufferingStrategy.Buffering(0)
-    case (_, Some(buffering)) =>
+  override val bufferingStrategy: BufferingStrategy = spec.sourceSettings.buffering match
+    case None if IsBackfilling  => BufferingStrategy.Unbounded
+    case None => BufferingStrategy.Buffering(0)
+    case Some(buffering) =>
       buffering.strategy.toLowerCase match
         case "bounded"   => BufferingStrategy.Buffering(buffering.maxBufferSize)
         case "unbounded" => BufferingStrategy.Unbounded
