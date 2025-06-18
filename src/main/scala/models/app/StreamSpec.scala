@@ -48,7 +48,8 @@ case class TablePropertiesSettingsSpec(
     format: String
 ) derives ReadWriter
 
-case class FieldSelectionRuleSpec(ruleType: String, fields: Array[String]) derives ReadWriter
+case class FieldSelectionRuleSpec(ruleType: String, fields: Array[String], isServerSide: Option[Boolean])
+    derives ReadWriter
 
 case class BufferingSettingsSpec(strategy: String, maxBufferSize: Int) derives ReadWriter
 
