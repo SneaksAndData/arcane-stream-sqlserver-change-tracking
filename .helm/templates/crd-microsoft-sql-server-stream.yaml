@@ -259,12 +259,9 @@ spec:
                       type: array
                       items:
                         type: string
-                    isServerSide:
-                      type: boolean
                   default:
                     ruleType: all
                     fields: [ ]
-                    isServerSide: false
             status:
               type: object
               properties:

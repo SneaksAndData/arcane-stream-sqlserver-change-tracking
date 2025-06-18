@@ -124,7 +124,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
     case "exclude" => FieldSelectionRule.ExcludeFields(spec.fieldSelectionRule.fields.map(f => f.toLowerCase()).toSet)
     case _         => FieldSelectionRule.AllFields
 
-  override val isServerSide: Boolean = spec.fieldSelectionRule.isServerSide.getOrElse(true)
+  override val isServerSide: Boolean = true
 
   override val essentialFields: Set[String] =
     Set("sys_change_version", "sys_change_operation", "changetrackingversion", "arcane_merge_key")
