@@ -137,8 +137,8 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
   override val bufferingEnabled: Boolean = IsBackfilling || spec.sourceSettings.buffering.isDefined
 
   override val bufferingStrategy: BufferingStrategy = spec.sourceSettings.buffering match
-    case None if IsBackfilling  => BufferingStrategy.Unbounded
-    case None => BufferingStrategy.Buffering(0)
+    case None if IsBackfilling => BufferingStrategy.Unbounded
+    case None                  => BufferingStrategy.Buffering(0)
     case Some(buffering) =>
       buffering.strategy.toLowerCase match
         case "bounded"   => BufferingStrategy.Buffering(buffering.maxBufferSize)
