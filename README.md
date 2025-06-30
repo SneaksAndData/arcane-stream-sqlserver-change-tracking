@@ -1,8 +1,8 @@
 # SQL Server Change Tracking stream for Arcane Data Platform
+<img src="docs/images/arcane-logo.png" width="100" height="100" alt="logo"> 
+
 ![Static Badge](https://img.shields.io/badge/Scala-3-red)
 [![Run tests with coverage](https://github.com/SneaksAndData/arcane-stream-sqlserver-change-tracking/actions/workflows/build.yaml/badge.svg)](https://github.com/SneaksAndData/arcane-stream-sqlserver-change-tracking/actions/workflows/build.yaml)
-
-<img src="docs/images/arcane-logo.png" width="100" height="100" alt="logo"> 
 
 This repository will contain the SQL Server Change Tracking stream for the Arcane. This stream will allow you to
 capture changes from SQL Server database and store them in a S3 compatible storage.
