@@ -28,6 +28,8 @@ import zio.logging.backend.SLF4J
 import zio.metrics.connectors.{MetricsConfig, datadog, statsd}
 import zio.{Runtime, ZIO, ZIOAppDefault, ZLayer}
 import zio.metrics.connectors.datadog.DatadogConfig
+import zio.durationInt
+
 
 import java.time.Duration
 
@@ -70,11 +72,13 @@ object main extends ZIOAppDefault {
       DeclaredMetrics.layer,
       ArcaneDimensionsProvider.layer,
 
-    ZLayer.succeed(DatadogConfig.default),
-    ZLayer.succeed(MetricsConfig(Duration.ofMillis(1000))),
-    datadog.datadogLayer,
-    StatsdUdsClient.layer,
-    ZLayer.succeed(statsd.StatsdUdsConfig(sys.env.getOrElse("SOCKET_PATH", "/tmp/datadog/datadog.2.socket"))),
+    // DataDog sutff
+    ZLayer.succeed(MetricsConfig(100.millis)),
+    ZLayer.succeed(statsd.DatagramSocketConfig("/tmp/datadog/datadog.2.socket")),
+    ZLayer.succeed(datadog.DatadogPublisherConfig()),
+    statsd.statsdUDS,
+    datadog.live,
+//    ZLayer.succeed(statsd.StatsdUdsConfig(sys.env.getOrElse("SOCKET_PATH", "/tmp/datadog/datadog.2.socket"))),
   )
 
   @main
