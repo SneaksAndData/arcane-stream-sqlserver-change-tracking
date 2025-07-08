@@ -70,7 +70,7 @@ object main extends ZIOAppDefault {
 
     // DataDog sutff
     ZLayer.succeed(MetricsConfig(100.millis)),
-    ZLayer.succeed(statsd.DatagramSocketConfig("/var/run/datadog/dsd.sock")),
+    ZLayer.succeed(statsd.DatagramSocketConfig("/var/run/datadog/dsd.socket")),
     ZLayer.succeed(datadog.DatadogPublisherConfig()),
     statsd.statsdUDS,
     datadog.live,
