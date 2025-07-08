@@ -25,13 +25,14 @@ lazy val plugin = (project in file("."))
     idePackagePrefix := Some("com.sneaksanddata.arcane.sql_server_change_tracking"),
     libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "0.9.5-19-g2587797",
     libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.65.Final",
-    libraryDependencies += "com.github.jnr" % "jnr-unixsocket" % "0.38.23",
 
     // Test dependencies
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
     libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.16" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.16" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.19" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.19" % Test,
+
+    Test / parallelExecution := false,
 
     assembly / mainClass := Some("com.sneaksanddata.arcane.sql_server_change_tracking.main"),
 

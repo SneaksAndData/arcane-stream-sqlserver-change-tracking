@@ -34,7 +34,7 @@ To do that, we can use the jstack command available in the debug image.
 If Arcane is running in a container with PID 1, we can use the following command to collect a thread dump:
 
 ```
-/usr/lib/jvm/temurin21_jdk_arm64/bin/jstack 1 > thread_dump.txt
+/usr/lib/jvm/temurin21_jdk_{arm64, amd64}/bin/jstack 1 > thread_dump.txt
 ```
 
 When collected, thread dump can be moved to the local machine using the `kubectl cp` command.
@@ -48,7 +48,7 @@ If the stream runner is using too much memory, we can collect a heap dump to see
 As in the example above, we use the jmap command available in the debug image and collect a heap dump for the PID 1:
 
 ```
-/usr/lib/jvm/temurin21_jdk_arm64/bin/jmap -dump:format=b,file=heap.hprof 1
+/usr/lib/jvm/temurin21_jdk_{arm64, amd64}/bin/jmap -dump:format=b,file=heap.hprof 1
 ```
 
 > [!WARNING]  

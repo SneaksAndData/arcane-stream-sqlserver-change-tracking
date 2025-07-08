@@ -47,11 +47,6 @@ spec:
   # a larger value.
   lookBackInterval: 3600
 
-  # The maximum number of rows in a file when writing to the staging table.
-  # The files are written in the staging table in parallel, so decreasing the number of rows
-  # will increase the number of files in the staging table.
-  maxRowsPerFile: 1000
-
   # The settings of the source table
   sourceSettings:
     
@@ -67,6 +62,30 @@ spec:
     
     # The source table name
     table: table
+
+    # Optional configuration of the source buffering.
+    # Sets the buffering strategy for the source.
+    # Which allows the source to run independently of  the sink in parallel.
+    # If not set, buffering is disabled
+    buffering:
+      
+      # The buffering strategy
+      # Can be `unbounded` or `buffering`
+      strategy:
+        # - unbounded: The source will run independently of the sink and will not wait for the sink to
+        #              process the data. In this case the source will buffer it's output to the unbounded buffer.
+        #              This strategy can significantly increase both the memory usage by the pod and the throughput
+        #              of the stream, which can be desirable for backfill jobs.
+        #              This is the default strategy for backfill jobs.
+        # - bounded:   The source will run independently of the sink and will not wait for the sink to
+        #              process the data. In this case the source will buffer it's output to the bounded buffer.
+        #              If the buffer is full, the source will wait for the sink to process the data before
+        #              continuing. If this strategy is used the maxBufferSize must be set.
+        strategy: bounded
+        
+        # The maximum size of the buffer in rows for the buffering strategy
+        maxBufferSize: 1000
+
 
   # The staging data settings
   stagingDataSettings:
@@ -95,6 +114,11 @@ spec:
     # running in the backfill mode. In the backfill mode the staging table is kept to speed up the backfill process.
     # When stream starts, it will look for the staging tables with the prefix and drop them.
     tableNamePrefix: staging_a503
+
+    # The maximum number of rows in a file when writing to the staging table.
+    # The files are written in the staging table in parallel, so decreasing the number of rows
+    # will increase the number of files in the staging table.
+    maxRowsPerFile: 1000
     
   # The target data settings
   sinkSettings:
@@ -113,28 +137,6 @@ spec:
       
       # All files with a size below the threshold will be merged into one file.
       fileSizeThreshold: 512MB
-
-      # Optional configuration of the source buffering.
-      # Sets the buffering strategy for the source.
-      # Which allows the source to run independently of  the sink in parallel.
-      buffering:
-        
-        # The buffering strategy
-        # Can be `unbounded` or `buffering`
-        strategy:
-          # - unbounded: The source will run independently of the sink and will not wait for the sink to
-          #              process the data. In this case the source will buffer it's output to the unbounded buffer.
-          #              This strategy can significantly increase both the memory usage by the pod and the throughput
-          #              of the stream, which can be desirable for backfill jobs.
-          #              This is the default strategy for backfill jobs.
-          # - bounded:   The source will run independently of the sink and will not wait for the sink to
-          #              process the data. In this case the source will buffer it's output to the bounded buffer.
-          #              If the buffer is full, the source will wait for the sink to process the data before
-          #              continuing. If this strategy is used the maxBufferSize must be set.
-          strategy: bounded
-          
-          # The maximum size of the buffer in rows for the buffering strategy
-          maxBufferSize: 1000
      
     # Orphan files expiration task settings. Arcane can execute the Trino remove_orphan_files command during
     # the streaming process. Deleting orphan files from time to time is recommended to keep size of a table’s data 
