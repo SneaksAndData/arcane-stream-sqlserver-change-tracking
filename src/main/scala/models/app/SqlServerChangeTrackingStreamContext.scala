@@ -2,26 +2,7 @@ package com.sneaksanddata.arcane.sql_server_change_tracking
 package models.app
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.models.settings.{
-  BackfillBehavior,
-  BackfillSettings,
-  BufferingStrategy,
-  FieldSelectionRule,
-  FieldSelectionRuleSettings,
-  GroupingSettings,
-  IcebergCatalogSettings,
-  JdbcMergeServiceClientSettings,
-  OptimizeSettings,
-  OrphanFilesExpirationSettings,
-  SnapshotExpirationSettings,
-  SourceBufferingSettings,
-  StagingDataSettings,
-  TableFormat,
-  TableMaintenanceSettings,
-  TablePropertiesSettings,
-  TargetTableSettings,
-  VersionedDataGraphBuilderSettings
-}
+import com.sneaksanddata.arcane.framework.models.settings.{BackfillBehavior, BackfillSettings, BufferingStrategy, FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, IcebergCatalogSettings, JdbcMergeServiceClientSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, SourceBufferingSettings, StagingDataSettings, TableFormat, TableMaintenanceSettings, TablePropertiesSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.iceberg.IcebergCatalogCredential
 import com.sneaksanddata.arcane.framework.services.iceberg.base.S3CatalogFileIO
 import com.sneaksanddata.arcane.framework.services.mssql.ConnectionOptions

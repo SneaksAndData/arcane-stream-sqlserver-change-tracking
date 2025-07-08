@@ -6,42 +6,20 @@ import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
-import com.sneaksanddata.arcane.framework.services.app.{
-  GenericStreamRunnerService,
-  PosixStreamLifetimeService,
-  StreamRunnerServiceImpl
-}
+import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, PosixStreamLifetimeService, StreamRunnerServiceImpl}
 import com.sneaksanddata.arcane.framework.services.caching.schema_cache.MutableSchemaCache
 import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
 import com.sneaksanddata.arcane.framework.services.hooks.manager.EmptyHookManager
 import com.sneaksanddata.arcane.framework.services.iceberg.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
-import com.sneaksanddata.arcane.framework.services.mssql.{
-  ConnectionOptions,
-  MsSqlBackfillOverwriteBatchFactory,
-  MsSqlConnection,
-  MsSqlDataProvider,
-  MsSqlHookManager,
-  MsSqlStreamingDataProvider
-}
-import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
-  GenericBackfillStreamingMergeDataProvider,
-  GenericBackfillStreamingOverwriteDataProvider
-}
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{
-  GenericGraphBuilderFactory,
-  GenericStreamingGraphBuilder
-}
+import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
+import com.sneaksanddata.arcane.framework.services.mssql.{ConnectionOptions, MsSqlBackfillOverwriteBatchFactory, MsSqlConnection, MsSqlDataProvider, MsSqlHookManager, MsSqlStreamingDataProvider}
+import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{GenericBackfillStreamingMergeDataProvider, GenericBackfillStreamingOverwriteDataProvider}
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{GenericGraphBuilderFactory, GenericStreamingGraphBuilder}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericGroupingTransformer
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor
-}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
-  FieldFilteringTransformer,
-  StagingProcessor
-}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import org.slf4j.MDC
 import zio.Console.printLine
 import zio.logging.LogFormat
@@ -50,7 +28,6 @@ import zio.metrics.connectors.{MetricsConfig, datadog, statsd}
 import zio.{Runtime, ZIO, ZIOAppDefault, ZLayer}
 import zio.metrics.connectors.datadog.DatadogConfig
 import zio.durationInt
-
 
 import java.time.Duration
 
@@ -88,16 +65,15 @@ object main extends ZIOAppDefault {
     GenericStreamingGraphBuilder.backfillSubStreamLayer,
     MsSqlBackfillOverwriteBatchFactory.layer,
     ColumnSummaryFieldsFilteringService.layer,
-      DeclaredMetrics.layer,
-      ArcaneDimensionsProvider.layer,
+    DeclaredMetrics.layer,
+    ArcaneDimensionsProvider.layer,
 
     // DataDog sutff
     ZLayer.succeed(MetricsConfig(100.millis)),
-    ZLayer.succeed(statsd.DatagramSocketConfig("/tmp/datadog/datadog.2.socket")),
+    ZLayer.succeed(statsd.DatagramSocketConfig("/var/run/datadog/dsd.sock")),
     ZLayer.succeed(datadog.DatadogPublisherConfig()),
     statsd.statsdUDS,
     datadog.live,
-//    ZLayer.succeed(statsd.StatsdUdsConfig(sys.env.getOrElse("SOCKET_PATH", "/tmp/datadog/datadog.2.socket"))),
   )
 
   @main
