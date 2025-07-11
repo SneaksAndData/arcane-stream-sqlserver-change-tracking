@@ -2,16 +2,17 @@ package com.sneaksanddata.arcane.sql_server_change_tracking
 package models.app
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.models.settings.{BackfillBehavior, BackfillSettings, BufferingStrategy, FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, IcebergCatalogSettings, JdbcMergeServiceClientSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, SourceBufferingSettings, StagingDataSettings, TableFormat, TableMaintenanceSettings, TablePropertiesSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
+import com.sneaksanddata.arcane.framework.models.settings.*
 import com.sneaksanddata.arcane.framework.services.iceberg.IcebergCatalogCredential
 import com.sneaksanddata.arcane.framework.services.iceberg.base.S3CatalogFileIO
 import com.sneaksanddata.arcane.framework.services.mssql.ConnectionOptions
 import zio.ZLayer
+import zio.metrics.connectors.MetricsConfig
+import zio.metrics.connectors.datadog.DatadogPublisherConfig
+import zio.metrics.connectors.statsd.DatagramSocketConfig
 
-import java.time.format.DateTimeFormatter
-import java.time.{Duration, OffsetDateTime, ZoneOffset}
+import java.time.{Duration, OffsetDateTime}
 import java.util.UUID
-import scala.util.Try
 
 given Conversion[TablePropertiesSettingsSpec, TablePropertiesSettings] with
   def apply(x: TablePropertiesSettingsSpec): TablePropertiesSettings = new TablePropertiesSettings:
@@ -131,6 +132,12 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
     */
   val isUnifiedSchema: Boolean = true
 
+  val datadogSocketPath: String =
+    sys.env.getOrElse("ARCANE_FRAMEWORK__DATADOG_SOCKET_PATH", "/var/run/datadog-agent/datadog.sock")
+  val metricsPublisherInterval: Duration = Duration.ofSeconds(
+    sys.env.getOrElse("ARCANE_FRAMEWORK__METRICS_PUBLISHER_INTERVAL_MILLIS", "10").toInt
+  )
+
 given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
   def apply(context: SqlServerChangeTrackingStreamContext): ConnectionOptions =
     ConnectionOptions(
@@ -140,10 +147,19 @@ given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
       Some(context.spec.sourceSettings.fetchSize)
     )
 
+given Conversion[SqlServerChangeTrackingStreamContext, DatagramSocketConfig] with
+  def apply(context: SqlServerChangeTrackingStreamContext): DatagramSocketConfig =
+    DatagramSocketConfig(context.datadogSocketPath)
+
+given Conversion[SqlServerChangeTrackingStreamContext, MetricsConfig] with
+  def apply(context: SqlServerChangeTrackingStreamContext): MetricsConfig =
+    MetricsConfig(context.metricsPublisherInterval)
+
 object SqlServerChangeTrackingStreamContext:
   type Environment = StreamContext & ConnectionOptions & GroupingSettings & IcebergCatalogSettings &
     JdbcMergeServiceClientSettings & VersionedDataGraphBuilderSettings & TargetTableSettings & StagingDataSettings &
-    TablePropertiesSettings & BackfillSettings & FieldSelectionRuleSettings & SourceBufferingSettings
+    TablePropertiesSettings & BackfillSettings & FieldSelectionRuleSettings & SourceBufferingSettings &
+    DatagramSocketConfig & DatadogPublisherConfig & MetricsConfig
 
   /** The ZLayer that creates the VersionedDataGraphBuilder.
     */
@@ -155,4 +171,8 @@ object SqlServerChangeTrackingStreamContext:
   private def combineSettingsLayer(spec: StreamSpec): ZLayer[Any, Throwable, Environment] =
     val context = SqlServerChangeTrackingStreamContext(spec)
 
-    ZLayer.succeed(context) ++ ZLayer.succeed[ConnectionOptions](context)
+    ZLayer.succeed(context)
+      ++ ZLayer.succeed[ConnectionOptions](context)
+      ++ ZLayer.succeed[DatagramSocketConfig](context)
+      ++ ZLayer.succeed[MetricsConfig](context)
+      ++ ZLayer.succeed(DatadogPublisherConfig())
