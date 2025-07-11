@@ -1,7 +1,11 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package tests.integration
 
-import models.app.{SqlServerChangeTrackingStreamContext, StreamSpec, given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions}
+import models.app.{
+  SqlServerChangeTrackingStreamContext,
+  StreamSpec,
+  given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions
+}
 import tests.common.{Common, TimeLimitLifetimeService}
 
 import com.sneaksanddata.arcane.framework.services.mssql.ConnectionOptions

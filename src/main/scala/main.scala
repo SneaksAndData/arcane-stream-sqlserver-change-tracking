@@ -75,7 +75,7 @@ object main extends ZIOAppDefault {
     ArcaneDimensionsProvider.layer,
     DataDog.UdsPublisher.layer
   )
-  
+
   @main
   def run: ZIO[Any, Throwable, Unit] =
     val app = streamRunner
