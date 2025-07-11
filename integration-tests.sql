@@ -1,8 +1,8 @@
 IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'IntegrationTests')
-BEGIN
+    BEGIN
         CREATE DATABASE IntegrationTests;
         ALTER DATABASE IntegrationTests set CHANGE_TRACKING = ON (CHANGE_RETENTION = 2 DAYS, AUTO_CLEANUP = ON);
-END;
+    END;
 GO
 
 use IntegrationTests;
@@ -22,8 +22,8 @@ GO
 
 DECLARE @i int = 0
 WHILE @i < 300
-BEGIN
+    BEGIN
         SET @i = @i + 1
         INSERT INTO IntegrationTests.dbo.TestTable (Id, Name) VALUES (@i, 'Name' + CAST(@i as nvarchar(50)))
-END
+    END
 GO
