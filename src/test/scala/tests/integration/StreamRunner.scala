@@ -9,18 +9,14 @@ import models.app.{
 import tests.common.{Common, TimeLimitLifetimeService}
 
 import com.sneaksanddata.arcane.framework.services.mssql.*
-import tests.integration.Fixtures.withFreshTables
-
-import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
-import org.scalatest.Checkpoints.Checkpoint
-import org.scalatest.flatspec.AsyncFlatSpec
-import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.should
+import zio.metrics.connectors.MetricsConfig
+import zio.metrics.connectors.datadog.DatadogPublisherConfig
+import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
-import zio.{Runtime, Scope, Unsafe, ZIO, ZLayer}
+import zio.{Scope, Unsafe, ZIO, ZLayer}
 
-import java.sql.ResultSet
 import java.time.Duration
 import scala.language.postfixOps
 
@@ -92,9 +88,17 @@ object StreamRunner extends ZIOSpecDefault:
 
   private val streamingStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](streamingStreamContext)
     ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
+    ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
+    ++ ZLayer.succeed(DatagramSocketConfig("/var/run/datadog/dsd.socket"))
+    ++ ZLayer.succeed(MetricsConfig(Duration.ofMillis(100)))
+    ++ ZLayer.succeed(DatadogPublisherConfig())
 
   private val backfillStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](backfillStreamContext)
     ++ ZLayer.succeed[ConnectionOptions](backfillStreamContext)
+    ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
+    ++ ZLayer.succeed(DatagramSocketConfig("/var/run/datadog/dsd.socket"))
+    ++ ZLayer.succeed(MetricsConfig(Duration.ofMillis(100)))
+    ++ ZLayer.succeed(DatadogPublisherConfig())
 
   private val streamingData = List.range(1, 3).map(i => (i, s"Test$i"))
   private val backfillData  = List.range(4, 7).map(i => (i, s"Test$i"))
