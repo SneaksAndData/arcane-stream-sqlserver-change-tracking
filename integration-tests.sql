@@ -27,3 +27,4 @@ WHILE @i < 300
         INSERT INTO IntegrationTests.dbo.TestTable (Id, Name) VALUES (@i, 'Name' + CAST(@i as nvarchar(50)))
     END
 GO
+
