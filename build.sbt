@@ -7,8 +7,6 @@ ThisBuild / scalaVersion := "3.6.1"
 ThisBuild / organization := "com.sneaksanddata"
 
 resolvers += "Arcane framework repo" at "https://maven.pkg.github.com/SneaksAndData/arcane-framework-scala"
-resolvers += "Sonatype Central" at "https://central.sonatype.com/repository/maven-snapshots/"
-
 
 credentials += Credentials(
     "GitHub Package Registry",

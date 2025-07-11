@@ -133,9 +133,9 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
   val isUnifiedSchema: Boolean = true
 
   val datadogSocketPath: String =
-    sys.env.getOrElse("ARCANE_FRAMEWORK__DATADOG_SOCKET_PATH", "/var/run/datadog-agent/datadog.sock")
-  val metricsPublisherInterval: Duration = Duration.ofSeconds(
-    sys.env.getOrElse("ARCANE_FRAMEWORK__METRICS_PUBLISHER_INTERVAL_MILLIS", "10").toInt
+    sys.env.getOrElse("ARCANE_FRAMEWORK__DATADOG_SOCKET_PATH", "/var/run/datadog/dsd.socket")
+  val metricsPublisherInterval: Duration = Duration.ofMillis(
+    sys.env.getOrElse("ARCANE_FRAMEWORK__METRICS_PUBLISHER_INTERVAL_MILLIS", "100").toInt
   )
 
 given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
