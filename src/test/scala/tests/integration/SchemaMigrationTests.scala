@@ -9,6 +9,9 @@ import models.app.{
 import tests.common.{Common, TimeLimitLifetimeService}
 
 import com.sneaksanddata.arcane.framework.services.mssql.ConnectionOptions
+import zio.metrics.connectors.MetricsConfig
+import zio.metrics.connectors.datadog.DatadogPublisherConfig
+import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Scope, ZIO, ZLayer}
@@ -82,6 +85,9 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
   private val streamingStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](streamingStreamContext)
     ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
+    ++ ZLayer.succeed(DatagramSocketConfig("/var/run/datadog/dsd.socket"))
+    ++ ZLayer.succeed(MetricsConfig(Duration.ofMillis(100)))
+    ++ ZLayer.succeed(DatadogPublisherConfig())
 
   private def before = TestAspect.before(Fixtures.withFreshTablesZIO(sourceTableName, targetTableName))
 
