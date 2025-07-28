@@ -10,6 +10,7 @@ import com.sneaksanddata.arcane.framework.services.caching.schema_cache.MutableS
 import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
 import com.sneaksanddata.arcane.framework.services.iceberg.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
+import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import com.sneaksanddata.arcane.framework.services.mssql.*
 import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
   GenericBackfillStreamingMergeDataProvider,
@@ -76,7 +77,9 @@ object Common:
       GenericBackfillStreamingMergeDataProvider.layer,
       GenericStreamingGraphBuilder.backfillSubStreamLayer,
       MsSqlBackfillOverwriteBatchFactory.layer,
-      ColumnSummaryFieldsFilteringService.layer
+      ColumnSummaryFieldsFilteringService.layer,
+      DeclaredMetrics.layer,
+      ArcaneDimensionsProvider.layer
     )
 
   /** Inserts data into the test table.

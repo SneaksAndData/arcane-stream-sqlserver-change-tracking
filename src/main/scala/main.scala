@@ -6,24 +6,13 @@ import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
-import com.sneaksanddata.arcane.framework.services.app.{
-  GenericStreamRunnerService,
-  PosixStreamLifetimeService,
-  StreamRunnerServiceImpl
-}
+import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, PosixStreamLifetimeService}
 import com.sneaksanddata.arcane.framework.services.caching.schema_cache.MutableSchemaCache
 import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
-import com.sneaksanddata.arcane.framework.services.hooks.manager.EmptyHookManager
 import com.sneaksanddata.arcane.framework.services.iceberg.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
-import com.sneaksanddata.arcane.framework.services.mssql.{
-  ConnectionOptions,
-  MsSqlBackfillOverwriteBatchFactory,
-  MsSqlConnection,
-  MsSqlDataProvider,
-  MsSqlHookManager,
-  MsSqlStreamingDataProvider
-}
+import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DataDog, DeclaredMetrics}
+import com.sneaksanddata.arcane.framework.services.mssql.*
 import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
   GenericBackfillStreamingMergeDataProvider,
   GenericBackfillStreamingOverwriteDataProvider
@@ -42,13 +31,11 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.transfor
   FieldFilteringTransformer,
   StagingProcessor
 }
-import org.slf4j.MDC
-import zio.Console.printLine
-import zio.logging.LogFormat
 import zio.logging.backend.SLF4J
+import zio.metrics.connectors.MetricsConfig
+import zio.metrics.connectors.datadog.DatadogPublisherConfig
+import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.{Runtime, ZIO, ZIOAppDefault, ZLayer}
-
-import java.time.Duration
 
 object main extends ZIOAppDefault {
 
@@ -83,7 +70,10 @@ object main extends ZIOAppDefault {
     GenericBackfillStreamingMergeDataProvider.layer,
     GenericStreamingGraphBuilder.backfillSubStreamLayer,
     MsSqlBackfillOverwriteBatchFactory.layer,
-    ColumnSummaryFieldsFilteringService.layer
+    ColumnSummaryFieldsFilteringService.layer,
+    DeclaredMetrics.layer,
+    ArcaneDimensionsProvider.layer,
+    DataDog.UdsPublisher.layer
   )
 
   @main
