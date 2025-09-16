@@ -70,7 +70,7 @@ spec:
     buffering:
       
       # The buffering strategy
-      # Can be `unbounded` or `unbounded`
+      # Can be `unbounded` or `bounded`
       strategy:
         # - unbounded: The source will run independently of the sink and will not wait for the sink to
         #              process the data. In this case the source will buffer it's output to the unbounded buffer.
@@ -83,7 +83,7 @@ spec:
         #              continuing. If this strategy is used the maxBufferSize must be set.
         strategy: bounded
         
-        # The maximum size of the buffer in rows for the unbounded strategy
+        # The maximum size of the buffer in rows for the bounded strategy
         maxBufferSize: 1000
 
 
