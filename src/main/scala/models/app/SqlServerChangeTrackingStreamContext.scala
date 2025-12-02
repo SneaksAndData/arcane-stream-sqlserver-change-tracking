@@ -86,6 +86,13 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
       }
     )
 
+    override val targetAnalyzeSettings: Option[AnalyzeSettings] = Some(
+      new AnalyzeSettings {
+        override val batchThreshold: Int          = spec.sinkSettings.analyzeSettings.batchThreshold
+        override val includedColumns: Seq[String] = spec.sinkSettings.analyzeSettings.includedColumns
+      }
+    )
+
   override val stagingTablePrefix: String = spec.stagingDataSettings.tableNamePrefix
 
   val partitionExpressions: Array[String]      = spec.tableProperties.partitionExpressions
