@@ -9,6 +9,7 @@ import models.app.{
 import tests.common.{Common, TimeLimitLifetimeService}
 
 import com.sneaksanddata.arcane.framework.services.mssql.*
+import com.sneaksanddata.arcane.framework.services.mssql.base.ConnectionOptions
 import org.scalatest.matchers.should.Matchers.should
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
@@ -91,7 +92,6 @@ object StreamRunner extends ZIOSpecDefault:
     override val IsBackfilling: Boolean = true
 
   private val streamingStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](streamingStreamContext)
-    ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
     ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
     ++ ZLayer.succeed(DatagramSocketConfig("/var/run/datadog/dsd.socket"))
     ++ ZLayer.succeed(MetricsConfig(Duration.ofMillis(100)))

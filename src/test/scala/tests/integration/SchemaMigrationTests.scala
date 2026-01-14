@@ -8,7 +8,7 @@ import models.app.{
 }
 import tests.common.{Common, TimeLimitLifetimeService}
 
-import com.sneaksanddata.arcane.framework.services.mssql.ConnectionOptions
+import com.sneaksanddata.arcane.framework.services.mssql.base.ConnectionOptions
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
 import zio.metrics.connectors.statsd.DatagramSocketConfig
@@ -131,15 +131,15 @@ object SchemaMigrationTests extends ZIOSpecDefault:
           streamingData.length + afterEvolution.length
         )
 
+        // overall test timeout
+        _ <- streamRunner.join.timeout(Duration.ofSeconds(10))
+
         // read target table after schema migration
         afterStream <- Common.getData(
           streamingStreamContext.targetTableFullName,
           "Id, Name, NewName",
           (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
         )
-
-        // overall test timeout
-        _ <- streamRunner.await.timeout(Duration.ofSeconds(5))
       } yield assertTrue(
         afterStream.sorted == afterEvolutionExpected
       )
@@ -175,13 +175,13 @@ object SchemaMigrationTests extends ZIOSpecDefault:
           streamingData.length + afterEvolution.length
         )
 
+        _ <- streamRunner.join.timeout(Duration.ofSeconds(10))
+
         afterEvolution <- Common.getData(
           streamingStreamContext.targetTableFullName,
           "Id, Name, NewName",
           Common.IntStrStrDecoder
         )
-
-        _ <- streamRunner.await.timeout(Duration.ofSeconds(5))
 
       } yield assertTrue(
         afterEvolution.sorted == afterEvolutionExpected

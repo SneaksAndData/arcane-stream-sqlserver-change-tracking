@@ -12,6 +12,7 @@ import com.sneaksanddata.arcane.framework.services.iceberg.IcebergS3CatalogWrite
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import com.sneaksanddata.arcane.framework.services.mssql.*
+import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlReader
 import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
   GenericBackfillStreamingMergeDataProvider,
   GenericBackfillStreamingOverwriteDataProvider
@@ -65,7 +66,7 @@ object Common:
       MergeBatchProcessor.layer,
       StagingProcessor.layer,
       FieldsFilteringService.layer,
-      MsSqlConnection.layer,
+      MsSqlReader.layer,
       MsSqlDataProvider.layer,
       IcebergS3CatalogWriter.layer,
       JdbcMergeServiceClient.layer,
@@ -193,7 +194,7 @@ object Common:
       connection <- ZIO.attempt(DriverManager.getConnection(sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")))
       statement  <- ZIO.attempt(connection.createStatement())
       resultSet <- ZIO.fromAutoCloseable(
-        ZIO.attempt(statement.executeQuery(s"SELECT $columnList from $targetTableName"))
+        ZIO.attemptBlocking(statement.executeQuery(s"SELECT $columnList from $targetTableName"))
       )
       data <- ZIO.attempt {
         Iterator
@@ -283,11 +284,12 @@ object Common:
     .sleep(Duration.ofSeconds(1))
     .repeatUntilZIO(_ =>
       (for {
-        _ <- ZIO.log("Waiting for data to be loaded")
+        _ <- ZIO.log(s"Waiting for data to be loaded for $tableName, schema: $columnList")
         inserted <- Common.getData(
           tableName,
           columnList,
           decoder
         )
+        _ <- ZIO.log(s"Loaded so far: ${inserted.size}, expecting: $expectedSize")
       } yield inserted.length == expectedSize).orElseSucceed(false)
     )

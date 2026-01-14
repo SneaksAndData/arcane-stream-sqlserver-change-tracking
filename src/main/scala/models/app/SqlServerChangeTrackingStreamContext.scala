@@ -5,7 +5,7 @@ import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.*
 import com.sneaksanddata.arcane.framework.services.iceberg.IcebergCatalogCredential
 import com.sneaksanddata.arcane.framework.services.iceberg.base.S3CatalogFileIO
-import com.sneaksanddata.arcane.framework.services.mssql.ConnectionOptions
+import com.sneaksanddata.arcane.framework.services.mssql.base.ConnectionOptions
 import zio.ZLayer
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig

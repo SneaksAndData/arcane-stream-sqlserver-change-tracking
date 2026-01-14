@@ -11,8 +11,10 @@ import com.sneaksanddata.arcane.framework.services.caching.schema_cache.MutableS
 import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
 import com.sneaksanddata.arcane.framework.services.iceberg.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
+import com.sneaksanddata.arcane.framework.services.metrics.DataDog.Environment
 import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DataDog, DeclaredMetrics}
 import com.sneaksanddata.arcane.framework.services.mssql.*
+import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlReader
 import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
   GenericBackfillStreamingMergeDataProvider,
   GenericBackfillStreamingOverwriteDataProvider
@@ -32,10 +34,10 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.transfor
   StagingProcessor
 }
 import zio.logging.backend.SLF4J
-import zio.metrics.connectors.MetricsConfig
+import zio.metrics.connectors.{MetricsConfig, datadog}
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
-import zio.metrics.connectors.statsd.DatagramSocketConfig
-import zio.{Runtime, ZIO, ZIOAppDefault, ZLayer}
+import zio.metrics.connectors.statsd.{DatagramSocketConfig, StatsdClient, statsdUDS}
+import zio.{Runtime, URLayer, ZIO, ZIOAppDefault, ZLayer}
 
 object main extends ZIOAppDefault {
 
@@ -58,7 +60,7 @@ object main extends ZIOAppDefault {
     FieldsFilteringService.layer,
     SqlServerChangeTrackingStreamContext.layer,
     PosixStreamLifetimeService.layer,
-    MsSqlConnection.layer,
+    MsSqlReader.layer,
     MsSqlDataProvider.layer,
     IcebergS3CatalogWriter.layer,
     JdbcMergeServiceClient.layer,
