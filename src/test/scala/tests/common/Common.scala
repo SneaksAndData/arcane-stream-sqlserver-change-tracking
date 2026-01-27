@@ -90,10 +90,12 @@ object Common:
       BackfillOverwriteWatermarkProcessor.layer
     )
 
-  def getChangeTrackingVersion(connection: Connection): ZIO[Any, Throwable, Long] =
+  def getChangeTrackingVersion(dbName: String, connection: Connection): ZIO[Any, Throwable, Long] =
     ZIO.scoped {
       for
-        statement <- ZIO.attempt(connection.prepareStatement(s"SELECT CHANGE_TRACKING_CURRENT_VERSION() AS VALUE"))
+        statement <- ZIO.attempt(
+          connection.prepareStatement(s"USE $dbName; SELECT CHANGE_TRACKING_CURRENT_VERSION() AS VALUE")
+        )
         resultSet <- ZIO.attemptBlocking(statement.executeQuery())
         _         <- ZIO.attempt(resultSet.next())
       yield resultSet.getLong("VALUE")
@@ -107,10 +109,17 @@ object Common:
     * @return
     *   A ZIO effect that inserts the data.
     */
-  def insertData(connection: Connection, tableName: String, data: Seq[(Int, String)]): ZIO[Any, Throwable, Unit] =
+  def insertData(
+      dbName: String,
+      connection: Connection,
+      tableName: String,
+      data: Seq[(Int, String)]
+  ): ZIO[Any, Throwable, Unit] =
     ZIO.scoped {
       for
-        statement <- ZIO.attempt(connection.prepareStatement(s"INSERT INTO $tableName (Id, Name) VALUES (?, ?)"))
+        statement <- ZIO.attempt(
+          connection.prepareStatement(s"USE $dbName; INSERT INTO $tableName (Id, Name) VALUES (?, ?)")
+        )
         _ <- ZIO.foreachDiscard(data) { case (number, string) =>
           ZIO.attempt {
             statement.setInt(1, number)
@@ -130,13 +139,14 @@ object Common:
     *   A ZIO effect that inserts the data.
     */
   def insertUpdatedData(
+      dbName: String,
       connection: Connection,
       tableName: String,
       data: Seq[(Int, String, String)]
   ): ZIO[Any, Throwable, Unit] = ZIO.scoped {
     for
       statement <- ZIO.attempt(
-        connection.prepareStatement(s"INSERT INTO $tableName (Id, Name, NewName) VALUES (?, ?, ?)")
+        connection.prepareStatement(s"USE $dbName; INSERT INTO $tableName (Id, Name, NewName) VALUES (?, ?, ?)")
       )
       _ <- ZIO.foreachDiscard(data) { case (number, string, second_string) =>
         ZIO.attempt {
@@ -156,10 +166,17 @@ object Common:
     *   The data to update.
     * @return
     */
-  def updateData(connection: Connection, tableName: String, data: Seq[(Int, String)]): ZIO[Any, Throwable, Unit] =
+  def updateData(
+      dbName: String,
+      connection: Connection,
+      tableName: String,
+      data: Seq[(Int, String)]
+  ): ZIO[Any, Throwable, Unit] =
     ZIO.scoped {
       for
-        statement <- ZIO.attempt(connection.prepareStatement(s"UPDATE $tableName SET Name = ? WHERE Id = ?"))
+        statement <- ZIO.attempt(
+          connection.prepareStatement(s"USE $dbName; UPDATE $tableName SET Name = ? WHERE Id = ?")
+        )
         _ <- ZIO.foreachDiscard(data) { case (number, string) =>
           ZIO.attempt {
             statement.setString(1, string)
@@ -177,10 +194,15 @@ object Common:
     *   The primary keys of the data to delete.
     * @return
     */
-  def deleteData(connection: Connection, tableName: String, primaryKeys: Seq[Int]): ZIO[Any, Throwable, Unit] =
+  def deleteData(
+      dbName: String,
+      connection: Connection,
+      tableName: String,
+      primaryKeys: Seq[Int]
+  ): ZIO[Any, Throwable, Unit] =
     ZIO.scoped {
       for
-        statement <- ZIO.attempt(connection.prepareStatement(s"DELETE FROM $tableName WHERE Id = ?"))
+        statement <- ZIO.attempt(connection.prepareStatement(s"USE $dbName; DELETE FROM $tableName WHERE Id = ?"))
         _ <- ZIO.foreachDiscard(primaryKeys) { number =>
           ZIO.attempt {
             statement.setInt(1, number)
@@ -233,17 +255,27 @@ object Common:
     * @return
     *   A ZIO effect that inserts the data.
     */
-  def addColumns(connection: Connection, tableName: String, migrationExpression: String): ZIO[Any, Throwable, Unit] =
+  def addColumns(
+      dbName: String,
+      connection: Connection,
+      tableName: String,
+      migrationExpression: String
+  ): ZIO[Any, Throwable, Unit] =
     ZIO.scoped {
       for
         statement <- ZIO.fromAutoCloseable(
-          ZIO.attempt(connection.prepareStatement(s"ALTER TABLE $tableName ADD $migrationExpression"))
+          ZIO.attempt(connection.prepareStatement(s"USE $dbName; ALTER TABLE $tableName ADD $migrationExpression"))
         )
         _ <- ZIO.attempt(statement.execute())
       yield ()
     }
 
-  def waitForColumns(connection: Connection, tableName: String, expectedCount: Int): ZIO[Any, Throwable, Unit] =
+  def waitForColumns(
+      dbName: String,
+      connection: Connection,
+      tableName: String,
+      expectedCount: Int
+  ): ZIO[Any, Throwable, Unit] =
     for _ <- ZIO
         .sleep(Duration.ofSeconds(1))
         .repeatUntilZIO(_ =>
@@ -254,7 +286,7 @@ object Common:
                 statement <- ZIO.fromAutoCloseable(
                   ZIO.attempt(
                     connection.prepareStatement(
-                      s"select count(1) from information_schema.columns where table_name = N'$tableName'"
+                      s"USE $dbName; select count(1) from information_schema.columns where table_name = N'$tableName'"
                     )
                   )
                 )
@@ -277,11 +309,18 @@ object Common:
     * @return
     *   A ZIO effect that inserts the data.
     */
-  def removeColumns(connection: Connection, tableName: String, migrationExpression: String): ZIO[Any, Throwable, Unit] =
+  def removeColumns(
+      dbName: String,
+      connection: Connection,
+      tableName: String,
+      migrationExpression: String
+  ): ZIO[Any, Throwable, Unit] =
     ZIO.scoped {
       for
         statement <- ZIO.fromAutoCloseable(
-          ZIO.attempt(connection.prepareStatement(s"ALTER TABLE $tableName DROP COLUMN $migrationExpression"))
+          ZIO.attempt(
+            connection.prepareStatement(s"USE $dbName; ALTER TABLE $tableName DROP COLUMN $migrationExpression")
+          )
         )
         _ <- ZIO.attempt(statement.execute())
       yield ()

@@ -15,17 +15,17 @@ object Fixtures:
   def getConnection: Connection =
     DriverManager.getConnection(connectionString)
 
-  def createFreshSource(tableName: String): Connection =
+  def createFreshSource(dbName: String, tableName: String): Connection =
     val con = getConnection
     val query =
-      s"use IntegrationTests; drop table if exists dbo.$tableName; create table dbo.$tableName (Id int not null, Name nvarchar(10) not null)"
+      s"use $dbName; drop table if exists dbo.$tableName; create table dbo.$tableName (Id int not null, Name nvarchar(10) not null)"
     val statement = con.createStatement()
     statement.executeUpdate(query)
 
-    val createPKCmd = s"use IntegrationTests; alter table dbo.$tableName add constraint pk_$tableName primary key(Id);"
+    val createPKCmd = s"use $dbName; alter table dbo.$tableName add constraint pk_$tableName primary key(Id);"
     statement.executeUpdate(createPKCmd)
 
-    val enableCtCmd = s"use IntegrationTests; alter table dbo.$tableName enable change_tracking;"
+    val enableCtCmd = s"use $dbName; alter table dbo.$tableName enable change_tracking;"
     statement.executeUpdate(enableCtCmd)
 
     con
@@ -36,14 +36,18 @@ object Fixtures:
     val statement       = trinoConnection.createStatement()
     statement.executeUpdate(query)
 
-  def withFreshTables(sourceTableName: String, targetTableName: String)(
+  def withFreshTables(sourceDbName: String, sourceTableName: String, targetTableName: String)(
       test: Connection => Future[Assertion]
   ): Future[Assertion] =
     clearTarget(targetTableName)
-    test(createFreshSource(sourceTableName))
+    test(createFreshSource(sourceDbName, sourceTableName))
 
-  def withFreshTablesZIO(sourceTableName: String, targetTableName: String): ZIO[Any, Nothing, Unit] =
+  def withFreshTablesZIO(
+      sourceDbName: String,
+      sourceTableName: String,
+      targetTableName: String
+  ): ZIO[Any, Nothing, Unit] =
     for
-      _ <- ZIO.succeed(createFreshSource(sourceTableName))
+      _ <- ZIO.succeed(createFreshSource(sourceDbName, sourceTableName))
       _ <- ZIO.succeed(clearTarget(targetTableName))
     yield ()

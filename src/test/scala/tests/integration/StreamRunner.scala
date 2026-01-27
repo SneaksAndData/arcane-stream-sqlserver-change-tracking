@@ -84,12 +84,17 @@ object StreamRunner extends ZIOSpecDefault:
     |""".stripMargin
 
   private val parsedSpec = StreamSpec.fromString(streamContextStr)
+  private val dbName     = "StreamRunnerTests"
 
   private val streamingStreamContext = new SqlServerChangeTrackingStreamContext(parsedSpec):
     override val IsBackfilling: Boolean = false
+    override val sourceConnectionString: String =
+      s"jdbc:sqlserver://localhost:1433;databaseName=$dbName;user=sa;password=tMIxN11yGZgMC;encrypt=false;trustServerCertificate=true"
 
   private val backfillStreamContext = new SqlServerChangeTrackingStreamContext(parsedSpec):
     override val IsBackfilling: Boolean = true
+    override val sourceConnectionString: String =
+      s"jdbc:sqlserver://localhost:1433;databaseName=$dbName;user=sa;password=tMIxN11yGZgMC;encrypt=false;trustServerCertificate=true"
 
   private val streamingStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](streamingStreamContext)
     ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
@@ -112,7 +117,7 @@ object StreamRunner extends ZIOSpecDefault:
 
   private val resultData = streamingData ++ updatedData.filterNot(e => deletedData.contains(e._1))
 
-  private def before = TestAspect.before(Fixtures.withFreshTablesZIO(sourceTableName, targetTableName))
+  private def before = TestAspect.before(Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName))
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
     test("stream, backfill and stream again successfully") {
@@ -120,7 +125,7 @@ object StreamRunner extends ZIOSpecDefault:
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
         // Testing the stream runner in the streaming mode
         insertRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
-        _            <- Common.insertData(sourceConnection, parsedSpec.sourceSettings.table, streamingData)
+        _            <- Common.insertData(dbName, sourceConnection, parsedSpec.sourceSettings.table, streamingData)
 
         _ <- Common.waitForData[(Int, String)](
           streamingStreamContext.targetTableFullName,
@@ -134,7 +139,7 @@ object StreamRunner extends ZIOSpecDefault:
 
         // Testing the stream runner in the backfill mode
         backfillRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, backfillStreamContextLayer).fork
-        _              <- Common.insertData(sourceConnection, parsedSpec.sourceSettings.table, backfillData)
+        _              <- Common.insertData(dbName, sourceConnection, parsedSpec.sourceSettings.table, backfillData)
         _ <- Common.waitForData[(Int, String)](
           streamingStreamContext.targetTableFullName,
           "Id, Name",
@@ -148,9 +153,9 @@ object StreamRunner extends ZIOSpecDefault:
 
         // Testing the update and delete operations
         deleteUpdateRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
-        _                  <- Common.updateData(sourceConnection, parsedSpec.sourceSettings.table, updatedData)
+        _                  <- Common.updateData(dbName, sourceConnection, parsedSpec.sourceSettings.table, updatedData)
         _                  <- ZIO.sleep(Duration.ofSeconds(1))
-        _                  <- Common.deleteData(sourceConnection, parsedSpec.sourceSettings.table, deletedData)
+        _                  <- Common.deleteData(dbName, sourceConnection, parsedSpec.sourceSettings.table, deletedData)
         _ <- Common.waitForData[(Int, String)](
           streamingStreamContext.targetTableFullName,
           "Id, Name",
@@ -167,7 +172,7 @@ object StreamRunner extends ZIOSpecDefault:
         )
 
         watermark     <- Common.getWatermark(streamingStreamContext.targetTableFullName.split('.').last)
-        latestVersion <- Common.getChangeTrackingVersion(sourceConnection).map(_ - 1)
+        latestVersion <- Common.getChangeTrackingVersion(dbName, sourceConnection).map(_ - 1)
       yield assertTrue(afterStream.sorted == streamingData.sorted) implies assertTrue(
         afterBackfill.sorted == (streamingData ++ backfillData).sorted
       ) implies assertTrue(afterUpdateDelete.sorted == resultData.sorted) implies assertTrue(

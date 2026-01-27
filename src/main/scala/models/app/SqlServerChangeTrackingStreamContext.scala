@@ -59,7 +59,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
 
   override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
 
-  val connectionString: String = sys.env("ARCANE__CONNECTIONSTRING")
+  val sourceConnectionString: String = sys.env("ARCANE__CONNECTIONSTRING")
 
   override val connectionUrl: String = sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")
 
@@ -148,7 +148,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
 given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
   def apply(context: SqlServerChangeTrackingStreamContext): ConnectionOptions =
     ConnectionOptions(
-      context.connectionString,
+      context.sourceConnectionString,
       context.spec.sourceSettings.schema,
       context.spec.sourceSettings.table,
       Some(context.spec.sourceSettings.fetchSize)

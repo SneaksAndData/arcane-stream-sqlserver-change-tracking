@@ -83,9 +83,12 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |""".stripMargin
 
   private val parsedSpec = StreamSpec.fromString(streamContextStr)
+  private val dbName     = "SchemaMigrationTests"
 
   private val streamingStreamContext = new SqlServerChangeTrackingStreamContext(parsedSpec):
     override val IsBackfilling: Boolean = false
+    override val sourceConnectionString: String =
+      s"jdbc:sqlserver://localhost:1433;databaseName=$dbName;user=sa;password=tMIxN11yGZgMC;encrypt=false;trustServerCertificate=true"
 
   private val streamingStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](streamingStreamContext)
     ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
@@ -93,7 +96,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
     ++ ZLayer.succeed(MetricsConfig(Duration.ofMillis(100)))
     ++ ZLayer.succeed(DatadogPublisherConfig())
 
-  private def before = TestAspect.before(Fixtures.withFreshTablesZIO(sourceTableName, targetTableName))
+  private def before = TestAspect.before(Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName))
 
   def spec: Spec[TestEnvironment & Scope, Throwable] = suite("SchemaMigrationTests")(
     test("handle the schema migration (column insertions)") {
@@ -109,7 +112,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(15)))
         // launch stream and wait for it to create target with streamingData rows (initial table)
         streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
-        _            <- Common.insertData(sourceConnection, sourceTableName, streamingData)
+        _            <- Common.insertData(dbName, sourceConnection, sourceTableName, streamingData)
         _ <- Common.waitForData[(Int, String)](
           streamingStreamContext.targetTableFullName,
           "Id, Name",
@@ -118,11 +121,11 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         )
 
         // update SOURCE (SQL) schema with a new column
-        _ <- Common.addColumns(sourceConnection, sourceTableName, "NewName VARCHAR(100)")
+        _ <- Common.addColumns(dbName, sourceConnection, sourceTableName, "NewName VARCHAR(100)")
         // let it propagate
-        _ <- Common.waitForColumns(sourceConnection, sourceTableName, 3)
+        _ <- Common.waitForColumns(dbName, sourceConnection, sourceTableName, 3)
         // INSERT data with a new schema
-        _ <- Common.insertUpdatedData(sourceConnection, sourceTableName, afterEvolution)
+        _ <- Common.insertUpdatedData(dbName, sourceConnection, sourceTableName, afterEvolution)
 
         _ <- Common.waitForData[(Int, String, String)](
           streamingStreamContext.targetTableFullName,
@@ -152,11 +155,11 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
       for {
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
-        _                <- Common.addColumns(sourceConnection, sourceTableName, "NewName VARCHAR(100)")
+        _                <- Common.addColumns(dbName, sourceConnection, sourceTableName, "NewName VARCHAR(100)")
 
         lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(180)))
         streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
-        _            <- Common.insertUpdatedData(sourceConnection, sourceTableName, streamingData)
+        _            <- Common.insertUpdatedData(dbName, sourceConnection, sourceTableName, streamingData)
         _ <- Common.waitForData[(Int, String, String)](
           streamingStreamContext.targetTableFullName,
           "Id, Name, NewName",
@@ -164,10 +167,10 @@ object SchemaMigrationTests extends ZIOSpecDefault:
           streamingData.length
         )
 
-        _ <- Common.removeColumns(sourceConnection, sourceTableName, "NewName")
-        _ <- Common.waitForColumns(sourceConnection, sourceTableName, 2)
+        _ <- Common.removeColumns(dbName, sourceConnection, sourceTableName, "NewName")
+        _ <- Common.waitForColumns(dbName, sourceConnection, sourceTableName, 2)
 
-        _ <- Common.insertData(sourceConnection, sourceTableName, afterEvolution)
+        _ <- Common.insertData(dbName, sourceConnection, sourceTableName, afterEvolution)
         _ <- Common.waitForData[(Int, String, String)](
           streamingStreamContext.targetTableFullName,
           "Id, Name, NewName",
