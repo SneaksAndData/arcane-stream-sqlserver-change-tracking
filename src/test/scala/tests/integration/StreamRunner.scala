@@ -165,8 +165,13 @@ object StreamRunner extends ZIOSpecDefault:
           "Id, Name",
           Common.IntStrDecoder
         )
+
+        watermark     <- Common.getWatermark(streamingStreamContext.targetTableFullName.split('.').last)
+        latestVersion <- Common.getChangeTrackingVersion(sourceConnection).map(_ - 1)
       yield assertTrue(afterStream.sorted == streamingData.sorted) implies assertTrue(
         afterBackfill.sorted == (streamingData ++ backfillData).sorted
-      ) implies assertTrue(afterUpdateDelete.sorted == resultData.sorted)
+      ) implies assertTrue(afterUpdateDelete.sorted == resultData.sorted) implies assertTrue(
+        watermark.version.toLong == latestVersion
+      )
     }
   ) @@ before @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock

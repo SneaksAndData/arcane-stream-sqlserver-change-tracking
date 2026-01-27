@@ -13,6 +13,7 @@ import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClien
 import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import com.sneaksanddata.arcane.framework.services.mssql.*
 import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlReader
+import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
   GenericBackfillStreamingMergeDataProvider,
   GenericBackfillStreamingOverwriteDataProvider
@@ -88,6 +89,15 @@ object Common:
       WatermarkProcessor.layer,
       BackfillOverwriteWatermarkProcessor.layer
     )
+
+  def getChangeTrackingVersion(connection: Connection): ZIO[Any, Throwable, Long] =
+    ZIO.scoped {
+      for
+        statement <- ZIO.attempt(connection.prepareStatement(s"SELECT CHANGE_TRACKING_CURRENT_VERSION() AS VALUE"))
+        resultSet <- ZIO.attemptBlocking(statement.executeQuery())
+        _         <- ZIO.attempt(resultSet.next())
+      yield resultSet.getLong("VALUE")
+    }
 
   /** Inserts data into the test table.
     * @param connection
@@ -299,3 +309,19 @@ object Common:
         _ <- ZIO.log(s"Loaded so far: ${inserted.size}, expecting: $expectedSize")
       } yield inserted.length == expectedSize).orElseSucceed(false)
     )
+
+  def getWatermark(targetTableName: String): ZIO[Any, Throwable, MsSqlWatermark] = ZIO.scoped {
+    for
+      connection <- ZIO.attempt(DriverManager.getConnection(sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")))
+      statement  <- ZIO.attempt(connection.createStatement())
+      resultSet <- ZIO.fromAutoCloseable(
+        ZIO.attemptBlocking(
+          statement.executeQuery(
+            s"SELECT value FROM iceberg.test.\"$targetTableName$$properties\" WHERE key = 'comment'"
+          )
+        )
+      )
+      _         <- ZIO.attemptBlocking(resultSet.next())
+      watermark <- ZIO.attempt(MsSqlWatermark.fromJson(resultSet.getString("value")))
+    yield watermark
+  }
