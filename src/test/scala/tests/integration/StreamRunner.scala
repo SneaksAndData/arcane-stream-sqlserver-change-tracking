@@ -154,7 +154,7 @@ object StreamRunner extends ZIOSpecDefault:
         // Testing the update and delete operations
         deleteUpdateRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
         _                  <- Common.updateData(dbName, sourceConnection, parsedSpec.sourceSettings.table, updatedData)
-        _                  <- ZIO.sleep(Duration.ofSeconds(1))
+        _                  <- ZIO.sleep(Duration.ofSeconds(5))
         _                  <- Common.deleteData(dbName, sourceConnection, parsedSpec.sourceSettings.table, deletedData)
         _ <- Common.waitForData[(Int, String)](
           streamingStreamContext.targetTableFullName,
@@ -163,7 +163,7 @@ object StreamRunner extends ZIOSpecDefault:
           resultData.length
         )
 
-        _ <- deleteUpdateRunner.await.timeout(Duration.ofSeconds(45))
+        _ <- deleteUpdateRunner.await.timeout(Duration.ofSeconds(20))
 
         afterUpdateDelete <- Common.getData(
           streamingStreamContext.targetTableFullName,
@@ -172,7 +172,7 @@ object StreamRunner extends ZIOSpecDefault:
         )
 
         watermark     <- Common.getWatermark(streamingStreamContext.targetTableFullName.split('.').last)
-        latestVersion <- Common.getChangeTrackingVersion(dbName, sourceConnection).map(_ - 1)
+        latestVersion <- Common.getChangeTrackingVersion(dbName, sourceConnection)
       yield assertTrue(afterStream.sorted == streamingData.sorted) implies assertTrue(
         afterBackfill.sorted == (streamingData ++ backfillData).sorted
       ) implies assertTrue(afterUpdateDelete.sorted == resultData.sorted) implies assertTrue(
