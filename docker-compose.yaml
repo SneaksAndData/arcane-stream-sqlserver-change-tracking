@@ -141,20 +141,3 @@ services:
           sleep 1
         done
         /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -i /app/integration-tests.sql
-#  insert_changes:
-#    container_name: insert-data
-#    image: mcr.microsoft.com/mssql-tools
-#    networks:
-#      mesh:
-#        ipv4_address: 10.1.0.7
-#    depends_on:
-#      setup_mssql:
-#        condition: service_completed_successfully
-#    entrypoint:
-#      - "bash"
-#      - "-c"
-#      - |
-#        while true; do
-#          /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -Q "INSERT INTO IntegrationTests.dbo.TestTable (Id, Name) VALUES (ABS(CHECKSUM(NewId())) % 14000, 'Name' + CAST(RAND() as nvarchar(50)))";
-#          sleep 5;
-#        done

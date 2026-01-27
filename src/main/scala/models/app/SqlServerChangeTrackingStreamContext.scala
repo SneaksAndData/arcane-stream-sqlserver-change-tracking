@@ -5,7 +5,7 @@ import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.*
 import com.sneaksanddata.arcane.framework.services.iceberg.IcebergCatalogCredential
 import com.sneaksanddata.arcane.framework.services.iceberg.base.S3CatalogFileIO
-import com.sneaksanddata.arcane.framework.services.mssql.ConnectionOptions
+import com.sneaksanddata.arcane.framework.services.mssql.base.ConnectionOptions
 import zio.ZLayer
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
@@ -59,7 +59,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
 
   override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
 
-  val connectionString: String = sys.env("ARCANE__CONNECTIONSTRING")
+  val sourceConnectionString: String = sys.env("ARCANE__CONNECTIONSTRING")
 
   override val connectionUrl: String = sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")
 
@@ -148,7 +148,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
 given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
   def apply(context: SqlServerChangeTrackingStreamContext): ConnectionOptions =
     ConnectionOptions(
-      context.connectionString,
+      context.sourceConnectionString,
       context.spec.sourceSettings.schema,
       context.spec.sourceSettings.table,
       Some(context.spec.sourceSettings.fetchSize)
