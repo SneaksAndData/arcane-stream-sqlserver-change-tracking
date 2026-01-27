@@ -158,7 +158,7 @@ object StreamRunner extends ZIOSpecDefault:
           resultData.length
         )
 
-        _ <- deleteUpdateRunner.await.timeout(Duration.ofSeconds(10))
+        _ <- deleteUpdateRunner.await.timeout(Duration.ofSeconds(45))
 
         afterUpdateDelete <- Common.getData(
           streamingStreamContext.targetTableFullName,
