@@ -1,12 +1,12 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package models.app
 
+import com.sneaksanddata.arcane.framework.models.settings.IcebergSinkSettings
 import upickle.default.*
 
 /** The configuration of Iceberg sink.
   */
 case class CatalogSettings(
-    namespace: String,
     warehouse: String,
     catalogUri: String,
     catalogName: String,
@@ -34,6 +34,12 @@ case class OrphanFilesExpirationSettings(batchThreshold: Int, retentionThreshold
 
 case class AnalyzeSettings(batchThreshold: Int, includedColumns: Seq[String]) derives ReadWriter
 
+case class IcebergSinkSettings(
+    namespace: Option[String] = None,
+    warehouse: Option[String] = None,
+    catalogUri: Option[String] = None
+) derives ReadWriter
+
 /** The configuration of Iceberg sink.
   */
 case class SinkSettings(
@@ -41,7 +47,8 @@ case class SinkSettings(
     optimizeSettings: OptimizeSettingsSpec,
     snapshotExpirationSettings: SnapshotExpirationSettingsSpec,
     orphanFilesExpirationSettings: OrphanFilesExpirationSettings,
-    analyzeSettings: AnalyzeSettings
+    analyzeSettings: AnalyzeSettings,
+    sinkCatalogSettings: IcebergSinkSettings
 ) derives ReadWriter
 
 case class TablePropertiesSettingsSpec(

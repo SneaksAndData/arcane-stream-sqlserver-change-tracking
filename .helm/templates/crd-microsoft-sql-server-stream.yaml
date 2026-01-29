@@ -231,6 +231,15 @@ spec:
                     targetTableName:
                       type: string
                       description: Data location for parquet files.
+                    sinkCatalogSettings:
+                      type: object
+                      properties:
+                        namespace:
+                          type: string
+                        warehouse:
+                          type: string
+                        catalogUri:
+                          type: string            
                 lookBackInterval:
                   type: integer
                   description: |
@@ -256,8 +265,6 @@ spec:
                         catalogName:
                           type: string
                         schemaName:
-                          type: string
-                        namespace:
                           type: string
                         warehouse:
                           type: string

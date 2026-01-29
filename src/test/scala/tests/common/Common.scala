@@ -8,7 +8,7 @@ import com.sneaksanddata.arcane.framework.services.app.GenericStreamRunnerServic
 import com.sneaksanddata.arcane.framework.services.app.base.{InterruptionToken, StreamLifetimeService}
 import com.sneaksanddata.arcane.framework.services.caching.schema_cache.MutableSchemaCache
 import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
-import com.sneaksanddata.arcane.framework.services.iceberg.IcebergS3CatalogWriter
+import com.sneaksanddata.arcane.framework.services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import com.sneaksanddata.arcane.framework.services.mssql.*
@@ -87,7 +87,8 @@ object Common:
       DeclaredMetrics.layer,
       ArcaneDimensionsProvider.layer,
       WatermarkProcessor.layer,
-      BackfillOverwriteWatermarkProcessor.layer
+      BackfillOverwriteWatermarkProcessor.layer,
+      IcebergTablePropertyManager.layer
     )
 
   def getChangeTrackingVersion(dbName: String, connection: Connection): ZIO[Any, Throwable, Long] =

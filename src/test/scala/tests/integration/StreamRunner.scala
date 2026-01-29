@@ -55,7 +55,12 @@ object StreamRunner extends ZIOSpecDefault:
     |      "batchThreshold": 60,
     |      "includedColumns": []
     |    },
-    |    "targetTableName": "$targetTableName"
+    |    "targetTableName": "$targetTableName",
+    |    "sinkCatalogSettings": {
+    |      "namespace": "test",
+    |      "warehouse": "demo",
+    |      "catalogUri": "http://localhost:20001/catalog"
+    |    }
     |  },
     |  "sourceSettings": {
     |    "changeCaptureIntervalSeconds": 1,
@@ -66,11 +71,11 @@ object StreamRunner extends ZIOSpecDefault:
     |   },
     |  "stagingDataSettings": {
     |    "catalog": {
+    |      "warehouse": "demo",
     |      "catalogName": "iceberg",
     |      "catalogUri": "http://localhost:20001/catalog",
     |      "namespace": "test",
-    |      "schemaName": "test",
-    |      "warehouse": "demo"
+    |      "schemaName": "test"
     |    },
     |    "maxRowsPerFile": 1,
     |    "tableNamePrefix": "staging_integration_tests"
