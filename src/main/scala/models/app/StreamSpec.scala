@@ -43,12 +43,12 @@ case class IcebergSinkSettings(
 /** The configuration of Iceberg sink.
   */
 case class SinkSettings(
-                         targetTableName: String,
-                         optimizeSettings: OptimizeSettingsSpec,
-                         snapshotExpirationSettings: SnapshotExpirationSettingsSpec,
-                         orphanFilesExpirationSettings: OrphanFilesExpirationSettings,
-                         analyzeSettings: AnalyzeSettings,
-                         sinkCatalogSettings: IcebergSinkSettings
+    targetTableName: String,
+    optimizeSettings: OptimizeSettingsSpec,
+    snapshotExpirationSettings: SnapshotExpirationSettingsSpec,
+    orphanFilesExpirationSettings: OrphanFilesExpirationSettings,
+    analyzeSettings: AnalyzeSettings,
+    sinkCatalogSettings: IcebergSinkSettings
 ) derives ReadWriter
 
 case class TablePropertiesSettingsSpec(
