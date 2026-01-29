@@ -28,10 +28,10 @@ given Conversion[TablePropertiesSettingsSpec, TablePropertiesSettings] with
 case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
     extends StreamContext
     with GroupingSettings
-    with IcebergCatalogSettings
+    with IcebergStagingSettings
     with JdbcMergeServiceClientSettings
     with VersionedDataGraphBuilderSettings
-    with TargetTableSettings
+    with SinkSettings
     with StagingDataSettings
     with TablePropertiesSettings
     with BackfillSettings
@@ -55,7 +55,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
 
   override val additionalProperties: Map[String, String] = sys.env.get("ARCANE_FRAMEWORK__CATALOG_NO_AUTH") match
     case Some(_) => Map()
-    case None    => IcebergCatalogCredential.oAuth2Properties
+    case None    => S3CatalogFileIO.properties ++ IcebergCatalogCredential.oAuth2Properties
 
   override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
 
@@ -98,7 +98,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
   val partitionExpressions: Array[String]      = spec.tableProperties.partitionExpressions
   val tableProperties: TablePropertiesSettings = spec.tableProperties
 
-  val stagingCatalog: String =
+  private val stagingCatalog: String =
     s"${spec.stagingDataSettings.catalog.catalogName}.${spec.stagingDataSettings.catalog.schemaName}"
 
   val format: TableFormat                      = TableFormat.valueOf(spec.tableProperties.format)
@@ -145,6 +145,17 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
     sys.env.getOrElse("ARCANE_FRAMEWORK__METRICS_PUBLISHER_INTERVAL_MILLIS", "100").toInt
   )
 
+  // TODO: environment variable subs here are temporary to allow deploying on v1 CRD. Remove after migration
+  override val icebergSinkSettings: IcebergSinkSettings = new IcebergSinkSettings {
+    override val namespace: String =
+      spec.sinkSettings.icebergSinkSettings.namespace.getOrElse(sys.env("ARCANE_FRAMEWORK__ICEBERG_SINK_NAMESPACE"))
+    override val warehouse: String =
+      spec.sinkSettings.icebergSinkSettings.warehouse.getOrElse(sys.env("ARCANE_FRAMEWORK__ICEBERG_SINK_WAREHOUSE"))
+    override val catalogUri: String =
+      spec.sinkSettings.icebergSinkSettings.catalogUri.getOrElse(sys.env("ARCANE_FRAMEWORK__ICEBERG_SINK_CATALOG_URI"))
+    override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
+  }
+
 given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
   def apply(context: SqlServerChangeTrackingStreamContext): ConnectionOptions =
     ConnectionOptions(
@@ -163,8 +174,8 @@ given Conversion[SqlServerChangeTrackingStreamContext, MetricsConfig] with
     MetricsConfig(context.metricsPublisherInterval)
 
 object SqlServerChangeTrackingStreamContext:
-  type Environment = StreamContext & ConnectionOptions & GroupingSettings & IcebergCatalogSettings &
-    JdbcMergeServiceClientSettings & VersionedDataGraphBuilderSettings & TargetTableSettings & StagingDataSettings &
+  type Environment = StreamContext & ConnectionOptions & GroupingSettings & IcebergStagingSettings &
+    JdbcMergeServiceClientSettings & VersionedDataGraphBuilderSettings & SinkSettings & StagingDataSettings &
     TablePropertiesSettings & BackfillSettings & FieldSelectionRuleSettings & SourceBufferingSettings &
     DatagramSocketConfig & DatadogPublisherConfig & MetricsConfig
 

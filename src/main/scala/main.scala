@@ -9,7 +9,7 @@ import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeServi
 import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, PosixStreamLifetimeService}
 import com.sneaksanddata.arcane.framework.services.caching.schema_cache.MutableSchemaCache
 import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
-import com.sneaksanddata.arcane.framework.services.iceberg.IcebergS3CatalogWriter
+import com.sneaksanddata.arcane.framework.services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.DataDog.Environment
 import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DataDog, DeclaredMetrics}
@@ -81,7 +81,8 @@ object main extends ZIOAppDefault {
     WatermarkProcessor.layer,
     BackfillOverwriteWatermarkProcessor.layer,
     ArcaneDimensionsProvider.layer,
-    DataDog.UdsPublisher.layer
+    DataDog.UdsPublisher.layer,
+    IcebergTablePropertyManager.layer
   )
 
   @main
