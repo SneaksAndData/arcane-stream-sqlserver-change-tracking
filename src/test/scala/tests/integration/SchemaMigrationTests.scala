@@ -1,13 +1,10 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package tests.integration
 
-import models.app.{
-  SqlServerChangeTrackingStreamContext,
-  StreamSpec,
-  given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions
-}
+import models.app.{SqlServerChangeTrackingStreamContext, StreamSpec, given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions}
 import tests.common.{Common, TimeLimitLifetimeService}
 
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.services.mssql.base.ConnectionOptions
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
@@ -53,23 +50,26 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |      "batchThreshold": 60,
        |      "includedColumns": []
        |    },
-       |    "targetTableName": "$targetTableName"
+       |    "targetTableName": "$targetTableName",
+       |    "sinkCatalogSettings": {
+       |      "namespace": "test",
+       |      "warehouse": "demo",
+       |      "catalogUri": "http://localhost:20001/catalog"
+       |    }
        |  },
        |  "sourceSettings": {
        |    "changeCaptureIntervalSeconds": 1,
        |    "commandTimeout": 3600,
-       |    "database": "IntegrationTests",
        |    "schema": "dbo",
        |    "table": "$sourceTableName",
        |    "fetchSize": 1024
        |   },
        |  "stagingDataSettings": {
        |    "catalog": {
+       |      "warehouse": "demo",
        |      "catalogName": "iceberg",
        |      "catalogUri": "http://localhost:20001/catalog",
-       |      "namespace": "test",
-       |      "schemaName": "test",
-       |      "warehouse": "demo"
+       |      "schemaName": "test"
        |    },
        |    "maxRowsPerFile": 1,
        |    "tableNamePrefix": "staging_integration_tests"

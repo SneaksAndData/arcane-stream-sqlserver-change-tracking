@@ -231,7 +231,7 @@ spec:
                     targetTableName:
                       type: string
                       description: Data location for parquet files.
-                    catalog:
+                    sinkCatalogSettings:
                       type: object
                       properties:
                         namespace:

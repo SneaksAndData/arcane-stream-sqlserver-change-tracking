@@ -45,7 +45,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
   override val changeCaptureInterval: Duration = Duration.ofSeconds(spec.sourceSettings.changeCaptureIntervalSeconds)
   override val groupingInterval: Duration      = Duration.ofSeconds(spec.groupingIntervalSeconds)
 
-  override val namespace: String               = spec.stagingDataSettings.catalog.namespace
+  override val namespace: String               = spec.stagingDataSettings.catalog.schemaName
   override val warehouse: String               = spec.stagingDataSettings.catalog.warehouse
   override val catalogUri: String              = spec.stagingDataSettings.catalog.catalogUri
   override val stagingLocation: Option[String] = spec.stagingDataSettings.dataLocation
@@ -54,7 +54,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
   override val stagingSchemaName: String  = spec.stagingDataSettings.catalog.schemaName
 
   override val additionalProperties: Map[String, String] = sys.env.get("ARCANE_FRAMEWORK__CATALOG_NO_AUTH") match
-    case Some(_) => Map()
+    case Some(_) => S3CatalogFileIO.properties
     case None    => S3CatalogFileIO.properties ++ IcebergCatalogCredential.oAuth2Properties
 
   override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
@@ -148,11 +148,11 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
   // TODO: environment variable subs here are temporary to allow deploying on v1 CRD. Remove after migration
   override val icebergSinkSettings: IcebergSinkSettings = new IcebergSinkSettings {
     override val namespace: String =
-      spec.sinkSettings.icebergSinkSettings.namespace.getOrElse(sys.env("ARCANE_FRAMEWORK__ICEBERG_SINK_NAMESPACE"))
+      spec.sinkSettings.sinkCatalogSettings.namespace.getOrElse(sys.env("ARCANE_FRAMEWORK__ICEBERG_SINK_NAMESPACE"))
     override val warehouse: String =
-      spec.sinkSettings.icebergSinkSettings.warehouse.getOrElse(sys.env("ARCANE_FRAMEWORK__ICEBERG_SINK_WAREHOUSE"))
+      spec.sinkSettings.sinkCatalogSettings.warehouse.getOrElse(sys.env("ARCANE_FRAMEWORK__ICEBERG_SINK_WAREHOUSE"))
     override val catalogUri: String =
-      spec.sinkSettings.icebergSinkSettings.catalogUri.getOrElse(sys.env("ARCANE_FRAMEWORK__ICEBERG_SINK_CATALOG_URI"))
+      spec.sinkSettings.sinkCatalogSettings.catalogUri.getOrElse(sys.env("ARCANE_FRAMEWORK__ICEBERG_SINK_CATALOG_URI"))
     override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
   }
 
