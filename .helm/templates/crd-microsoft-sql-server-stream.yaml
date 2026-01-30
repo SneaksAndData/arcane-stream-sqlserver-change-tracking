@@ -13,7 +13,7 @@ spec:
     shortNames:
       - mssql-stream
   versions:
-    - name: v1beta1
+    - name: v1
       served: true
       storage: true
       additionalPrinterColumns:
@@ -23,7 +23,7 @@ spec:
         - name: Schema
           type: string
           jsonPath: .spec.sourceSettings.schema
-        - name: Refresh Interval
+        - name: Change Capture Interval
           type: string
           jsonPath: .spec.sourceSettings.changeCaptureIntervalSeconds
         - name: Target table name
@@ -76,19 +76,24 @@ spec:
                   properties:
                     schema:
                       type: string
-                      description: The schema to track changes for.
+                      description: The schema where the source table resigns.
                     table:
                       type: string
-                      description: The table to track changes for.
+                      description: The table to stream changes from.
                     changeCaptureIntervalSeconds:
                       type: integer
-                      description: How long to wait before polling for next result set. Can be from 1 to 1 hour.
+                      description: How long to wait before polling for next change set. Accepted range is between 1s and 3600s
                       minimum: 1
                       maximum: 3600
                     fetchSize:
                       type: integer
-                      description: Gives the JDBC driver a hint as to the number of rows that should be fetched from the database when more rows are needed
-                      default: 1024
+                      description: |
+                        Gives the JDBC driver a hint as to the number of rows that should be fetched from the database when more rows are needed.
+                        This is an advanced setting and it should not be changed under normal circumstances. You might want to experiment with increasing it if the source server is able to prepare data for transmit really fast, 
+                        AND when table is at least 100 columns wide. This can also be increased when doing backfill of a large source table, to increase data throughput rate on source side (as long as network allows).
+                        
+                        If the stream causes performance issues on the source server side, try lowering this to 8 instead.
+                      default: 128
                     buffering:
                       type: object
                       properties:
@@ -115,11 +120,11 @@ spec:
                                      If the buffer is full, the source will wait for the sink to process the data before
                                      continuing. If this strategy is used the maxBufferSize must be set.
                         
-                        By default Arcane uses unbounded buffering for backfill jobs and don't use buffering for
+                        By default Arcane uses unbounded buffering for backfill jobs and does not use buffering for
                         the streaming jobs.
                 connectionStringRef:
                   description: |
-                    Name of the secret containing the connection string.
+                    Name of the secret containing the JDBC connection string to the source SQL Server. If you are connecting over public network, you should enable encryption by adding `encrypt=true`
                     The secret should have a key named 'ARCANE_CONNECTIONSTRING'.
                   type: object
                   properties:
@@ -127,7 +132,7 @@ spec:
                       type: string
                 jobTemplateRef:
                   description: |
-                    Name of the job template to be used for the streaming job if stream is running in normal mode.
+                    Name of the job template to be used for the application in streaming mode.
                   type: object
                   properties:
                     name:
@@ -142,7 +147,7 @@ spec:
                     name: standard-job
                 backfillJobTemplateRef:
                   description: |
-                    Name of the job template to be used for the streaming job if stream is running in backfill mode.
+                    Name of the job template to be used for the for the application in backfill mode.
                   type: object
                   properties:
                     name:
@@ -157,10 +162,10 @@ spec:
                     name: large-job
                 rowsPerGroup:
                   type: integer
-                  description: Number of rows per parquet rowgroup.
+                  description: Maximum number of rows to be grouped together for the staging process to consume.
                 groupingIntervalSeconds:
                   type: integer
-                  description: Max time to wait for rowsPerGroup to accumulate. Can be from 1 to 60 seconds.
+                  description: Max time to wait for rowsPerGroup to accumulate and then proceed to staging. Can be from 1 to 60 seconds.
                   minimum: 1
                   maximum: 3600
                 sinkSettings:
@@ -168,52 +173,52 @@ spec:
                   properties:
                     optimizeSettings:
                       type: object
-                      description: Data location for parquet files.
+                      description: Configuration for target table optimize (data file aggregation into bigger files)
                       properties:
                         batchThreshold:
                           type: integer
                           default: 60
-                          description: Number of batches to accumulate before running the optimization query.
+                          description: Number of batches to accumulate before triggering the OPTIMIZE
                         fileSizeThreshold:
                           type: string
                           default: 100MB
-                          description: File size to accumulate in the optimization query.
+                          description: File size to target when running OPTIMIZE
                       default:
                         batchThreshold: 60
                         fileSizeThreshold: 100MB
                     snapshotExpirationSettings:
                       type: object
-                      description: Data location for parquet files.
+                      description: Configuration for EXPIRE SNAPSHOTS (table transaction log cutoff)
                       properties:
                         batchThreshold:
                           type: integer
                           default: 60
-                          description: Number of batches to accumulate before running the optimization query.
+                          description: Number of batches to accumulate triggering EXPIRE SNAPSHOTS
                         retentionThreshold:
                           type: string
                           default: 6h
-                          description: File retention period.
+                          description: Maximum age of records in the transaction log to keep
                       default:
                         batchThreshold: 60
                         retentionThreshold: 6h
                     orphanFilesExpirationSettings:
                       type: object
-                      description: Data location for parquet files.
+                      description: Configuration for EXPIRE ORPHAN FILES (cleanup of files no longer referenced by Iceberg snapshots)
                       properties:
                         batchThreshold:
                           type: integer
                           default: 60
-                          description: Number of batches to accumulate before running the optimization query.
+                          description: Number of batches to accumulate before triggering EXPIRE ORPHAN FILES
                         retentionThreshold:
                           type: string
                           default: 6h
-                          description: File retention period.
+                          description: Maximum age of files to keep while running this procedure
                       default:
                         batchThreshold: 60
                         retentionThreshold: 6h
                     analyzeSettings:
                       type: object
-                      description: Settings for running ANALYZE on target.
+                      description: Configuration for ANALYZE (full refresh of extended statistics on the target)
                       properties:
                         batchThreshold:
                           type: integer
@@ -230,19 +235,22 @@ spec:
                         includedColumns: []                        
                     targetTableName:
                       type: string
-                      description: Data location for parquet files.
+                      description: Name of the target table in the Iceberg catalog. Must be fully qualified as catalog.schema.table
                     sinkCatalogSettings:
                       type: object
+                      description: Connection settings for Iceberg REST Catalog for the sink (target). This is used by watermarking process.
                       properties:
                         namespace:
                           type: string
                         warehouse:
                           type: string
                         catalogUri:
-                          type: string            
+                          type: string
                 lookBackInterval:
                   type: integer
                   description: |
+                    DEPRECATED - TO BE REMOVED IN 2.1 RELEASE. DO NOT USE THIS SETTING!
+                    
                     Number of seconds to look back when determining first set of changes to extract.
                     Can be set in interval from 1 second to 10 hours. Default is 1 hour.
                   minimum: 1
@@ -253,14 +261,17 @@ spec:
                   properties:
                     dataLocation:
                       type: string
+                      description: Option data location override. Only use this setting for debugging and never in production environments.
                     maxRowsPerFile:
                       type: integer
-                      description: The maximum number of rows per file in the staging table.
+                      description: The maximum number of rows per each data file in the staging table.
                       default: 10000
                     tableNamePrefix:
                       type: string
+                      description: Prefix for staging tables created by Arcane. Must be UNIQUE in the WAREHOUSE scope.
                     catalog:
                       type: object
+                      description: Settings for Iceberg REST Catalog used for staging tables
                       properties:
                         catalogName:
                           type: string
@@ -272,9 +283,11 @@ spec:
                           type: string
                 fieldSelectionRule:
                   type: object
+                  description: Use this to control which fields from source are streamed to target.
                   properties:
                     ruleType:
                       type: string
+                      description: INCLUDE will only use fields provided. You must specify mandatory fields like ARCANE_MERGE_KEY as well. EXCLUDE will exclude provided fields instead. ALL (default) will use all fields without filters.
                       enum:
                         - include
                         - exclude
