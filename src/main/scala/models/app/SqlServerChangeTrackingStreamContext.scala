@@ -148,11 +148,13 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
   // TODO: environment variable subs here are temporary to allow deploying on v1 CRD. Remove after migration
   override val icebergSinkSettings: IcebergSinkSettings = new IcebergSinkSettings {
     override val namespace: String =
-      sys.env("ARCANE_FRAMEWORK__ICEBERG_SINK_NAMESPACE") //spec.sinkSettings.sinkCatalogSettings.namespace.getOrElse()
+      sys.env("ARCANE_FRAMEWORK__ICEBERG_SINK_NAMESPACE") // spec.sinkSettings.sinkCatalogSettings.namespace.getOrElse()
     override val warehouse: String =
       sys.env("ARCANE_FRAMEWORK__ICEBERG_SINK_WAREHOUSE") // spec.sinkSettings.sinkCatalogSettings.warehouse.getOrElse()
     override val catalogUri: String =
-      sys.env("ARCANE_FRAMEWORK__ICEBERG_SINK_CATALOG_URI") // spec.sinkSettings.sinkCatalogSettings.catalogUri.getOrElse()
+      sys.env(
+        "ARCANE_FRAMEWORK__ICEBERG_SINK_CATALOG_URI"
+      ) // spec.sinkSettings.sinkCatalogSettings.catalogUri.getOrElse()
     override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
   }
 
