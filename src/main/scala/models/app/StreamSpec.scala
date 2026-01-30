@@ -48,7 +48,7 @@ case class SinkSettings(
     snapshotExpirationSettings: SnapshotExpirationSettingsSpec,
     orphanFilesExpirationSettings: OrphanFilesExpirationSettings,
     analyzeSettings: AnalyzeSettings,
-    sinkCatalogSettings: IcebergSinkSettings
+    sinkCatalogSettings: Option[IcebergSinkSettings] = None
 ) derives ReadWriter
 
 case class TablePropertiesSettingsSpec(
