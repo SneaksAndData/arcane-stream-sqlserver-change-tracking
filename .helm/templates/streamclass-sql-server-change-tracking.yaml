@@ -12,7 +12,7 @@ metadata:
 spec:
   apiGroupRef: streaming.sneaksanddata.com
   kindRef: MicrosoftSqlServerStream
-  apiVersion: v1beta1
+  apiVersion: v1
   pluralName: microsoft-sql-server-streams
   secretRefs:
     - connectionStringRef
