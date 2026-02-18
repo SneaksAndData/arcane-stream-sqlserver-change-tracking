@@ -63,7 +63,6 @@ spec:
   connectionStringRef:
     name: db-secret
   groupingIntervalSeconds: 15
-  lookBackInterval: 1209600
   rowsPerGroup: 50000
   schema: dbo
   sinkLocation: ${SINK_LOCATION}

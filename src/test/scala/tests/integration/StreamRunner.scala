@@ -30,7 +30,6 @@ object StreamRunner extends ZIOSpecDefault:
     |
     | {
     |  "groupingIntervalSeconds": 1,
-    |  "lookBackInterval": 21000,
     |  "tableProperties": {
     |    "partitionExpressions": [],
     |    "format": "PARQUET",
