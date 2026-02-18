@@ -80,6 +80,12 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |  "fieldSelectionRule": {
        |    "ruleType": "all",
        |    "fields": []
+       |  },
+       |  "observability": {
+       |    "customTags": {
+       |      "sourceRegion": "eu",
+       |      "anotherTag": "something-else"
+       |    }
        |  }
        |}
        |

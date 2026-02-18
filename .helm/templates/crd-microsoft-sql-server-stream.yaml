@@ -292,6 +292,15 @@ spec:
                   default:
                     ruleType: all
                     fields: [ ]
+                observability:
+                  type: object
+                  description: Observability related settings
+                  properties:
+                    customTags:
+                      type: object
+                      description: Custom tags to be used for metrics
+                      additionalProperties:
+                        type: string
             status:
               type: object
               properties:
