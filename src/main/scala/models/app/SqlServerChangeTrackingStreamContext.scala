@@ -41,7 +41,6 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
   override val rowsPerGroup: Int = sys.env.get("STREAMCONTEXT__ROWS_PER_GROUP") match
     case Some(value) => value.toInt
     case None        => spec.rowsPerGroup
-  override val lookBackInterval: Duration      = Duration.ofSeconds(spec.lookBackInterval)
   override val changeCaptureInterval: Duration = Duration.ofSeconds(spec.sourceSettings.changeCaptureIntervalSeconds)
   override val groupingInterval: Duration      = Duration.ofSeconds(spec.groupingIntervalSeconds)
 
@@ -151,6 +150,8 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
     override val catalogUri: String                        = spec.sinkSettings.sinkCatalogSettings.catalogUri
     override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
   }
+
+  override val customTags: Map[String, String] = spec.observability.fold(Map.empty)(_.customTags)
 
 given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
   def apply(context: SqlServerChangeTrackingStreamContext): ConnectionOptions =

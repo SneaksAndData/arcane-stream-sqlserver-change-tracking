@@ -30,7 +30,6 @@ object StreamRunner extends ZIOSpecDefault:
     |
     | {
     |  "groupingIntervalSeconds": 1,
-    |  "lookBackInterval": 21000,
     |  "tableProperties": {
     |    "partitionExpressions": [],
     |    "format": "PARQUET",
@@ -83,6 +82,12 @@ object StreamRunner extends ZIOSpecDefault:
     |  "fieldSelectionRule": {
     |    "ruleType": "all",
     |    "fields": []
+    |  },
+    |  "observability": {
+    |    "customTags": {
+    |      "sourceRegion": "eu",
+    |      "anotherTag": "something-else"
+    |    }
     |  }
     |}
     |

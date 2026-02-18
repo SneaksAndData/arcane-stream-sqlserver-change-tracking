@@ -70,24 +70,26 @@ case class SourceSettings(
     buffering: Option[BufferingSettingsSpec] = None
 ) derives ReadWriter
 
+case class ObservabilitySpec(
+    customTags: Map[String, String]
+) derives ReadWriter
+
 /** The specification for the stream.
   *
   * @param rowsPerGroup
   *   The number of rows per group in the staging table
   * @param groupingIntervalSeconds
   *   The grouping interval in seconds
-  * @param lookBackInterval
-  *   The look back interval in seconds
   */
 case class StreamSpec(
     rowsPerGroup: Int,
-    lookBackInterval: Int,
     groupingIntervalSeconds: Int,
     stagingDataSettings: StagingDataSettingsSpec,
     sourceSettings: SourceSettings,
     sinkSettings: SinkSettings,
     fieldSelectionRule: FieldSelectionRuleSpec,
-    tableProperties: TablePropertiesSettingsSpec
+    tableProperties: TablePropertiesSettingsSpec,
+    observability: Option[ObservabilitySpec]
 ) derives ReadWriter
 
 object StreamSpec:
