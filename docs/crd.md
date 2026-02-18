@@ -205,4 +205,11 @@ spec:
     # The column names in this list should be normalized (see above).
     sortedBy: []
 
+  # Observability related settings
+  observability:
+
+    # Custom tags to be used for metrics
+    customTags:
+      sourceRegion: eu
+      anotherTag: something-else
 ```

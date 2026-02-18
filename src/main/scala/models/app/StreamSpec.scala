@@ -70,6 +70,10 @@ case class SourceSettings(
     buffering: Option[BufferingSettingsSpec] = None
 ) derives ReadWriter
 
+case class ObservabilitySpec(
+    customTags: Map[String, String]
+) derives ReadWriter
+
 /** The specification for the stream.
   *
   * @param rowsPerGroup
@@ -84,7 +88,8 @@ case class StreamSpec(
     sourceSettings: SourceSettings,
     sinkSettings: SinkSettings,
     fieldSelectionRule: FieldSelectionRuleSpec,
-    tableProperties: TablePropertiesSettingsSpec
+    tableProperties: TablePropertiesSettingsSpec,
+    observability: Option[ObservabilitySpec]
 ) derives ReadWriter
 
 object StreamSpec:
