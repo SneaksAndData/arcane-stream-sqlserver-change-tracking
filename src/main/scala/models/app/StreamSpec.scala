@@ -76,12 +76,9 @@ case class SourceSettings(
   *   The number of rows per group in the staging table
   * @param groupingIntervalSeconds
   *   The grouping interval in seconds
-  * @param lookBackInterval
-  *   The look back interval in seconds
   */
 case class StreamSpec(
     rowsPerGroup: Int,
-    lookBackInterval: Int,
     groupingIntervalSeconds: Int,
     stagingDataSettings: StagingDataSettingsSpec,
     sourceSettings: SourceSettings,

@@ -1,22 +1,24 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package tests.integration
 
-import models.app.{
-  SqlServerChangeTrackingStreamContext,
-  StreamSpec,
-  given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions
-}
+import models.app.{SqlServerChangeTrackingStreamContext, StreamSpec, given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions}
 import tests.common.{Common, TimeLimitLifetimeService}
 
+import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType
+import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, Field}
+import com.sneaksanddata.arcane.framework.models.settings.{AnalyzeSettings, IcebergSinkSettings, IcebergStagingSettings, OptimizeSettings, OrphanFilesExpirationSettings, SinkSettings, SnapshotExpirationSettings, TableMaintenanceSettings}
+import com.sneaksanddata.arcane.framework.services.iceberg.{IcebergCatalogCredential, IcebergS3CatalogWriter, IcebergTablePropertyManager, given_Conversion_ArcaneSchema_Schema}
+import com.sneaksanddata.arcane.framework.services.iceberg.base.S3CatalogFileIO
 import com.sneaksanddata.arcane.framework.services.mssql.*
 import com.sneaksanddata.arcane.framework.services.mssql.base.ConnectionOptions
+import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import org.scalatest.matchers.should.Matchers.should
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
 import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
-import zio.{Scope, Unsafe, ZIO, ZLayer}
+import zio.{Cause, Fiber, Scope, Task, Unsafe, ZIO, ZLayer}
 
 import java.time.Duration
 import scala.language.postfixOps
@@ -30,7 +32,6 @@ object StreamRunner extends ZIOSpecDefault:
     |
     | {
     |  "groupingIntervalSeconds": 1,
-    |  "lookBackInterval": 21000,
     |  "tableProperties": {
     |    "partitionExpressions": [],
     |    "format": "PARQUET",
@@ -124,64 +125,126 @@ object StreamRunner extends ZIOSpecDefault:
 
   private def before = TestAspect.before(Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName))
 
+  // TODO: contribute this to test utilities in the Framework project (nice doc string)
+  def runOrFail(runner: Fiber.Runtime[Throwable, Unit], timeout: Duration): zio.ZIO[Any, Cause[Throwable], Unit] =
+    for
+      result <- runner.join.timeout(Duration.ofSeconds(10)).exit
+      _ <- ZIO.when(result.causeOption.isDefined)(ZIO.fail(result.causeOption.get))
+    yield ()
+
+  /** [START] Code copied from the Framework */
+  object IcebergCatalogInfo:
+    val defaultNamespace = "test"
+    val defaultWarehouse = "demo"
+    val defaultCatalogUri = "http://localhost:20001/catalog"
+
+    val defaultStagingSettings: IcebergStagingSettings = new IcebergStagingSettings:
+      override val namespace: String = defaultNamespace
+      override val warehouse: String = defaultWarehouse
+      override val catalogUri: String = defaultCatalogUri
+      override val additionalProperties: Map[String, String] =
+        S3CatalogFileIO.properties ++ IcebergCatalogCredential.oAuth2Properties
+      override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
+      override val stagingLocation: Option[String] = None
+      override val maxRowsPerFile: Option[Int] = Some(1000)
+
+    val defaultSinkSettings: IcebergSinkSettings = new IcebergSinkSettings:
+      override val namespace: String = defaultNamespace
+      override val warehouse: String = defaultWarehouse
+      override val catalogUri: String = defaultCatalogUri
+      override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
+
+  val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(IcebergCatalogInfo.defaultStagingSettings)
+
+  object EmptyTestTableMaintenanceSettings extends TableMaintenanceSettings:
+    override val targetOptimizeSettings: Option[OptimizeSettings] = None
+    override val targetSnapshotExpirationSettings: Option[SnapshotExpirationSettings] = None
+    override val targetOrphanFilesExpirationSettings: Option[OrphanFilesExpirationSettings] = None
+    override val targetAnalyzeSettings: Option[AnalyzeSettings] = None
+
+  class TestDynamicSinkSettings(name: String) extends SinkSettings:
+    override val targetTableFullName: String = name
+    override val maintenanceSettings: TableMaintenanceSettings = EmptyTestTableMaintenanceSettings
+    override val icebergSinkSettings: IcebergSinkSettings = IcebergCatalogInfo.defaultSinkSettings
+
+  val propertyManager: IcebergTablePropertyManager = IcebergTablePropertyManager(
+    TestDynamicSinkSettings(targetTableName)
+  )
+
+  def prepareWatermark(tableName: String): Task[Unit] =
+    for
+      _ <- writer.createTable(tableName, ArcaneSchema(Seq(Field("test", StringType))), true)
+      _ <- propertyManager.comment(tableName, MsSqlWatermark.epoch.toJson)
+    yield ()
+  /** [END] Code copied from the Framework */
+
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
-    test("stream, backfill and stream again successfully") {
-      for
-        sourceConnection <- ZIO.succeed(Fixtures.getConnection)
-        // Testing the stream runner in the streaming mode
-        insertRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
-        _            <- Common.insertData(dbName, sourceConnection, parsedSpec.sourceSettings.table, streamingData)
+        // TODO: either watermark or change the order
+        // TODO: add a test to expect a failure when starting a stream without a watermark
+        test("stream, backfill and stream again successfully") {
+          for
+            _ <- prepareWatermark("stream_run")
 
-        _ <- Common.waitForData[(Int, String)](
-          streamingStreamContext.targetTableFullName,
-          "Id, Name",
-          Common.IntStrDecoder,
-          streamingData.length
-        )
-        _ <- insertRunner.await.timeout(Duration.ofSeconds(10))
+            _ <- ZIO.sleep(Duration.ofSeconds(2))
 
-        afterStream <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", Common.IntStrDecoder)
+            sourceConnection <- ZIO.succeed(Fixtures.getConnection)
 
-        // Testing the stream runner in the backfill mode
-        backfillRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, backfillStreamContextLayer).fork
-        _              <- Common.insertData(dbName, sourceConnection, parsedSpec.sourceSettings.table, backfillData)
-        _ <- Common.waitForData[(Int, String)](
-          streamingStreamContext.targetTableFullName,
-          "Id, Name",
-          Common.IntStrDecoder,
-          backfillData.length + streamingData.length
-        )
+            // Testing the stream runner in the streaming mode
+            insertRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
+            _            <- Common.insertData(dbName, sourceConnection, parsedSpec.sourceSettings.table, streamingData)
 
-        _ <- backfillRunner.await.timeout(Duration.ofSeconds(10))
+            _ <- runOrFail(insertRunner, Duration.ofSeconds(10))
 
-        afterBackfill <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", Common.IntStrDecoder)
+            // no wait, just check the data
+            _ <- Common.waitForData[(Int, String)](
+              streamingStreamContext.targetTableFullName,
+              "Id, Name",
+              Common.IntStrDecoder,
+              streamingData.length
+            )
 
-        // Testing the update and delete operations
-        deleteUpdateRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
-        _                  <- Common.updateData(dbName, sourceConnection, parsedSpec.sourceSettings.table, updatedData)
-        _                  <- ZIO.sleep(Duration.ofSeconds(5))
-        _                  <- Common.deleteData(dbName, sourceConnection, parsedSpec.sourceSettings.table, deletedData)
-        _ <- Common.waitForData[(Int, String)](
-          streamingStreamContext.targetTableFullName,
-          "Id, Name",
-          Common.IntStrDecoder,
-          resultData.length
-        )
+            afterStream <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", Common.IntStrDecoder)
 
-        _ <- deleteUpdateRunner.await.timeout(Duration.ofSeconds(20))
+            // Testing the stream runner in the backfill mode
+            backfillRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, backfillStreamContextLayer).fork
+            _              <- Common.insertData(dbName, sourceConnection, parsedSpec.sourceSettings.table, backfillData)
+            _ <- Common.waitForData[(Int, String)](
+              streamingStreamContext.targetTableFullName,
+              "Id, Name",
+              Common.IntStrDecoder,
+              backfillData.length + streamingData.length
+            )
 
-        afterUpdateDelete <- Common.getData(
-          streamingStreamContext.targetTableFullName,
-          "Id, Name",
-          Common.IntStrDecoder
-        )
+            _ <- backfillRunner.await.timeout(Duration.ofSeconds(10))
 
-        watermark     <- Common.getWatermark(streamingStreamContext.targetTableFullName.split('.').last)
-        latestVersion <- Common.getChangeTrackingVersion(dbName, sourceConnection)
-      yield assertTrue(afterStream.sorted == streamingData.sorted) implies assertTrue(
-        afterBackfill.sorted == (streamingData ++ backfillData).sorted
-      ) implies assertTrue(afterUpdateDelete.sorted == resultData.sorted) implies assertTrue(
-        watermark.version.toLong == latestVersion
-      )
-    }
-  ) @@ before @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock
+            afterBackfill <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", Common.IntStrDecoder)
+
+            // Testing the update and delete operations
+            deleteUpdateRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
+            _                  <- Common.updateData(dbName, sourceConnection, parsedSpec.sourceSettings.table, updatedData)
+            _                  <- ZIO.sleep(Duration.ofSeconds(5))
+            _                  <- Common.deleteData(dbName, sourceConnection, parsedSpec.sourceSettings.table, deletedData)
+            _ <- Common.waitForData[(Int, String)](
+              streamingStreamContext.targetTableFullName,
+              "Id, Name",
+              Common.IntStrDecoder,
+              resultData.length
+            )
+
+            _ <- deleteUpdateRunner.await.timeout(Duration.ofSeconds(20))
+
+            afterUpdateDelete <- Common.getData(
+              streamingStreamContext.targetTableFullName,
+              "Id, Name",
+              Common.IntStrDecoder
+            )
+
+            watermark     <- Common.getWatermark(streamingStreamContext.targetTableFullName.split('.').last)
+            latestVersion <- Common.getChangeTrackingVersion(dbName, sourceConnection)
+          yield assertTrue(afterStream.sorted == streamingData.sorted) implies assertTrue(
+            afterBackfill.sorted == (streamingData ++ backfillData).sorted
+          ) implies assertTrue(afterUpdateDelete.sorted == resultData.sorted) implies assertTrue(
+            watermark.version.toLong == latestVersion
+          )
+        }
+  ) @@ before @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock

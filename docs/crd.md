@@ -41,12 +41,6 @@ spec:
   # The maximum number of rows in a group
   rowsPerGroup: 10000
 
-  # The time interval in seconds that Arcane will look back to find the changes if the stream was restarted.
-  # If the stream was offline (suspended or running in the backfill mode) for more than the lookBackInterval,
-  # the data can be lost. In this case the stream should be backfilled or user can set the lookBackInterval to
-  # a larger value.
-  lookBackInterval: 3600
-
   # The settings of the source table
   sourceSettings:
     
