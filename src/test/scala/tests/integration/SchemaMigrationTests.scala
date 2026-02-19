@@ -6,9 +6,8 @@ import models.app.{
   StreamSpec,
   given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions
 }
-import tests.common.{Common, TimeLimitLifetimeService}
+import tests.common.{Common, FrameworkCommon, TimeLimitLifetimeService}
 
-import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.services.mssql.base.ConnectionOptions
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
@@ -110,6 +109,8 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         ++ List.range(4, 7).map(i => (i, s"Test$i", s"Updated $i"))
 
       for {
+        _ <- FrameworkCommon.prepareWatermark(targetTableName.split("\\.").last)
+
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
 
         lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(15)))
@@ -157,6 +158,8 @@ object SchemaMigrationTests extends ZIOSpecDefault:
       val afterEvolutionExpected = streamingData ++ List.range(4, 7).map(i => (i, s"Test$i", null))
 
       for {
+        _ <- FrameworkCommon.prepareWatermark(targetTableName.split("\\.").last)
+
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
         _                <- Common.addColumns(dbName, sourceConnection, sourceTableName, "NewName VARCHAR(100)")
 

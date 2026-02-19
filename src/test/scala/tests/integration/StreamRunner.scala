@@ -6,7 +6,7 @@ import models.app.{
   StreamSpec,
   given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions
 }
-import tests.common.{Common, TimeLimitLifetimeService}
+import tests.common.{Common, FrameworkCommon, TimeLimitLifetimeService}
 
 import com.sneaksanddata.arcane.framework.services.mssql.*
 import com.sneaksanddata.arcane.framework.services.mssql.base.ConnectionOptions
@@ -124,20 +124,40 @@ object StreamRunner extends ZIOSpecDefault:
   private def before = TestAspect.before(Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName))
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
-    test("stream, backfill and stream again successfully") {
+    test("fail stream when watermark is not set") {
       for
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
+
+        // Start streaming WITHOUT preparing watermark
+        runner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
+        _      <- Common.insertData(dbName, sourceConnection, parsedSpec.sourceSettings.table, streamingData)
+
+        exitOpt <- runner.await.timeout(Duration.ofSeconds(10))
+      yield exitOpt match
+        case Some(zio.Exit.Failure(_)) =>
+          assertTrue(true) // expected: it failed
+        case _ =>
+          assertTrue(false) // unexpected: it succeeded or timed out
+    },
+    test("stream, backfill and stream again successfully") {
+      for
+        _ <- FrameworkCommon.prepareWatermark(targetTableName.split("\\.").last)
+
+        sourceConnection <- ZIO.succeed(Fixtures.getConnection)
+
         // Testing the stream runner in the streaming mode
         insertRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
         _            <- Common.insertData(dbName, sourceConnection, parsedSpec.sourceSettings.table, streamingData)
 
+        _ <- FrameworkCommon.runOrFail(insertRunner, Duration.ofSeconds(10))
+
+        // no wait, just check the data
         _ <- Common.waitForData[(Int, String)](
           streamingStreamContext.targetTableFullName,
           "Id, Name",
           Common.IntStrDecoder,
           streamingData.length
         )
-        _ <- insertRunner.await.timeout(Duration.ofSeconds(10))
 
         afterStream <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", Common.IntStrDecoder)
 
@@ -183,4 +203,4 @@ object StreamRunner extends ZIOSpecDefault:
         watermark.version.toLong == latestVersion
       )
     }
-  ) @@ before @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock
+  ) @@ before @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
