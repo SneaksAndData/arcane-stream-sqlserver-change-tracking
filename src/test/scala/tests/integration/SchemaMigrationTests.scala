@@ -101,6 +101,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
   private def before = TestAspect.before(Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName))
 
+  // TODO: manually watermark the table
   def spec: Spec[TestEnvironment & Scope, Throwable] = suite("SchemaMigrationTests")(
     test("handle the schema migration (column insertions)") {
       val streamingData  = List.range(1, 4).map(i => (i, s"Test$i"))
