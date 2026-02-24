@@ -16,7 +16,7 @@ import zio.metrics.connectors.datadog.DatadogPublisherConfig
 import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
-import zio.{Scope, Unsafe, ZIO, ZLayer}
+import zio.{Cause, Scope, Unsafe, ZIO, ZLayer}
 
 import java.time.Duration
 import scala.language.postfixOps
@@ -134,8 +134,12 @@ object StreamRunner extends ZIOSpecDefault:
 
         exitOpt <- runner.await.timeout(Duration.ofSeconds(10))
       yield exitOpt match
-        case Some(zio.Exit.Failure(_)) =>
-          assertTrue(true) // expected: it failed
+        case Some(zio.Exit.Failure(cause)) =>
+          cause match
+            case Cause.Die(t, _) =>
+              assertTrue(t.getMessage.contains("Target contains invalid watermark: 'null'"))
+            case _ =>
+              assertTrue(false) // failed, but not via die (unexpected)
         case _ =>
           assertTrue(false) // unexpected: it succeeded or timed out
     },
