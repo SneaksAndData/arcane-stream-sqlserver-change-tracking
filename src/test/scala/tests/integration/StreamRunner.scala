@@ -6,7 +6,7 @@ import models.app.{
   StreamSpec,
   given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions
 }
-import tests.common.{Common, TimeLimitLifetimeService}
+import tests.common.{Common, FrameworkCommon, TimeLimitLifetimeService}
 
 import com.sneaksanddata.arcane.framework.services.mssql.*
 import com.sneaksanddata.arcane.framework.services.mssql.base.ConnectionOptions
@@ -16,7 +16,7 @@ import zio.metrics.connectors.datadog.DatadogPublisherConfig
 import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
-import zio.{Scope, Unsafe, ZIO, ZLayer}
+import zio.{Cause, Scope, Unsafe, ZIO, ZLayer}
 
 import java.time.Duration
 import scala.language.postfixOps
@@ -30,7 +30,6 @@ object StreamRunner extends ZIOSpecDefault:
     |
     | {
     |  "groupingIntervalSeconds": 1,
-    |  "lookBackInterval": 21000,
     |  "tableProperties": {
     |    "partitionExpressions": [],
     |    "format": "PARQUET",
@@ -125,20 +124,44 @@ object StreamRunner extends ZIOSpecDefault:
   private def before = TestAspect.before(Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName))
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
-    test("stream, backfill and stream again successfully") {
+    test("fail stream when watermark is not set") {
       for
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
+
+        // Start streaming WITHOUT preparing watermark
+        runner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
+        _      <- Common.insertData(dbName, sourceConnection, parsedSpec.sourceSettings.table, streamingData)
+
+        exitOpt <- runner.await.timeout(Duration.ofSeconds(10))
+      yield exitOpt match
+        case Some(zio.Exit.Failure(cause)) =>
+          cause match
+            case Cause.Die(t, _) =>
+              assertTrue(t.getMessage.contains("Target contains invalid watermark: 'null'"))
+            case _ =>
+              assertTrue(false) // failed, but not via die (unexpected)
+        case _ =>
+          assertTrue(false) // unexpected: it succeeded or timed out
+    },
+    test("stream, backfill and stream again successfully") {
+      for
+        _ <- FrameworkCommon.prepareWatermark(targetTableName.split("\\.").last)
+
+        sourceConnection <- ZIO.succeed(Fixtures.getConnection)
+
         // Testing the stream runner in the streaming mode
         insertRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
         _            <- Common.insertData(dbName, sourceConnection, parsedSpec.sourceSettings.table, streamingData)
 
+        _ <- FrameworkCommon.runOrFail(insertRunner, Duration.ofSeconds(10))
+
+        // no wait, just check the data
         _ <- Common.waitForData[(Int, String)](
           streamingStreamContext.targetTableFullName,
           "Id, Name",
           Common.IntStrDecoder,
           streamingData.length
         )
-        _ <- insertRunner.await.timeout(Duration.ofSeconds(10))
 
         afterStream <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", Common.IntStrDecoder)
 
@@ -184,4 +207,4 @@ object StreamRunner extends ZIOSpecDefault:
         watermark.version.toLong == latestVersion
       )
     }
-  ) @@ before @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock
+  ) @@ before @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock @@ TestAspect.sequential

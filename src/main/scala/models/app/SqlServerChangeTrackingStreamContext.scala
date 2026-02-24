@@ -41,7 +41,6 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
   override val rowsPerGroup: Int = sys.env.get("STREAMCONTEXT__ROWS_PER_GROUP") match
     case Some(value) => value.toInt
     case None        => spec.rowsPerGroup
-  override val lookBackInterval: Duration      = Duration.ofSeconds(spec.lookBackInterval)
   override val changeCaptureInterval: Duration = Duration.ofSeconds(spec.sourceSettings.changeCaptureIntervalSeconds)
   override val groupingInterval: Duration      = Duration.ofSeconds(spec.groupingIntervalSeconds)
 
