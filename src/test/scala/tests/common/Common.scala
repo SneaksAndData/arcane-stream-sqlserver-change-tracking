@@ -330,38 +330,3 @@ object Common:
   val IntStrDecoder: ResultSet => (Int, String) = (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
   val IntStrStrDecoder: ResultSet => (Int, String, String) = (rs: ResultSet) =>
     (rs.getInt(1), rs.getString(2), rs.getString(3))
-
-  def waitForData[T](
-      tableName: String,
-      columnList: String,
-      decoder: ResultSet => T,
-      expectedSize: Int
-  ): ZIO[Any, Nothing, Unit] = ZIO
-    .sleep(Duration.ofSeconds(1))
-    .repeatUntilZIO(_ =>
-      (for {
-        _ <- ZIO.log(s"Waiting for data to be loaded for $tableName, schema: $columnList")
-        inserted <- Common.getData(
-          tableName,
-          columnList,
-          decoder
-        )
-        _ <- ZIO.log(s"Loaded so far: ${inserted.size}, expecting: $expectedSize")
-      } yield inserted.length == expectedSize).orElseSucceed(false)
-    )
-
-  def getWatermark(targetTableName: String): ZIO[Any, Throwable, MsSqlWatermark] = ZIO.scoped {
-    for
-      connection <- ZIO.attempt(DriverManager.getConnection(sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")))
-      statement  <- ZIO.attempt(connection.createStatement())
-      resultSet <- ZIO.fromAutoCloseable(
-        ZIO.attemptBlocking(
-          statement.executeQuery(
-            s"SELECT value FROM iceberg.test.\"$targetTableName$$properties\" WHERE key = 'comment'"
-          )
-        )
-      )
-      _         <- ZIO.attemptBlocking(resultSet.next())
-      watermark <- ZIO.attempt(MsSqlWatermark.fromJson(resultSet.getString("value")))
-    yield watermark
-  }
