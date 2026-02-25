@@ -1,7 +1,11 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package tests.integration
 
-import models.app.{SqlServerChangeTrackingStreamContext, StreamSpec, given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions}
+import models.app.{
+  SqlServerChangeTrackingStreamContext,
+  StreamSpec,
+  given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions
+}
 import tests.common.Common
 
 import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType
@@ -110,7 +114,11 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         ++ List.range(4, 7).map(i => (i, s"Test$i", s"Updated $i"))
 
       for {
-        _ <- prepareWatermark(targetTableName.split("\\.").last, ArcaneSchema(Seq(Field("test", StringType))), MsSqlWatermark.epoch)
+        _ <- prepareWatermark(
+          targetTableName.split("\\.").last,
+          ArcaneSchema(Seq(Field("test", StringType))),
+          MsSqlWatermark.epoch
+        )
 
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
 
@@ -118,7 +126,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         // launch stream and wait for it to create target with streamingData rows (initial table)
         streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
         _            <- Common.insertData(dbName, sourceConnection, sourceTableName, streamingData)
-        
+
         _ <- ZIO.sleep(Duration.fromSeconds(10))
 
         // update SOURCE (SQL) schema with a new column
@@ -148,7 +156,11 @@ object SchemaMigrationTests extends ZIOSpecDefault:
       val afterEvolutionExpected = streamingData ++ List.range(4, 7).map(i => (i, s"Test$i", null))
 
       for {
-        _ <- prepareWatermark(targetTableName.split("\\.").last, ArcaneSchema(Seq(Field("test", StringType))), MsSqlWatermark.epoch)
+        _ <- prepareWatermark(
+          targetTableName.split("\\.").last,
+          ArcaneSchema(Seq(Field("test", StringType))),
+          MsSqlWatermark.epoch
+        )
 
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
         _                <- Common.addColumns(dbName, sourceConnection, sourceTableName, "NewName VARCHAR(100)")
@@ -156,9 +168,9 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.fromSeconds(180)))
         streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
         _            <- Common.insertUpdatedData(dbName, sourceConnection, sourceTableName, streamingData)
-        
+
         _ <- ZIO.sleep(Duration.fromSeconds(10))
-        
+
         _ <- Common.removeColumns(dbName, sourceConnection, sourceTableName, "NewName")
         _ <- Common.waitForColumns(dbName, sourceConnection, sourceTableName, 2)
 

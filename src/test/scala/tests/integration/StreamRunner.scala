@@ -1,7 +1,11 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package tests.integration
 
-import models.app.{SqlServerChangeTrackingStreamContext, StreamSpec, given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions}
+import models.app.{
+  SqlServerChangeTrackingStreamContext,
+  StreamSpec,
+  given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions
+}
 import tests.common.Common
 
 import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType
@@ -141,8 +145,8 @@ object StreamRunner extends ZIOSpecDefault:
       yield exitVal.causeOption match
         case Some(cause) =>
           cause match
-            case Cause.Die(t, _) =>
-              assertTrue(t.getMessage.contains("Target contains invalid watermark: 'null'"))
+            case Cause.Fail(value, _) =>
+              assertTrue(value.squash.getMessage.contains("Target contains invalid watermark: 'null'"))
             case _ =>
               assertTrue(false) // failed, but not via die (unexpected)
         case _ =>
@@ -150,7 +154,11 @@ object StreamRunner extends ZIOSpecDefault:
     },
     test("stream, backfill and stream again successfully") {
       for
-        _ <- prepareWatermark(targetTableName.split("\\.").last, ArcaneSchema(Seq(Field("test", StringType))), MsSqlWatermark.epoch)
+        _ <- prepareWatermark(
+          targetTableName.split("\\.").last,
+          ArcaneSchema(Seq(Field("test", StringType))),
+          MsSqlWatermark.epoch
+        )
 
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
 
@@ -159,7 +167,7 @@ object StreamRunner extends ZIOSpecDefault:
         _            <- Common.insertData(dbName, sourceConnection, parsedSpec.sourceSettings.table, streamingData)
 
         _ <- insertRunner.runOrFail(Duration.fromSeconds(10))
-        
+
         afterStream <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", Common.IntStrDecoder)
 
         // Testing the stream runner in the backfill mode
