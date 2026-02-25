@@ -1,23 +1,24 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package tests.integration
 
-import models.app.{
-  SqlServerChangeTrackingStreamContext,
-  StreamSpec,
-  given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions
-}
-import tests.common.{Common, FrameworkCommon, TimeLimitLifetimeService}
+import models.app.{SqlServerChangeTrackingStreamContext, StreamSpec, given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions}
+import tests.common.Common
 
+import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType
+import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, Field}
 import com.sneaksanddata.arcane.framework.services.mssql.base.ConnectionOptions
+import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
+import com.sneaksanddata.arcane.framework.testkit.setups.FrameworkTestSetup.prepareWatermark
+import com.sneaksanddata.arcane.framework.testkit.streaming.TimeLimitLifetimeService
+import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.runOrFail
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
 import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
-import zio.{Scope, ZIO, ZLayer}
+import zio.{Duration, Scope, ZIO, ZLayer}
 
 import java.sql.ResultSet
-import java.time.Duration
 
 object SchemaMigrationTests extends ZIOSpecDefault:
   val sourceTableName = "SchemaEvolutionTests"
@@ -95,12 +96,12 @@ object SchemaMigrationTests extends ZIOSpecDefault:
   private val streamingStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](streamingStreamContext)
     ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
     ++ ZLayer.succeed(DatagramSocketConfig("/var/run/datadog/dsd.socket"))
-    ++ ZLayer.succeed(MetricsConfig(Duration.ofMillis(100)))
+    ++ ZLayer.succeed(MetricsConfig(Duration.fromMillis(100)))
     ++ ZLayer.succeed(DatadogPublisherConfig())
 
   private def before = TestAspect.before(Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName))
 
-  def spec: Spec[TestEnvironment & Scope, Throwable] = suite("SchemaMigrationTests")(
+  def spec: Spec[TestEnvironment & Scope, Any] = suite("SchemaMigrationTests")(
     test("handle the schema migration (column insertions)") {
       val streamingData  = List.range(1, 4).map(i => (i, s"Test$i"))
       val afterEvolution = List.range(4, 7).map(i => (i, s"Test$i", s"Updated $i"))
@@ -109,20 +110,16 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         ++ List.range(4, 7).map(i => (i, s"Test$i", s"Updated $i"))
 
       for {
-        _ <- FrameworkCommon.prepareWatermark(targetTableName.split("\\.").last)
+        _ <- prepareWatermark(targetTableName.split("\\.").last, ArcaneSchema(Seq(Field("test", StringType))), MsSqlWatermark.epoch)
 
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
 
-        lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(15)))
+        lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.fromSeconds(15)))
         // launch stream and wait for it to create target with streamingData rows (initial table)
         streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
         _            <- Common.insertData(dbName, sourceConnection, sourceTableName, streamingData)
-        _ <- Common.waitForData[(Int, String)](
-          streamingStreamContext.targetTableFullName,
-          "Id, Name",
-          Common.IntStrDecoder,
-          streamingData.length
-        )
+        
+        _ <- ZIO.sleep(Duration.fromSeconds(10))
 
         // update SOURCE (SQL) schema with a new column
         _ <- Common.addColumns(dbName, sourceConnection, sourceTableName, "NewName VARCHAR(100)")
@@ -131,15 +128,8 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         // INSERT data with a new schema
         _ <- Common.insertUpdatedData(dbName, sourceConnection, sourceTableName, afterEvolution)
 
-        _ <- Common.waitForData[(Int, String, String)](
-          streamingStreamContext.targetTableFullName,
-          "Id, Name, NewName",
-          Common.IntStrStrDecoder,
-          streamingData.length + afterEvolution.length
-        )
-
         // overall test timeout
-        _ <- streamRunner.join.timeout(Duration.ofSeconds(10))
+        _ <- streamRunner.runOrFail(Duration.fromSeconds(10))
 
         // read target table after schema migration
         afterStream <- Common.getData(
@@ -158,33 +148,23 @@ object SchemaMigrationTests extends ZIOSpecDefault:
       val afterEvolutionExpected = streamingData ++ List.range(4, 7).map(i => (i, s"Test$i", null))
 
       for {
-        _ <- FrameworkCommon.prepareWatermark(targetTableName.split("\\.").last)
+        _ <- prepareWatermark(targetTableName.split("\\.").last, ArcaneSchema(Seq(Field("test", StringType))), MsSqlWatermark.epoch)
 
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
         _                <- Common.addColumns(dbName, sourceConnection, sourceTableName, "NewName VARCHAR(100)")
 
-        lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.ofSeconds(180)))
+        lifetimeService = ZLayer.succeed(TimeLimitLifetimeService(Duration.fromSeconds(180)))
         streamRunner <- Common.buildTestApp(lifetimeService, streamingStreamContextLayer).fork
         _            <- Common.insertUpdatedData(dbName, sourceConnection, sourceTableName, streamingData)
-        _ <- Common.waitForData[(Int, String, String)](
-          streamingStreamContext.targetTableFullName,
-          "Id, Name, NewName",
-          Common.IntStrStrDecoder,
-          streamingData.length
-        )
-
+        
+        _ <- ZIO.sleep(Duration.fromSeconds(10))
+        
         _ <- Common.removeColumns(dbName, sourceConnection, sourceTableName, "NewName")
         _ <- Common.waitForColumns(dbName, sourceConnection, sourceTableName, 2)
 
         _ <- Common.insertData(dbName, sourceConnection, sourceTableName, afterEvolution)
-        _ <- Common.waitForData[(Int, String, String)](
-          streamingStreamContext.targetTableFullName,
-          "Id, Name, NewName",
-          Common.IntStrStrDecoder,
-          streamingData.length + afterEvolution.length
-        )
 
-        _ <- streamRunner.join.timeout(Duration.ofSeconds(10))
+        _ <- streamRunner.runOrFail(Duration.fromSeconds(10))
 
         afterEvolution <- Common.getData(
           streamingStreamContext.targetTableFullName,

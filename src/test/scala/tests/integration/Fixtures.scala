@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package tests.integration
 
+import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.clearTarget
 import org.scalatest.Assertion
 import zio.ZIO
 
@@ -30,24 +31,12 @@ object Fixtures:
 
     con
 
-  def clearTarget(targetFullName: String): Any =
-    val trinoConnection = DriverManager.getConnection(trinoConnectionString)
-    val query           = s"drop table if exists $targetFullName"
-    val statement       = trinoConnection.createStatement()
-    statement.executeUpdate(query)
-
-  def withFreshTables(sourceDbName: String, sourceTableName: String, targetTableName: String)(
-      test: Connection => Future[Assertion]
-  ): Future[Assertion] =
-    clearTarget(targetTableName)
-    test(createFreshSource(sourceDbName, sourceTableName))
-
   def withFreshTablesZIO(
       sourceDbName: String,
       sourceTableName: String,
       targetTableName: String
-  ): ZIO[Any, Nothing, Unit] =
+  ): ZIO[Any, Throwable, Unit] =
     for
-      _ <- ZIO.succeed(createFreshSource(sourceDbName, sourceTableName))
-      _ <- ZIO.succeed(clearTarget(targetTableName))
+      _ <- ZIO.attempt(createFreshSource(sourceDbName, sourceTableName))
+      _ <- clearTarget(targetTableName)
     yield ()
