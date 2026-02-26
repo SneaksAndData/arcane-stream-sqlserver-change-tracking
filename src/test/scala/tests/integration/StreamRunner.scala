@@ -13,13 +13,10 @@ import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, Field}
 import com.sneaksanddata.arcane.framework.services.mssql.*
 import com.sneaksanddata.arcane.framework.services.mssql.base.ConnectionOptions
 import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
-import com.sneaksanddata.arcane.framework.services.streaming.base.{JsonWatermark, SourceWatermark}
 import com.sneaksanddata.arcane.framework.testkit.setups.FrameworkTestSetup.prepareWatermark
-import com.sneaksanddata.arcane.framework.testkit.streaming.TimeLimitLifetimeService
 import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.getWatermark
 import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.runOrFail
 import org.scalatest.matchers.should.Matchers.should
-import upickle.ReadWriter
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
 import zio.metrics.connectors.statsd.DatagramSocketConfig
@@ -27,7 +24,6 @@ import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Cause, Duration, Scope, Unsafe, ZIO, ZLayer}
 
-import java.sql.DriverManager
 import scala.language.postfixOps
 
 object StreamRunner extends ZIOSpecDefault:
@@ -138,19 +134,14 @@ object StreamRunner extends ZIOSpecDefault:
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
 
         // Start streaming WITHOUT preparing watermark
-        runner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
+        runner <- Common.getTestApp(Duration.fromSeconds(10), streamingStreamContextLayer).fork
         _      <- Common.insertData(dbName, sourceConnection, parsedSpec.sourceSettings.table, streamingData)
 
-        exitVal <- runner.runOrFail(Duration.fromSeconds(10)).exit
+        exitVal <- runner.runOrFail(Duration.fromSeconds(5)).exit
       yield exitVal.causeOption match
-        case Some(cause) =>
-          cause match
-            case Cause.Fail(value, _) =>
-              assertTrue(value.squash.getMessage.contains("Target contains invalid watermark: 'null'"))
-            case _ =>
-              assertTrue(false) // failed, but not via die (unexpected)
-        case _ =>
-          assertTrue(false) // unexpected: it succeeded or timed out
+        case Some(Cause.Fail(value, _)) =>
+          assertTrue(value.squash.getMessage.contains("Target contains invalid watermark: 'null'"))
+        case _ => assertTrue(false) // unexpected: it succeeded or timed out
     },
     test("stream, backfill and stream again successfully") {
       for
@@ -163,23 +154,23 @@ object StreamRunner extends ZIOSpecDefault:
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
 
         // Testing the stream runner in the streaming mode
-        insertRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
+        insertRunner <- Common.getTestApp(Duration.fromSeconds(10), streamingStreamContextLayer).fork
         _            <- Common.insertData(dbName, sourceConnection, parsedSpec.sourceSettings.table, streamingData)
 
-        _ <- insertRunner.runOrFail(Duration.fromSeconds(10))
+        _ <- insertRunner.runOrFail(Duration.fromSeconds(5))
 
         afterStream <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", Common.IntStrDecoder)
 
         // Testing the stream runner in the backfill mode
-        backfillRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, backfillStreamContextLayer).fork
+        backfillRunner <- Common.getTestApp(Duration.fromSeconds(10), backfillStreamContextLayer).fork
         _              <- Common.insertData(dbName, sourceConnection, parsedSpec.sourceSettings.table, backfillData)
 
-        _ <- backfillRunner.runOrFail(Duration.fromSeconds(10))
+        _ <- backfillRunner.runOrFail(Duration.fromSeconds(5))
 
         afterBackfill <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", Common.IntStrDecoder)
 
         // Testing the update and delete operations
-        deleteUpdateRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
+        deleteUpdateRunner <- Common.getTestApp(Duration.fromSeconds(10), streamingStreamContextLayer).fork
         _                  <- Common.updateData(dbName, sourceConnection, parsedSpec.sourceSettings.table, updatedData)
         _                  <- ZIO.sleep(Duration.fromSeconds(5))
         _                  <- Common.deleteData(dbName, sourceConnection, parsedSpec.sourceSettings.table, deletedData)

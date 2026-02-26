@@ -5,7 +5,6 @@ import main.appLayer
 import models.app.SqlServerChangeTrackingStreamContext
 
 import com.sneaksanddata.arcane.framework.services.app.GenericStreamRunnerService
-import com.sneaksanddata.arcane.framework.services.app.base.{InterruptionToken, StreamLifetimeService}
 import com.sneaksanddata.arcane.framework.services.caching.schema_cache.MutableSchemaCache
 import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
 import com.sneaksanddata.arcane.framework.services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager}
@@ -13,7 +12,6 @@ import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClien
 import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import com.sneaksanddata.arcane.framework.services.mssql.*
 import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlReader
-import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
   GenericBackfillStreamingMergeDataProvider,
   GenericBackfillStreamingOverwriteDataProvider
@@ -36,6 +34,8 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.transfor
   FieldFilteringTransformer,
   StagingProcessor
 }
+import com.sneaksanddata.arcane.framework.testkit.appbuilder.TestAppBuilder.buildTestApp
+import com.sneaksanddata.arcane.framework.testkit.streaming.TimeLimitLifetimeService
 import zio.{ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
@@ -45,24 +45,24 @@ import java.time.Duration
   */
 object Common:
 
-  type StreamLifeTimeServiceLayer = ZLayer[Any, Nothing, StreamLifetimeService & InterruptionToken]
-  type StreamContextLayer         = ZLayer[Any, Nothing, SqlServerChangeTrackingStreamContext.Environment]
-
   /** Builds the test application from the provided layers.
-    * @param lifetimeService
-    *   The lifetime service layer.
-    * @param streamContextLayer
-    *   The stream context layer.
     * @return
     *   The test application.
     */
-  def buildTestApp(
-      lifetimeService: StreamLifeTimeServiceLayer,
-      streamContextLayer: StreamContextLayer
-  ): ZIO[Any, Throwable, Unit] =
-    appLayer.provide(
+  def getTestApp(
+      runTimeout: Duration,
+      streamContextLayer: ZLayer[Any, Nothing, SqlServerChangeTrackingStreamContext.Environment]
+  ): ZIO[Any, Throwable, Unit] = {
+    buildTestApp(
+      appLayer,
       streamContextLayer,
-      lifetimeService,
+      MsSqlReader.layer,
+      MsSqlDataProvider.layer,
+      MsSqlStreamingDataProvider.layer,
+      MsSqlHookManager.layer,
+      MsSqlBackfillOverwriteBatchFactory.layer,
+      ColumnSummaryFieldsFilteringService.layer
+    )(
       GenericStreamRunnerService.layer,
       GenericGraphBuilderFactory.composedLayer,
       GenericGroupingTransformer.layer,
@@ -71,25 +71,21 @@ object Common:
       MergeBatchProcessor.layer,
       StagingProcessor.layer,
       FieldsFilteringService.layer,
-      MsSqlReader.layer,
-      MsSqlDataProvider.layer,
       IcebergS3CatalogWriter.layer,
       JdbcMergeServiceClient.layer,
-      MsSqlStreamingDataProvider.layer,
-      MsSqlHookManager.layer,
       ZLayer.succeed(MutableSchemaCache()),
       BackfillApplyBatchProcessor.layer,
       GenericBackfillStreamingOverwriteDataProvider.layer,
       GenericBackfillStreamingMergeDataProvider.layer,
       GenericStreamingGraphBuilder.backfillSubStreamLayer,
-      MsSqlBackfillOverwriteBatchFactory.layer,
-      ColumnSummaryFieldsFilteringService.layer,
       DeclaredMetrics.layer,
       ArcaneDimensionsProvider.layer,
       WatermarkProcessor.layer,
       BackfillOverwriteWatermarkProcessor.layer,
-      IcebergTablePropertyManager.layer
+      IcebergTablePropertyManager.layer,
+      ZLayer.succeed(TimeLimitLifetimeService(runTimeout))
     )
+  }
 
   def getChangeTrackingVersion(dbName: String, connection: Connection): ZIO[Any, Throwable, Long] =
     ZIO.scoped {
