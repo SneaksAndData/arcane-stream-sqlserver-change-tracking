@@ -29,7 +29,7 @@ lazy val plugin = (project in file("."))
     libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test,
     libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.24" % Test,
     libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.24" % Test,
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3"      % "0.0.3" % Test,
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.0.6" % Test,
 
     Test / parallelExecution := false,
 
