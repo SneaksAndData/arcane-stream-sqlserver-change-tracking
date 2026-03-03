@@ -88,10 +88,10 @@ object StreamRunner extends ZIOSpecDefault:
     |    "ruleType": "all",
     |    "fields": []
     |  },
-    |  "observability": {
-    |    "customTags": {
-    |      "sourceRegion": "eu",
-    |      "anotherTag": "something-else"
+    |  "observabilitySettings": {
+    |    "metricTags": {
+    |      "key1": "value1",
+    |      "key2": "value2"
     |    }
     |  }
     |}

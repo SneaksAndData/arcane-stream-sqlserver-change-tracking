@@ -205,11 +205,10 @@ spec:
     # The column names in this list should be normalized (see above).
     sortedBy: []
 
-  # Observability related settings
-  observability:
-
-    # Custom tags to be used for metrics
-    customTags:
-      sourceRegion: eu
-      anotherTag: something-else
+  # enhancements for logging and metrics middleware
+  observabilitySettings:
+    # extra metric tags for ALL metrics emitted from the streaming app
+    metricTags:
+      key1: value0
+      key2: value1
 ```

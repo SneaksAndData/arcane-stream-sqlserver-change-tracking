@@ -292,15 +292,18 @@ spec:
                   default:
                     ruleType: all
                     fields: [ ]
-                observability:
+                observabilitySettings:
                   type: object
-                  description: Observability related settings
+                  description: Configurations for enhancing logs and metrics produced by the plugin application
                   properties:
-                    customTags:
+                    metricTags:
                       type: object
-                      description: Custom tags to be used for metrics
+                      description: Additional tags to be assigned to all emitted metrics
                       additionalProperties:
                         type: string
+                      default: {}
+                  default:
+                    metricTags: {}
             status:
               type: object
               properties:

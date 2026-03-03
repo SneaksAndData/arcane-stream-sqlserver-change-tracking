@@ -151,7 +151,7 @@ case class SqlServerChangeTrackingStreamContext(spec: StreamSpec)
     override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
   }
 
-  override val customTags: Map[String, String] = spec.observability.fold(Map.empty)(_.customTags)
+  override val customTags: Map[String, String] = spec.observabilitySettings.metricTags
 
 given Conversion[SqlServerChangeTrackingStreamContext, ConnectionOptions] with
   def apply(context: SqlServerChangeTrackingStreamContext): ConnectionOptions =
