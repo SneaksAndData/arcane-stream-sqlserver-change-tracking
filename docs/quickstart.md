@@ -67,6 +67,10 @@ spec:
   schema: dbo
   sinkLocation: ${SINK_LOCATION}
   table: ${TABLE}
+  observability:
+    customTags:
+      sourceRegion: eu
+      anotherTag: something-else
   jobTemplateRef:
     apiGroup: streaming.sneaksanddata.com
     kind: StreamingJobTemplate

@@ -87,6 +87,12 @@ object StreamRunner extends ZIOSpecDefault:
     |  "fieldSelectionRule": {
     |    "ruleType": "all",
     |    "fields": []
+    |  },
+    |  "observabilitySettings": {
+    |    "metricTags": {
+    |      "key1": "value1",
+    |      "key2": "value2"
+    |    }
     |  }
     |}
     |

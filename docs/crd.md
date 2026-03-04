@@ -205,4 +205,10 @@ spec:
     # The column names in this list should be normalized (see above).
     sortedBy: []
 
+  # enhancements for logging and metrics middleware
+  observabilitySettings:
+    # extra metric tags for ALL metrics emitted from the streaming app
+    metricTags:
+      key1: value0
+      key2: value1
 ```
