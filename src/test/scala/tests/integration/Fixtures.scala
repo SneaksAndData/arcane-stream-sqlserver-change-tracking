@@ -10,7 +10,7 @@ import scala.concurrent.Future
 
 object Fixtures:
 
-  val connectionString: String      = sys.env("ARCANE__CONNECTIONSTRING")
+  val connectionString: String      = sys.env("ARCANE_FRAMEWORK__MICROSOFT_SQL_SERVER_CONNECTION_URI")
   val trinoConnectionString: String = sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")
 
   def getConnection: Connection =

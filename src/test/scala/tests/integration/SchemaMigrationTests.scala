@@ -8,15 +8,11 @@ import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType
 import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, Field}
 import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import com.sneaksanddata.arcane.framework.testkit.setups.FrameworkTestSetup.prepareWatermark
-import com.sneaksanddata.arcane.framework.testkit.streaming.TimeLimitLifetimeService
 import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.{
   IntStrStrDecoder,
   readTarget
 }
 import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.runOrFail
-import zio.metrics.connectors.MetricsConfig
-import zio.metrics.connectors.datadog.DatadogPublisherConfig
-import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, TestSystem, ZIOSpecDefault, assertTrue}
 import zio.{Duration, Scope, ZIO, ZLayer}
@@ -29,70 +25,134 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
   private val streamContextStr =
     s"""
-       |
-       | {
-       |  "groupingIntervalSeconds": 1,
-       |  "tableProperties": {
-       |    "partitionExpressions": [],
-       |    "format": "PARQUET",
-       |    "sortedBy": [],
-       |    "parquetBloomFilterColumns": []
+       {
+       |  "backfillJobTemplateRef": {
+       |    "apiGroup": "streaming.sneaksanddata.com",
+       |    "kind": "StreamingJobTemplate",
+       |    "name": "arcane-stream-mssql-large-job"
        |  },
-       |  "rowsPerGroup": 10000,
-       |  "sinkSettings": {
-       |    "optimizeSettings": {
-       |      "batchThreshold": 60,
-       |      "fileSizeThreshold": "512MB"
+       |  "jobTemplateRef": {
+       |    "apiGroup": "streaming.sneaksanddata.com",
+       |    "kind": "StreamingJobTemplate",
+       |    "name": "arcane-stream-mssql-standard-job"
+       |  },
+       |  "observability": {
+       |    "metricTags": {}
+       |  },
+       |  "staging": {
+       |    "table": {
+       |      "stagingTablePrefix": "staging_mssql_test",
+       |      "maxRowsPerFile": 10000,
+       |      "stagingCatalogName": "iceberg",
+       |      "stagingSchemaName": "test",
+       |      "isUnifiedSchema": true
        |    },
-       |    "orphanFilesExpirationSettings": {
-       |      "batchThreshold": 60,
-       |      "retentionThreshold": "6h"
-       |    },
-       |    "snapshotExpirationSettings": {
-       |      "batchThreshold": 60,
-       |      "retentionThreshold": "6h"
-       |    },
-       |    "analyzeSettings": {
-       |      "batchThreshold": 60,
-       |      "includedColumns": []
-       |    },
-       |    "targetTableName": "$targetTableName",
-       |    "sinkCatalogSettings": {
+       |    "icebergCatalog": {
+       |      "catalogProperties": {},
+       |      "catalogUri": "http://localhost:20001/catalog",
        |      "namespace": "test",
-       |      "warehouse": "demo",
-       |      "catalogUri": "http://localhost:20001/catalog"
+       |      "warehouse": "demo"
        |    }
        |  },
-       |  "sourceSettings": {
-       |    "changeCaptureIntervalSeconds": 1,
-       |    "commandTimeout": 3600,
-       |    "schema": "dbo",
-       |    "table": "$sourceTableName",
-       |    "fetchSize": 1024
-       |   },
-       |  "stagingDataSettings": {
-       |    "catalog": {
-       |      "warehouse": "demo",
-       |      "catalogName": "iceberg",
-       |      "catalogUri": "http://localhost:20001/catalog",
-       |      "schemaName": "test"
+       |  "streamMode": {
+       |    "backfill": {
+       |      "backfillBehavior": "Overwrite",
+       |      "backfillStartDate": "2026-01-01T00:00:00Z"
        |    },
-       |    "maxRowsPerFile": 1,
-       |    "tableNamePrefix": "staging_integration_tests"
+       |    "changeCapture": {
+       |      "changeCaptureInterval": "5 second",
+       |      "changeCaptureJitterVariance": 0.1,
+       |      "changeCaptureJitterSeed": 0
+       |    }
        |  },
-       |  "fieldSelectionRule": {
-       |    "ruleType": "all",
-       |    "fields": []
+       |  "sink": {
+       |    "mergeServiceClient": {
+       |      "extraConnectionParameters": {
+       |        "clientTags": "test"
+       |      },
+       |      "queryRetryMode": "Never",
+       |      "queryRetryBaseDuration": "100 millisecond",
+       |      "queryRetryOnMessageContents": [],
+       |      "queryRetryScaleFactor": 0.1,
+       |      "queryRetryMaxAttempts": 3
+       |    },
+       |    "targetTableProperties": {
+       |      "format": "PARQUET",
+       |      "sortedBy": [],
+       |      "parquetBloomFilterColumns": []
+       |    },
+       |    "targetTableFullName": "$targetTableName",
+       |    "maintenanceSettings": {
+       |      "targetOptimizeSettings": {
+       |        "batchThreshold": 60,
+       |        "fileSizeThreshold": "512MB"
+       |      },
+       |      "targetOrphanFilesExpirationSettings": {
+       |        "batchThreshold": 60,
+       |        "retentionThreshold": "6h"
+       |      },
+       |      "targetSnapshotExpirationSettings": {
+       |        "batchThreshold": 60,
+       |        "retentionThreshold": "6h"
+       |      },
+       |      "targetAnalyzeSettings": {
+       |        "includedColumns": [],
+       |        "batchThreshold": 60
+       |      }
+       |    },
+       |    "icebergCatalog": {
+       |      "catalogProperties": {},
+       |      "catalogUri": "http://localhost:20001/catalog",
+       |      "namespace": "test",
+       |      "warehouse": "demo"
+       |    }
        |  },
-       |  "observabilitySettings": {
-       |    "metricTags": {
-       |      "key1": "value1",
-       |      "key2": "value2"
+       |  "throughput": {
+       |    "shaperImpl": {
+       |      "memoryBound": {
+       |        "meanStringTypeSizeEstimate": 500,
+       |        "meanObjectTypeSizeEstimate": 4096,
+       |        "burstEstimateDivisionFactor": 2,
+       |        "rateEstimateDivisionFactor": 2,
+       |        "chunkCostScale": 1,
+       |        "chunkCostMax": 10,
+       |        "tableRowCountWeight": 0.5,
+       |        "tableSizeWeight": 0.5,
+       |        "tableSizeScaleFactor": 1
+       |      },
+       |      "static": null
+       |    },
+       |    "advisedRatePeriod": "1 second",
+       |    "advisedChunksBurst": 1,
+       |    "advisedChunkSize": 1,
+       |    "advisedRateChunks": 1
+       |  },
+       |  "source": {
+       |    "configuration": {
+       |      "extraConnectionParameters": {},
+       |      "connectionUrl": null,
+       |      "schemaName": "dbo",
+       |      "tableName": "$sourceTableName",
+       |      "fetchSize": 128
+       |    },
+       |    "buffering": {
+       |      "enabled": false,
+       |      "strategy": {
+       |        "unbounded": null,
+       |        "buffered": null
+       |      }
+       |    },
+       |    "fieldSelectionRule": {
+       |      "essentialFields": [],
+       |      "rule":{
+       |        "all": {},
+       |        "include": null,
+       |        "exclude": null
+       |      },
+       |      "isServerSide": true
        |    }
        |  }
-       |}
-       |
-       |""".stripMargin
+       |}""".stripMargin
 
   private val streamingStreamContext = MicrosoftSqlServerPluginStreamContext(streamContextStr)
   private val streamingStreamContextLayer =
