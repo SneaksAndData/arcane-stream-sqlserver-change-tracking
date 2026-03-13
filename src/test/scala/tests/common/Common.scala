@@ -7,16 +7,36 @@ import models.app.MicrosoftSqlServerPluginStreamContext
 import com.sneaksanddata.arcane.framework.services.app.GenericStreamRunnerService
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
 import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
-import com.sneaksanddata.arcane.framework.services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
+import com.sneaksanddata.arcane.framework.services.iceberg.{
+  IcebergEntityManager,
+  IcebergS3CatalogWriter,
+  IcebergTablePropertyManager
+}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import com.sneaksanddata.arcane.framework.services.mssql.*
 import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlReader
-import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{GenericBackfillStreamingMergeDataProvider, GenericBackfillStreamingOverwriteDataProvider}
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{GenericGraphBuilderFactory, GenericStreamingGraphBuilder}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.{BackfillApplyBatchProcessor, BackfillOverwriteWatermarkProcessor}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, WatermarkProcessor}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
+  GenericBackfillStreamingMergeDataProvider,
+  GenericBackfillStreamingOverwriteDataProvider
+}
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{
+  GenericGraphBuilderFactory,
+  GenericStreamingGraphBuilder
+}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.{
+  BackfillApplyBatchProcessor,
+  BackfillOverwriteWatermarkProcessor
+}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{
+  DisposeBatchProcessor,
+  MergeBatchProcessor,
+  WatermarkProcessor
+}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
+  FieldFilteringTransformer,
+  StagingProcessor
+}
 import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
 import com.sneaksanddata.arcane.framework.testkit.appbuilder.TestAppBuilder.buildTestApp
 import com.sneaksanddata.arcane.framework.testkit.streaming.TimeLimitLifetimeService
@@ -34,9 +54,9 @@ object Common:
     *   The test application.
     */
   def getTestApp(
-                  runDuration: Duration,
-                  streamContextLayer: ZLayer[Any, Nothing, MicrosoftSqlServerPluginStreamContext]
-                ): ZIO[Any, Throwable, Unit] =
+      runDuration: Duration,
+      streamContextLayer: ZLayer[Any, Nothing, MicrosoftSqlServerPluginStreamContext]
+  ): ZIO[Any, Throwable, Unit] =
     buildTestApp(
       appLayer,
       streamContextLayer,
@@ -69,7 +89,8 @@ object Common:
       IcebergEntityManager.sinkLayer,
       IcebergEntityManager.stagingLayer,
       IcebergTablePropertyManager.stagingLayer,
-      IcebergTablePropertyManager.sinkLayer
+      IcebergTablePropertyManager.sinkLayer,
+      ColumnSummaryFieldsFilteringService.layer
     )
 
   def getChangeTrackingVersion(dbName: String, connection: Connection): ZIO[Any, Throwable, Long] =
@@ -275,7 +296,3 @@ object Common:
         _ <- ZIO.attempt(statement.execute())
       yield ()
     }
-
-  val IntStrDecoder: ResultSet => (Int, String) = (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
-  val IntStrStrDecoder: ResultSet => (Int, String, String) = (rs: ResultSet) =>
-    (rs.getInt(1), rs.getString(2), rs.getString(3))

@@ -1,27 +1,27 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package tests.integration
 
-import models.app.{
-  SqlServerChangeTrackingStreamContext,
-  StreamSpec,
-  given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions
-}
+import models.app.MicrosoftSqlServerPluginStreamContext
 import tests.common.Common
+import tests.integration.SchemaMigrationTests.streamContextStr
 
 import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType
 import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, Field}
 import com.sneaksanddata.arcane.framework.services.mssql.*
-import com.sneaksanddata.arcane.framework.services.mssql.base.ConnectionOptions
 import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import com.sneaksanddata.arcane.framework.testkit.setups.FrameworkTestSetup.prepareWatermark
-import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.getWatermark
+import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.{
+  IntStrDecoder,
+  getWatermark,
+  readTarget
+}
 import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.runOrFail
 import org.scalatest.matchers.should.Matchers.should
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
 import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.test.TestAspect.timeout
-import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestAspect, TestEnvironment, TestSystem, ZIOSpecDefault, assertTrue}
 import zio.{Cause, Duration, Scope, Unsafe, ZIO, ZLayer}
 
 import scala.language.postfixOps
@@ -98,31 +98,10 @@ object StreamRunner extends ZIOSpecDefault:
     |
     |""".stripMargin
 
-  private val parsedSpec = StreamSpec.fromString(streamContextStr)
-  private val dbName     = "StreamRunnerTests"
-
-  private val streamingStreamContext = new SqlServerChangeTrackingStreamContext(parsedSpec):
-    override val IsBackfilling: Boolean = false
-    override val sourceConnectionString: String =
-      s"jdbc:sqlserver://localhost:1433;databaseName=$dbName;user=sa;password=tMIxN11yGZgMC;encrypt=false;trustServerCertificate=true"
-
-  private val backfillStreamContext = new SqlServerChangeTrackingStreamContext(parsedSpec):
-    override val IsBackfilling: Boolean = true
-    override val sourceConnectionString: String =
-      s"jdbc:sqlserver://localhost:1433;databaseName=$dbName;user=sa;password=tMIxN11yGZgMC;encrypt=false;trustServerCertificate=true"
-
-  private val streamingStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](streamingStreamContext)
-    ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
-    ++ ZLayer.succeed(DatagramSocketConfig("/var/run/datadog/dsd.socket"))
-    ++ ZLayer.succeed(MetricsConfig(Duration.fromMillis(100)))
-    ++ ZLayer.succeed(DatadogPublisherConfig())
-
-  private val backfillStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](backfillStreamContext)
-    ++ ZLayer.succeed[ConnectionOptions](backfillStreamContext)
-    ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
-    ++ ZLayer.succeed(DatagramSocketConfig("/var/run/datadog/dsd.socket"))
-    ++ ZLayer.succeed(MetricsConfig(Duration.fromMillis(100)))
-    ++ ZLayer.succeed(DatadogPublisherConfig())
+  private val streamingStreamContext = MicrosoftSqlServerPluginStreamContext(streamContextStr)
+  private val streamingStreamContextLayer =
+    ZLayer.succeed[MicrosoftSqlServerPluginStreamContext](streamingStreamContext)
+  private val dbName = "StreamRunnerTests"
 
   private val streamingData = List.range(1, 3).map(i => (i, s"Test$i"))
   private val backfillData  = List.range(4, 7).map(i => (i, s"Test$i"))
@@ -137,11 +116,20 @@ object StreamRunner extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
     test("fail stream when watermark is not set") {
       for
+        _ <- TestSystem.putEnv(
+          "ARCANE_FRAMEWORK__MICROSOFT_SQL_SERVER_CONNECTION_URI",
+          s"jdbc:sqlserver://localhost:1433;databaseName=$dbName;user=sa;password=tMIxN11yGZgMC;encrypt=false;trustServerCertificate=true"
+        )
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
 
         // Start streaming WITHOUT preparing watermark
         runner <- Common.getTestApp(Duration.fromSeconds(10), streamingStreamContextLayer).fork
-        _      <- Common.insertData(dbName, sourceConnection, parsedSpec.sourceSettings.table, streamingData)
+        _ <- Common.insertData(
+          dbName,
+          sourceConnection,
+          streamingStreamContext.source.configuration.tableName,
+          streamingData
+        )
 
         exitVal <- runner.runOrFail(Duration.fromSeconds(5)).exit
       yield exitVal.causeOption match
@@ -151,6 +139,10 @@ object StreamRunner extends ZIOSpecDefault:
     },
     test("stream, backfill and stream again successfully") {
       for
+        _ <- TestSystem.putEnv(
+          "ARCANE_FRAMEWORK__MICROSOFT_SQL_SERVER_CONNECTION_URI",
+          s"jdbc:sqlserver://localhost:1433;databaseName=$dbName;user=sa;password=tMIxN11yGZgMC;encrypt=false;trustServerCertificate=true"
+        )
         _ <- prepareWatermark(
           targetTableName.split("\\.").last,
           ArcaneSchema(Seq(Field("test", StringType))),
@@ -161,35 +153,58 @@ object StreamRunner extends ZIOSpecDefault:
 
         // Testing the stream runner in the streaming mode
         insertRunner <- Common.getTestApp(Duration.fromSeconds(10), streamingStreamContextLayer).fork
-        _            <- Common.insertData(dbName, sourceConnection, parsedSpec.sourceSettings.table, streamingData)
+        _ <- Common.insertData(
+          dbName,
+          sourceConnection,
+          streamingStreamContext.source.configuration.tableName,
+          streamingData
+        )
 
         _ <- insertRunner.runOrFail(Duration.fromSeconds(5))
 
-        afterStream <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", Common.IntStrDecoder)
+        afterStream <- readTarget(streamingStreamContext.sink.targetTableFullName, "Id, Name", IntStrDecoder)
+
+        _ <- TestSystem.putEnv("STREAMCONTEXT__BACKFILL", "true")
 
         // Testing the stream runner in the backfill mode
-        backfillRunner <- Common.getTestApp(Duration.fromSeconds(10), backfillStreamContextLayer).fork
-        _              <- Common.insertData(dbName, sourceConnection, parsedSpec.sourceSettings.table, backfillData)
+        backfillRunner <- Common.getTestApp(Duration.fromSeconds(10), streamingStreamContextLayer).fork
+        _ <- Common.insertData(
+          dbName,
+          sourceConnection,
+          streamingStreamContext.source.configuration.tableName,
+          backfillData
+        )
 
         _ <- backfillRunner.runOrFail(Duration.fromSeconds(5))
 
-        afterBackfill <- Common.getData(streamingStreamContext.targetTableFullName, "Id, Name", Common.IntStrDecoder)
+        afterBackfill <- readTarget(streamingStreamContext.sink.targetTableFullName, "Id, Name", IntStrDecoder)
 
+        _ <- TestSystem.putEnv("STREAMCONTEXT__BACKFILL", "false")
         // Testing the update and delete operations
         deleteUpdateRunner <- Common.getTestApp(Duration.fromSeconds(10), streamingStreamContextLayer).fork
-        _                  <- Common.updateData(dbName, sourceConnection, parsedSpec.sourceSettings.table, updatedData)
-        _                  <- ZIO.sleep(Duration.fromSeconds(5))
-        _                  <- Common.deleteData(dbName, sourceConnection, parsedSpec.sourceSettings.table, deletedData)
+        _ <- Common.updateData(
+          dbName,
+          sourceConnection,
+          streamingStreamContext.source.configuration.tableName,
+          updatedData
+        )
+        _ <- ZIO.sleep(Duration.fromSeconds(5))
+        _ <- Common.deleteData(
+          dbName,
+          sourceConnection,
+          streamingStreamContext.source.configuration.tableName,
+          deletedData
+        )
 
         _ <- deleteUpdateRunner.runOrFail(Duration.fromSeconds(10))
 
-        afterUpdateDelete <- Common.getData(
-          streamingStreamContext.targetTableFullName,
+        afterUpdateDelete <- readTarget(
+          streamingStreamContext.sink.targetTableFullName,
           "Id, Name",
-          Common.IntStrDecoder
+          IntStrDecoder
         )
 
-        watermark     <- getWatermark(streamingStreamContext.targetTableFullName.split('.').last)(MsSqlWatermark.rw)
+        watermark <- getWatermark(streamingStreamContext.sink.targetTableFullName.split('.').last)(MsSqlWatermark.rw)
         latestVersion <- Common.getChangeTrackingVersion(dbName, sourceConnection)
       yield assertTrue(afterStream.sorted == streamingData.sorted) implies assertTrue(
         afterBackfill.sorted == (streamingData ++ backfillData).sorted

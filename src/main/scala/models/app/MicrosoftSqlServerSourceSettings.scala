@@ -7,8 +7,8 @@ import com.sneaksanddata.arcane.framework.models.settings.sources.{DefaultSource
 import upickle.ReadWriter
 
 case class MicrosoftSqlServerSourceSettings(
-                                        override val buffering: DefaultSourceBufferingSettings,
-                                        override val fieldSelectionRule: DefaultFieldSelectionRuleSettings,
-                                        override val configuration: DefaultMsSqlServerDatabaseSourceSettings
-                                      ) extends StreamSourceSettings derives ReadWriter:
+    override val buffering: DefaultSourceBufferingSettings,
+    override val fieldSelectionRule: DefaultFieldSelectionRuleSettings,
+    override val configuration: DefaultMsSqlServerDatabaseSourceSettings
+) extends StreamSourceSettings derives ReadWriter:
   override type SourceSettingsType = DefaultMsSqlServerDatabaseSourceSettings

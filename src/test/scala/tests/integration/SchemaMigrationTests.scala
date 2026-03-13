@@ -1,25 +1,24 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package tests.integration
 
-import models.app.{
-  SqlServerChangeTrackingStreamContext,
-  StreamSpec,
-  given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions
-}
+import models.app.MicrosoftSqlServerPluginStreamContext
 import tests.common.Common
 
 import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType
 import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, Field}
-import com.sneaksanddata.arcane.framework.services.mssql.base.ConnectionOptions
 import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import com.sneaksanddata.arcane.framework.testkit.setups.FrameworkTestSetup.prepareWatermark
 import com.sneaksanddata.arcane.framework.testkit.streaming.TimeLimitLifetimeService
+import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.{
+  IntStrStrDecoder,
+  readTarget
+}
 import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.runOrFail
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
 import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.test.TestAspect.timeout
-import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestAspect, TestEnvironment, TestSystem, ZIOSpecDefault, assertTrue}
 import zio.{Duration, Scope, ZIO, ZLayer}
 
 import java.sql.ResultSet
@@ -95,19 +94,10 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |
        |""".stripMargin
 
-  private val parsedSpec = StreamSpec.fromString(streamContextStr)
-  private val dbName     = "SchemaMigrationTests"
-
-  private val streamingStreamContext = new SqlServerChangeTrackingStreamContext(parsedSpec):
-    override val IsBackfilling: Boolean = false
-    override val sourceConnectionString: String =
-      s"jdbc:sqlserver://localhost:1433;databaseName=$dbName;user=sa;password=tMIxN11yGZgMC;encrypt=false;trustServerCertificate=true"
-
-  private val streamingStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](streamingStreamContext)
-    ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
-    ++ ZLayer.succeed(DatagramSocketConfig("/var/run/datadog/dsd.socket"))
-    ++ ZLayer.succeed(MetricsConfig(Duration.fromMillis(100)))
-    ++ ZLayer.succeed(DatadogPublisherConfig())
+  private val streamingStreamContext = MicrosoftSqlServerPluginStreamContext(streamContextStr)
+  private val streamingStreamContextLayer =
+    ZLayer.succeed[MicrosoftSqlServerPluginStreamContext](streamingStreamContext)
+  private val dbName = "SchemaMigrationTests"
 
   private def before = TestAspect.before(Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName))
 
@@ -120,6 +110,10 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         ++ List.range(4, 7).map(i => (i, s"Test$i", s"Updated $i"))
 
       for {
+        _ <- TestSystem.putEnv(
+          "ARCANE_FRAMEWORK__MICROSOFT_SQL_SERVER_CONNECTION_URI",
+          s"jdbc:sqlserver://localhost:1433;databaseName=$dbName;user=sa;password=tMIxN11yGZgMC;encrypt=false;trustServerCertificate=true"
+        )
         _ <- prepareWatermark(
           targetTableName.split("\\.").last,
           ArcaneSchema(Seq(Field("test", StringType))),
@@ -145,8 +139,8 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         _ <- streamRunner.runOrFail(Duration.fromSeconds(10))
 
         // read target table after schema migration
-        afterStream <- Common.getData(
-          streamingStreamContext.targetTableFullName,
+        afterStream <- readTarget(
+          streamingStreamContext.sink.targetTableFullName,
           "Id, Name, NewName",
           (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
         )
@@ -161,6 +155,10 @@ object SchemaMigrationTests extends ZIOSpecDefault:
       val afterEvolutionExpected = streamingData ++ List.range(4, 7).map(i => (i, s"Test$i", null))
 
       for {
+        _ <- TestSystem.putEnv(
+          "ARCANE_FRAMEWORK__MICROSOFT_SQL_SERVER_CONNECTION_URI",
+          s"jdbc:sqlserver://localhost:1433;databaseName=$dbName;user=sa;password=tMIxN11yGZgMC;encrypt=false;trustServerCertificate=true"
+        )
         _ <- prepareWatermark(
           targetTableName.split("\\.").last,
           ArcaneSchema(Seq(Field("test", StringType))),
@@ -182,10 +180,10 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
         _ <- streamRunner.runOrFail(Duration.fromSeconds(10))
 
-        afterEvolution <- Common.getData(
-          streamingStreamContext.targetTableFullName,
+        afterEvolution <- readTarget(
+          streamingStreamContext.sink.targetTableFullName,
           "Id, Name, NewName",
-          Common.IntStrStrDecoder
+          IntStrStrDecoder
         )
 
       } yield assertTrue(

@@ -5,7 +5,10 @@ import com.sneaksanddata.arcane.framework.models.app.{DefaultPluginStreamContext
 import com.sneaksanddata.arcane.framework.models.settings.observability.DefaultObservabilitySettings
 import com.sneaksanddata.arcane.framework.models.settings.sink.DefaultSinkSettings
 import com.sneaksanddata.arcane.framework.models.settings.staging.DefaultStagingSettings
-import com.sneaksanddata.arcane.framework.models.settings.streaming.{DefaultStreamModeSettings, DefaultThroughputSettings}
+import com.sneaksanddata.arcane.framework.models.settings.streaming.{
+  DefaultStreamModeSettings,
+  DefaultThroughputSettings
+}
 import upickle.ReadWriter
 import upickle.implicits.key
 import zio.ZLayer
@@ -13,27 +16,26 @@ import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
 import zio.metrics.connectors.statsd.DatagramSocketConfig
 
-
 /** The specification for the stream.
- */
+  */
 case class MicrosoftSqlServerPluginStreamContext(
-                                       @key("observability") private val observabilityIn: DefaultObservabilitySettings,
-                                       @key("staging") private val stagingIn: DefaultStagingSettings,
-                                       @key("streamMode") private val streamModeIn: DefaultStreamModeSettings,
-                                       @key("sink") private val sinkIn: DefaultSinkSettings,
-                                       @key("throughput") private val throughputIn: DefaultThroughputSettings,
-                                       override val source: MicrosoftSqlServerSourceSettings
-                                     ) extends DefaultPluginStreamContext(observabilityIn, stagingIn, streamModeIn, sinkIn, throughputIn) derives ReadWriter:
+    @key("observability") private val observabilityIn: DefaultObservabilitySettings,
+    @key("staging") private val stagingIn: DefaultStagingSettings,
+    @key("streamMode") private val streamModeIn: DefaultStreamModeSettings,
+    @key("sink") private val sinkIn: DefaultSinkSettings,
+    @key("throughput") private val throughputIn: DefaultThroughputSettings,
+    override val source: MicrosoftSqlServerSourceSettings
+) extends DefaultPluginStreamContext(observabilityIn, stagingIn, streamModeIn, sinkIn, throughputIn) derives ReadWriter:
   // TODO: should be implemented when Operator supports overrides
   override def merge(other: Option[PluginStreamContext]): PluginStreamContext = this
 
 object MicrosoftSqlServerPluginStreamContext:
-  def apply(value: String): MicrosoftSqlServerPluginStreamContext = PluginStreamContext[MicrosoftSqlServerPluginStreamContext](value)
+  def apply(value: String): MicrosoftSqlServerPluginStreamContext =
+    PluginStreamContext[MicrosoftSqlServerPluginStreamContext](value)
 
   lazy val layer
-  : ZLayer[Any, Throwable, PluginStreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig] =
+      : ZLayer[Any, Throwable, PluginStreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig] =
     PluginStreamContext.getLayer[MicrosoftSqlServerPluginStreamContext]
-
 
 //
 //  val sourceConnectionString: String = sys.env("ARCANE__CONNECTIONSTRING")
