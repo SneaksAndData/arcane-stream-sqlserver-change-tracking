@@ -36,19 +36,3 @@ object MicrosoftSqlServerPluginStreamContext:
   lazy val layer
       : ZLayer[Any, Throwable, PluginStreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig] =
     PluginStreamContext.getLayer[MicrosoftSqlServerPluginStreamContext]
-
-//
-//  val sourceConnectionString: String = sys.env("ARCANE__CONNECTIONSTRING")
-//
-//  override val isServerSide: Boolean = true
-//
-//  override val essentialFields: Set[String] =
-//    Set("sys_change_version", "sys_change_operation", "changetrackingversion", "arcane_merge_key")
-//
-//  override val backfillBehavior: BackfillBehavior = BackfillBehavior.Overwrite
-//
-//  /** SQL Server stream always emits the same schema. Schema change normally causes CDC to break. There are, however,
-//    * cases when this doesn't seem to happen - to be investigated.
-//    */
-//  val isUnifiedSchema: Boolean = true
-//
