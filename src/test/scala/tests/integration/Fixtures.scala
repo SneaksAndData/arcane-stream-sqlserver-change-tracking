@@ -1,17 +1,26 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package tests.integration
 
+import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.{IntType, StringType}
+import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, IndexedField, IndexedMergeKeyField}
 import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.clearTarget
-import org.scalatest.Assertion
 import zio.ZIO
 
 import java.sql.{Connection, DriverManager}
-import scala.concurrent.Future
 
 object Fixtures:
 
-  val connectionString: String      = sys.env("ARCANE_FRAMEWORK__MICROSOFT_SQL_SERVER_CONNECTION_URI")
-  val trinoConnectionString: String = sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")
+  val connectionString: String =
+    "jdbc:sqlserver://localhost:1433;user=sa;password=tMIxN11yGZgMC;encrypt=false;trustServerCertificate=true"
+  val trinoConnectionString: String = "jdbc:trino://localhost:8080/iceberg/test?user=test"
+
+  val initialSchema: ArcaneSchema = ArcaneSchema(
+    Seq(
+      IndexedField(name = "Id", fieldType = IntType, fieldId = 1),
+      IndexedField(name = "Name", fieldType = StringType, fieldId = 2),
+      IndexedMergeKeyField(3)
+    )
+  )
 
   def getConnection: Connection =
     DriverManager.getConnection(connectionString)
