@@ -62,7 +62,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |      "catalogUri": "http://localhost:20001/catalog",
        |      "namespace": "test",
        |      "warehouse": "demo",
-       |      "maxCatalogInstanceLifetime": "3 second"
+       |      "maxCatalogInstanceLifetime": "3600 second"
        |    }
        |  },
        |  "streamMode": {
@@ -116,18 +116,18 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |      "catalogUri": "http://localhost:20001/catalog",
        |      "namespace": "test",
        |      "warehouse": "demo",
-       |      "maxCatalogInstanceLifetime": "3 second"
+       |      "maxCatalogInstanceLifetime": "3600 second"
        |    }
        |  },
        |  "throughput": {
        |    "shaperImpl": {
        |      "memoryBound": {
-       |        "meanStringTypeSizeEstimate": 500,
+       |        "meanStringTypeSizeEstimate": 50,
        |        "meanObjectTypeSizeEstimate": 4096,
        |        "burstEstimateDivisionFactor": 2,
        |        "rateEstimateDivisionFactor": 2,
        |        "chunkCostScale": 1,
-       |        "chunkCostMax": 10,
+       |        "chunkCostMax": 2,
        |        "tableRowCountWeight": 0.5,
        |        "tableSizeWeight": 0.5,
        |        "tableSizeScaleFactor": 1
