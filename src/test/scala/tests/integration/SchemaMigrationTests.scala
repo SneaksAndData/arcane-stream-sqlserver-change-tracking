@@ -3,20 +3,21 @@ package tests.integration
 
 import models.app.MicrosoftSqlServerPluginStreamContext
 import tests.common.Common
+import tests.integration.Fixtures.initialSchema
 
 import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType
 import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, Field}
+import com.sneaksanddata.arcane.framework.services.iceberg.base.SinkEntityManager
 import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
-import com.sneaksanddata.arcane.framework.testkit.iceberg.{TestEntityManager, TestPropertyManager}
+import com.sneaksanddata.arcane.framework.testkit.iceberg.TestEntityManager
 import com.sneaksanddata.arcane.framework.testkit.setups.FrameworkTestSetup.prepareWatermark
 import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.{
   IntStrStrDecoder,
   readTarget
 }
 import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.runOrFail
-import com.sneaksanddata.arcane.sql_server_change_tracking.tests.integration.Fixtures.initialSchema
 import zio.test.TestAspect.timeout
-import zio.test.{Spec, TestAspect, TestEnvironment, TestSystem, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Duration, Scope, ZIO, ZLayer}
 
 import java.sql.ResultSet
@@ -60,7 +61,8 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |      "catalogProperties": {},
        |      "catalogUri": "http://localhost:20001/catalog",
        |      "namespace": "test",
-       |      "warehouse": "demo"
+       |      "warehouse": "demo",
+       |      "maxCatalogInstanceLifetime": "3 second"
        |    }
        |  },
        |  "streamMode": {
@@ -113,7 +115,8 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |      "catalogProperties": {},
        |      "catalogUri": "http://localhost:20001/catalog",
        |      "namespace": "test",
-       |      "warehouse": "demo"
+       |      "warehouse": "demo",
+       |      "maxCatalogInstanceLifetime": "3 second"
        |    }
        |  },
        |  "throughput": {
@@ -177,8 +180,8 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
       for {
         context <- ZIO.succeed(getStreamContext)
-        fakeSchema    = ArcaneSchema(Seq(Field("test", StringType)))
-        entityManager = TestEntityManager.sinkEntityManager()
+        fakeSchema = ArcaneSchema(Seq(Field("test", StringType)))
+        entityManager <- ZIO.service[SinkEntityManager]
         _ <- prepareWatermark(
           targetTableName.split("\\.").last,
           fakeSchema,
@@ -214,7 +217,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
       } yield assertTrue(
         afterStream.sorted == afterEvolutionExpected
       )
-    },
+    }.provideLayer(TestEntityManager.sinkEntityManagerLayer),
     test("handle the schema migration (column deletions)") {
       val streamingData  = List.range(1, 4).map(i => (i, s"Test$i", s"Updated $i"))
       val afterEvolution = List.range(4, 7).map(i => (i, s"Test$i"))
@@ -223,8 +226,8 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
       for {
         context <- ZIO.succeed(getStreamContext)
-        fakeSchema    = ArcaneSchema(Seq(Field("test", StringType)))
-        entityManager = TestEntityManager.sinkEntityManager()
+        fakeSchema = ArcaneSchema(Seq(Field("test", StringType)))
+        entityManager <- ZIO.service[SinkEntityManager]
         _ <- prepareWatermark(
           targetTableName.split("\\.").last,
           fakeSchema,
@@ -257,5 +260,5 @@ object SchemaMigrationTests extends ZIOSpecDefault:
       } yield assertTrue(
         afterEvolution.sorted == afterEvolutionExpected
       )
-    }
+    }.provideLayer(TestEntityManager.sinkEntityManagerLayer)
   ) @@ before @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock @@ TestAspect.sequential

@@ -54,7 +54,8 @@ object StreamRunner extends ZIOSpecDefault:
                                     |      "catalogProperties": {},
                                     |      "catalogUri": "http://localhost:20001/catalog",
                                     |      "namespace": "test",
-                                    |      "warehouse": "demo"
+                                    |      "warehouse": "demo",
+                                    |      "maxCatalogInstanceLifetime": "3600 second"
                                     |    }
                                     |  },
                                     |  "streamMode": {
@@ -107,7 +108,8 @@ object StreamRunner extends ZIOSpecDefault:
                                     |      "catalogProperties": {},
                                     |      "catalogUri": "http://localhost:20001/catalog",
                                     |      "namespace": "test",
-                                    |      "warehouse": "demo"
+                                    |      "warehouse": "demo",
+                                    |      "maxCatalogInstanceLifetime": "3600 second"
                                     |    }
                                     |  },
                                     |  "throughput": {

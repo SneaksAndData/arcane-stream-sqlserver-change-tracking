@@ -18,7 +18,7 @@ jobs:
 
       checks: write       # required for cobertura-action
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Setup Scala
         uses: japgolly/setup-everything-scala@v3.1
         with:
