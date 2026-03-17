@@ -117,7 +117,7 @@ object StreamRunner extends ZIOSpecDefault:
                                     |        "meanObjectTypeSizeEstimate": 4096,
                                     |        "burstEstimateDivisionFactor": 2,
                                     |        "rateEstimateDivisionFactor": 2,
-                                    |        "chunkCostScale": 1,
+                                    |        "chunkCostScale": 8,
                                     |        "chunkCostMax": 10,
                                     |        "tableRowCountWeight": 0.5,
                                     |        "tableSizeWeight": 0.5,
