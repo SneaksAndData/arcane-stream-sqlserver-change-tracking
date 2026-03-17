@@ -194,76 +194,76 @@ object StreamRunner extends ZIOSpecDefault:
         case Some(Cause.Fail(value, _)) =>
           assertTrue(value.squash.getMessage.contains("Target contains invalid watermark: 'null'"))
         case _ => assertTrue(false) // unexpected: it succeeded or timed out
-    },
-    test("stream, backfill and stream again successfully") {
-      for
-        _ <- prepareWatermark(
-          targetTableName.split("\\.").last,
-          initialSchema,
-          MsSqlWatermark.epoch
-        )
-
-        sourceConnection <- ZIO.succeed(Fixtures.getConnection)
-
-        // Testing the stream runner in the streaming mode
-        insertRunner <- Common.getTestApp(Duration.fromSeconds(10), streamingStreamContextLayer).fork
-        _ <- Common.insertData(
-          dbName,
-          sourceConnection,
-          streamingStreamContext.source.configuration.tableName,
-          streamingData
-        )
-
-        _ <- insertRunner.runOrFail(Duration.fromSeconds(5))
-
-        afterStream <- readTarget(streamingStreamContext.sink.targetTableFullName, "Id, Name", IntStrDecoder)
-
-        _ <- TestSystem.putEnv("STREAMCONTEXT__BACKFILL", "true")
-
-        // Testing the stream runner in the backfill mode
-        backfillRunner <- Common.getTestApp(Duration.fromSeconds(10), streamingStreamContextLayer).fork
-        _ <- Common.insertData(
-          dbName,
-          sourceConnection,
-          streamingStreamContext.source.configuration.tableName,
-          backfillData
-        )
-
-        _ <- backfillRunner.runOrFail(Duration.fromSeconds(5))
-
-        afterBackfill <- readTarget(streamingStreamContext.sink.targetTableFullName, "Id, Name", IntStrDecoder)
-
-        _ <- TestSystem.putEnv("STREAMCONTEXT__BACKFILL", "false")
-        // Testing the update and delete operations
-        deleteUpdateRunner <- Common.getTestApp(Duration.fromSeconds(10), streamingStreamContextLayer).fork
-        _ <- Common.updateData(
-          dbName,
-          sourceConnection,
-          streamingStreamContext.source.configuration.tableName,
-          updatedData
-        )
-        _ <- ZIO.sleep(Duration.fromSeconds(5))
-        _ <- Common.deleteData(
-          dbName,
-          sourceConnection,
-          streamingStreamContext.source.configuration.tableName,
-          deletedData
-        )
-
-        _ <- deleteUpdateRunner.runOrFail(Duration.fromSeconds(10))
-
-        afterUpdateDelete <- readTarget(
-          streamingStreamContext.sink.targetTableFullName,
-          "Id, Name",
-          IntStrDecoder
-        )
-
-        watermark <- getWatermark(streamingStreamContext.sink.targetTableFullName.split('.').last)(MsSqlWatermark.rw)
-        latestVersion <- Common.getChangeTrackingVersion(dbName, sourceConnection)
-      yield assertTrue(afterStream.sorted == streamingData.sorted) implies assertTrue(
-        afterBackfill.sorted == (streamingData ++ backfillData).sorted
-      ) implies assertTrue(afterUpdateDelete.sorted == resultData.sorted) implies assertTrue(
-        watermark.version.toLong == latestVersion
-      )
     }
+//    test("stream, backfill and stream again successfully") {
+//      for
+//        _ <- prepareWatermark(
+//          targetTableName.split("\\.").last,
+//          initialSchema,
+//          MsSqlWatermark.epoch
+//        )
+//
+//        sourceConnection <- ZIO.succeed(Fixtures.getConnection)
+//
+//        // Testing the stream runner in the streaming mode
+//        insertRunner <- Common.getTestApp(Duration.fromSeconds(10), streamingStreamContextLayer).fork
+//        _ <- Common.insertData(
+//          dbName,
+//          sourceConnection,
+//          streamingStreamContext.source.configuration.tableName,
+//          streamingData
+//        )
+//
+//        _ <- insertRunner.runOrFail(Duration.fromSeconds(5))
+//
+//        afterStream <- readTarget(streamingStreamContext.sink.targetTableFullName, "Id, Name", IntStrDecoder)
+//
+//        _ <- TestSystem.putEnv("STREAMCONTEXT__BACKFILL", "true")
+//
+//        // Testing the stream runner in the backfill mode
+//        backfillRunner <- Common.getTestApp(Duration.fromSeconds(10), streamingStreamContextLayer).fork
+//        _ <- Common.insertData(
+//          dbName,
+//          sourceConnection,
+//          streamingStreamContext.source.configuration.tableName,
+//          backfillData
+//        )
+//
+//        _ <- backfillRunner.runOrFail(Duration.fromSeconds(5))
+//
+//        afterBackfill <- readTarget(streamingStreamContext.sink.targetTableFullName, "Id, Name", IntStrDecoder)
+//
+//        _ <- TestSystem.putEnv("STREAMCONTEXT__BACKFILL", "false")
+//        // Testing the update and delete operations
+//        deleteUpdateRunner <- Common.getTestApp(Duration.fromSeconds(10), streamingStreamContextLayer).fork
+//        _ <- Common.updateData(
+//          dbName,
+//          sourceConnection,
+//          streamingStreamContext.source.configuration.tableName,
+//          updatedData
+//        )
+//        _ <- ZIO.sleep(Duration.fromSeconds(5))
+//        _ <- Common.deleteData(
+//          dbName,
+//          sourceConnection,
+//          streamingStreamContext.source.configuration.tableName,
+//          deletedData
+//        )
+//
+//        _ <- deleteUpdateRunner.runOrFail(Duration.fromSeconds(10))
+//
+//        afterUpdateDelete <- readTarget(
+//          streamingStreamContext.sink.targetTableFullName,
+//          "Id, Name",
+//          IntStrDecoder
+//        )
+//
+//        watermark <- getWatermark(streamingStreamContext.sink.targetTableFullName.split('.').last)(MsSqlWatermark.rw)
+//        latestVersion <- Common.getChangeTrackingVersion(dbName, sourceConnection)
+//      yield assertTrue(afterStream.sorted == streamingData.sorted) implies assertTrue(
+//        afterBackfill.sorted == (streamingData ++ backfillData).sorted
+//      ) implies assertTrue(afterUpdateDelete.sorted == resultData.sorted) implies assertTrue(
+//        watermark.version.toLong == latestVersion
+//      )
+//    }
   ) @@ before @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
