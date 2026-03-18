@@ -1,18 +1,21 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 
-import models.app.SqlServerChangeTrackingStreamContext
+import models.app.MicrosoftSqlServerPluginStreamContext
 
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
-import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
+import com.sneaksanddata.arcane.framework.models.schemas.ArcaneSchema
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
 import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, PosixStreamLifetimeService}
-import com.sneaksanddata.arcane.framework.services.caching.schema_cache.MutableSchemaCache
+import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
+import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
 import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
-import com.sneaksanddata.arcane.framework.services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager}
+import com.sneaksanddata.arcane.framework.services.iceberg.{
+  IcebergEntityManager,
+  IcebergS3CatalogWriter,
+  IcebergTablePropertyManager
+}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
-import com.sneaksanddata.arcane.framework.services.metrics.DataDog.Environment
-import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DataDog, DeclaredMetrics}
+import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import com.sneaksanddata.arcane.framework.services.mssql.*
 import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlReader
 import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
@@ -23,7 +26,6 @@ import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{
   GenericGraphBuilderFactory,
   GenericStreamingGraphBuilder
 }
-import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericGroupingTransformer
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.{
   BackfillApplyBatchProcessor,
   BackfillOverwriteWatermarkProcessor
@@ -37,11 +39,13 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.transfor
   FieldFilteringTransformer,
   StagingProcessor
 }
+import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
 import zio.logging.backend.SLF4J
-import zio.metrics.connectors.{MetricsConfig, datadog}
+import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
-import zio.metrics.connectors.statsd.{DatagramSocketConfig, StatsdClient, statsdUDS}
-import zio.{Runtime, URLayer, ZIO, ZIOAppDefault, ZLayer}
+import zio.metrics.connectors.statsd.DatagramSocketConfig
+import zio.metrics.jvm.DefaultJvmMetrics
+import zio.{Runtime, ZIO, ZIOAppDefault, ZLayer}
 
 object main extends ZIOAppDefault {
 
@@ -53,24 +57,29 @@ object main extends ZIOAppDefault {
     _            <- streamRunner.run
   yield ()
 
+  val msSqlReaderLayer: ZLayer[MsSqlReader.Environment, Nothing, MsSqlReader & SchemaProvider[ArcaneSchema]] =
+    MsSqlReader.getLayer(context => context.asInstanceOf[MicrosoftSqlServerPluginStreamContext].source.configuration)
+
   private lazy val streamRunner = appLayer.provide(
     GenericStreamRunnerService.layer,
     GenericGraphBuilderFactory.composedLayer,
-    GenericGroupingTransformer.layer,
     DisposeBatchProcessor.layer,
     FieldFilteringTransformer.layer,
     MergeBatchProcessor.layer,
     StagingProcessor.layer,
     FieldsFilteringService.layer,
-    SqlServerChangeTrackingStreamContext.layer,
+    msSqlReaderLayer,
+    MicrosoftSqlServerPluginStreamContext.layer,
     PosixStreamLifetimeService.layer,
-    MsSqlReader.layer,
     MsSqlDataProvider.layer,
     IcebergS3CatalogWriter.layer,
+    IcebergEntityManager.sinkLayer,
+    IcebergEntityManager.stagingLayer,
+    IcebergTablePropertyManager.stagingLayer,
+    IcebergTablePropertyManager.sinkLayer,
     JdbcMergeServiceClient.layer,
     MsSqlStreamingDataProvider.layer,
     MsSqlHookManager.layer,
-    ZLayer.succeed(MutableSchemaCache()),
     BackfillApplyBatchProcessor.layer,
     GenericBackfillStreamingOverwriteDataProvider.layer,
     GenericBackfillStreamingMergeDataProvider.layer,
@@ -80,9 +89,10 @@ object main extends ZIOAppDefault {
     DeclaredMetrics.layer,
     WatermarkProcessor.layer,
     BackfillOverwriteWatermarkProcessor.layer,
+    DefaultStreamBootstrapper.layer,
+    ThroughputShaperBuilder.layer,
     ArcaneDimensionsProvider.layer,
-    DataDog.UdsPublisher.layer,
-    IcebergTablePropertyManager.layer
+    DefaultJvmMetrics.liveV2.unit
   )
 
   @main

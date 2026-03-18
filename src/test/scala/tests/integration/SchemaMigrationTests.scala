@@ -1,23 +1,21 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package tests.integration
 
-import models.app.{
-  SqlServerChangeTrackingStreamContext,
-  StreamSpec,
-  given_Conversion_SqlServerChangeTrackingStreamContext_ConnectionOptions
-}
+import models.app.MicrosoftSqlServerPluginStreamContext
 import tests.common.Common
+import tests.integration.Fixtures.initialSchema
 
 import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType
 import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, Field}
-import com.sneaksanddata.arcane.framework.services.mssql.base.ConnectionOptions
+import com.sneaksanddata.arcane.framework.services.iceberg.base.SinkEntityManager
 import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
+import com.sneaksanddata.arcane.framework.testkit.iceberg.TestEntityManager
 import com.sneaksanddata.arcane.framework.testkit.setups.FrameworkTestSetup.prepareWatermark
-import com.sneaksanddata.arcane.framework.testkit.streaming.TimeLimitLifetimeService
+import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.{
+  IntStrStrDecoder,
+  readTarget
+}
 import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.runOrFail
-import zio.metrics.connectors.MetricsConfig
-import zio.metrics.connectors.datadog.DatadogPublisherConfig
-import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Duration, Scope, ZIO, ZLayer}
@@ -28,86 +26,147 @@ object SchemaMigrationTests extends ZIOSpecDefault:
   val sourceTableName = "SchemaEvolutionTests"
   val targetTableName = "iceberg.test.schema_evolution"
 
+  private def getStreamContext = MicrosoftSqlServerPluginStreamContext(streamContextStr)
+
+  private def getStreamContextLayer =
+    ZLayer.succeed[MicrosoftSqlServerPluginStreamContext](getStreamContext)
+
+  private val dbName = "SchemaMigrationTests"
+
   private val streamContextStr =
     s"""
-       |
-       | {
-       |  "groupingIntervalSeconds": 1,
-       |  "tableProperties": {
-       |    "partitionExpressions": [],
-       |    "format": "PARQUET",
-       |    "sortedBy": [],
-       |    "parquetBloomFilterColumns": []
+       {
+       |  "backfillJobTemplateRef": {
+       |    "apiGroup": "streaming.sneaksanddata.com",
+       |    "kind": "StreamingJobTemplate",
+       |    "name": "arcane-stream-mssql-large-job"
        |  },
-       |  "rowsPerGroup": 10000,
-       |  "sinkSettings": {
-       |    "optimizeSettings": {
-       |      "batchThreshold": 60,
-       |      "fileSizeThreshold": "512MB"
+       |  "jobTemplateRef": {
+       |    "apiGroup": "streaming.sneaksanddata.com",
+       |    "kind": "StreamingJobTemplate",
+       |    "name": "arcane-stream-mssql-standard-job"
+       |  },
+       |  "observability": {
+       |    "metricTags": {}
+       |  },
+       |  "staging": {
+       |    "table": {
+       |      "stagingTablePrefix": "staging_mssql_test",
+       |      "maxRowsPerFile": 10000,
+       |      "stagingCatalogName": "iceberg",
+       |      "stagingSchemaName": "test",
+       |      "isUnifiedSchema": false
        |    },
-       |    "orphanFilesExpirationSettings": {
-       |      "batchThreshold": 60,
-       |      "retentionThreshold": "6h"
-       |    },
-       |    "snapshotExpirationSettings": {
-       |      "batchThreshold": 60,
-       |      "retentionThreshold": "6h"
-       |    },
-       |    "analyzeSettings": {
-       |      "batchThreshold": 60,
-       |      "includedColumns": []
-       |    },
-       |    "targetTableName": "$targetTableName",
-       |    "sinkCatalogSettings": {
+       |    "icebergCatalog": {
+       |      "catalogProperties": {},
+       |      "catalogUri": "http://localhost:20001/catalog",
        |      "namespace": "test",
        |      "warehouse": "demo",
-       |      "catalogUri": "http://localhost:20001/catalog"
+       |      "maxCatalogInstanceLifetime": "3600 second"
        |    }
        |  },
-       |  "sourceSettings": {
-       |    "changeCaptureIntervalSeconds": 1,
-       |    "commandTimeout": 3600,
-       |    "schema": "dbo",
-       |    "table": "$sourceTableName",
-       |    "fetchSize": 1024
-       |   },
-       |  "stagingDataSettings": {
-       |    "catalog": {
-       |      "warehouse": "demo",
-       |      "catalogName": "iceberg",
-       |      "catalogUri": "http://localhost:20001/catalog",
-       |      "schemaName": "test"
+       |  "streamMode": {
+       |    "backfill": {
+       |      "backfillBehavior": "Overwrite",
+       |      "backfillStartDate": "2026-01-01T00:00:00Z"
        |    },
-       |    "maxRowsPerFile": 1,
-       |    "tableNamePrefix": "staging_integration_tests"
+       |    "changeCapture": {
+       |      "changeCaptureInterval": "5 second",
+       |      "changeCaptureJitterVariance": 0.1,
+       |      "changeCaptureJitterSeed": 0
+       |    }
        |  },
-       |  "fieldSelectionRule": {
-       |    "ruleType": "all",
-       |    "fields": []
+       |  "sink": {
+       |    "mergeServiceClient": {
+       |      "extraConnectionParameters": {
+       |        "clientTags": "test"
+       |      },
+       |      "queryRetryMode": "Never",
+       |      "queryRetryBaseDuration": "100 millisecond",
+       |      "queryRetryOnMessageContents": [],
+       |      "queryRetryScaleFactor": 0.1,
+       |      "queryRetryMaxAttempts": 3
+       |    },
+       |    "targetTableProperties": {
+       |      "format": "PARQUET",
+       |      "sortedBy": [],
+       |      "parquetBloomFilterColumns": []
+       |    },
+       |    "targetTableFullName": "$targetTableName",
+       |    "maintenanceSettings": {
+       |      "targetOptimizeSettings": {
+       |        "batchThreshold": 60,
+       |        "fileSizeThreshold": "512MB"
+       |      },
+       |      "targetOrphanFilesExpirationSettings": {
+       |        "batchThreshold": 60,
+       |        "retentionThreshold": "6h"
+       |      },
+       |      "targetSnapshotExpirationSettings": {
+       |        "batchThreshold": 60,
+       |        "retentionThreshold": "6h"
+       |      },
+       |      "targetAnalyzeSettings": {
+       |        "includedColumns": [],
+       |        "batchThreshold": 60
+       |      }
+       |    },
+       |    "icebergCatalog": {
+       |      "catalogProperties": {},
+       |      "catalogUri": "http://localhost:20001/catalog",
+       |      "namespace": "test",
+       |      "warehouse": "demo",
+       |      "maxCatalogInstanceLifetime": "3600 second"
+       |    }
        |  },
-       |  "observabilitySettings": {
-       |    "metricTags": {
-       |      "key1": "value1",
-       |      "key2": "value2"
+       |  "throughput": {
+       |    "shaperImpl": {
+       |      "memoryBound": {
+       |        "meanStringTypeSizeEstimate": 50,
+       |        "meanObjectTypeSizeEstimate": 4096,
+       |        "burstEstimateDivisionFactor": 2,
+       |        "rateEstimateDivisionFactor": 2,
+       |        "chunkCostScale": 1,
+       |        "chunkCostMax": 2,
+       |        "tableRowCountWeight": 0.5,
+       |        "tableSizeWeight": 0.5,
+       |        "tableSizeScaleFactor": 1
+       |      },
+       |      "static": null
+       |    },
+       |    "advisedRatePeriod": "1 second",
+       |    "advisedChunksBurst": 1,
+       |    "advisedChunkSize": 1,
+       |    "advisedRateChunks": 1
+       |  },
+       |  "source": {
+       |    "configuration": {
+       |      "extraConnectionParameters": {
+       |        "databaseName": "$dbName"
+       |      },
+       |      "connectionUrl": null,
+       |      "schemaName": "dbo",
+       |      "tableName": "$sourceTableName",
+       |      "fetchSize": 128
+       |    },
+       |    "buffering": {
+       |      "enabled": false,
+       |      "strategy": {
+       |        "unbounded": null,
+       |        "buffered": null
+       |      }
+       |    },
+       |    "fieldSelectionRule": {
+       |      "essentialFields": [],
+       |      "rule":{
+       |        "all": {},
+       |        "include": null,
+       |        "exclude": null
+       |      },
+       |      "isServerSide": true
        |    }
        |  }
-       |}
-       |
-       |""".stripMargin
-
-  private val parsedSpec = StreamSpec.fromString(streamContextStr)
-  private val dbName     = "SchemaMigrationTests"
-
-  private val streamingStreamContext = new SqlServerChangeTrackingStreamContext(parsedSpec):
-    override val IsBackfilling: Boolean = false
-    override val sourceConnectionString: String =
-      s"jdbc:sqlserver://localhost:1433;databaseName=$dbName;user=sa;password=tMIxN11yGZgMC;encrypt=false;trustServerCertificate=true"
-
-  private val streamingStreamContextLayer = ZLayer.succeed[SqlServerChangeTrackingStreamContext](streamingStreamContext)
-    ++ ZLayer.succeed[ConnectionOptions](streamingStreamContext)
-    ++ ZLayer.succeed(DatagramSocketConfig("/var/run/datadog/dsd.socket"))
-    ++ ZLayer.succeed(MetricsConfig(Duration.fromMillis(100)))
-    ++ ZLayer.succeed(DatadogPublisherConfig())
+       |}""".stripMargin
 
   private def before = TestAspect.before(Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName))
 
@@ -120,16 +179,21 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         ++ List.range(4, 7).map(i => (i, s"Test$i", s"Updated $i"))
 
       for {
+        context <- ZIO.succeed(getStreamContext)
+        fakeSchema = ArcaneSchema(Seq(Field("test", StringType)))
+        entityManager <- ZIO.service[SinkEntityManager]
         _ <- prepareWatermark(
           targetTableName.split("\\.").last,
-          ArcaneSchema(Seq(Field("test", StringType))),
+          fakeSchema,
           MsSqlWatermark.epoch
         )
+        // manually migrate
+        _ <- entityManager.migrateSchema(fakeSchema, initialSchema, targetTableName.split("\\.").last)
 
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
 
         // launch stream and wait for it to create target with streamingData rows (initial table)
-        streamRunner <- Common.getTestApp(Duration.fromSeconds(15), streamingStreamContextLayer).fork
+        streamRunner <- Common.getTestApp(Duration.fromSeconds(15), getStreamContextLayer).fork
         _            <- Common.insertData(dbName, sourceConnection, sourceTableName, streamingData)
 
         _ <- ZIO.sleep(Duration.fromSeconds(10))
@@ -145,15 +209,15 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         _ <- streamRunner.runOrFail(Duration.fromSeconds(10))
 
         // read target table after schema migration
-        afterStream <- Common.getData(
-          streamingStreamContext.targetTableFullName,
+        afterStream <- readTarget(
+          context.sink.targetTableFullName,
           "Id, Name, NewName",
           (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
         )
       } yield assertTrue(
         afterStream.sorted == afterEvolutionExpected
       )
-    },
+    }.provideLayer(TestEntityManager.sinkEntityManagerLayer),
     test("handle the schema migration (column deletions)") {
       val streamingData  = List.range(1, 4).map(i => (i, s"Test$i", s"Updated $i"))
       val afterEvolution = List.range(4, 7).map(i => (i, s"Test$i"))
@@ -161,16 +225,21 @@ object SchemaMigrationTests extends ZIOSpecDefault:
       val afterEvolutionExpected = streamingData ++ List.range(4, 7).map(i => (i, s"Test$i", null))
 
       for {
+        context <- ZIO.succeed(getStreamContext)
+        fakeSchema = ArcaneSchema(Seq(Field("test", StringType)))
+        entityManager <- ZIO.service[SinkEntityManager]
         _ <- prepareWatermark(
           targetTableName.split("\\.").last,
-          ArcaneSchema(Seq(Field("test", StringType))),
+          fakeSchema,
           MsSqlWatermark.epoch
         )
+        // manually migrate
+        _ <- entityManager.migrateSchema(fakeSchema, initialSchema, targetTableName.split("\\.").last)
 
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
         _                <- Common.addColumns(dbName, sourceConnection, sourceTableName, "NewName VARCHAR(100)")
 
-        streamRunner <- Common.getTestApp(Duration.fromSeconds(180), streamingStreamContextLayer).fork
+        streamRunner <- Common.getTestApp(Duration.fromSeconds(180), getStreamContextLayer).fork
         _            <- Common.insertUpdatedData(dbName, sourceConnection, sourceTableName, streamingData)
 
         _ <- ZIO.sleep(Duration.fromSeconds(10))
@@ -182,14 +251,14 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
         _ <- streamRunner.runOrFail(Duration.fromSeconds(10))
 
-        afterEvolution <- Common.getData(
-          streamingStreamContext.targetTableFullName,
+        afterEvolution <- readTarget(
+          context.sink.targetTableFullName,
           "Id, Name, NewName",
-          Common.IntStrStrDecoder
+          IntStrStrDecoder
         )
 
       } yield assertTrue(
         afterEvolution.sorted == afterEvolutionExpected
       )
-    }
+    }.provideLayer(TestEntityManager.sinkEntityManagerLayer)
   ) @@ before @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock @@ TestAspect.sequential

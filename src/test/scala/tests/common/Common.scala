@@ -1,13 +1,17 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package tests.common
 
-import main.appLayer
-import models.app.SqlServerChangeTrackingStreamContext
+import main.{appLayer, msSqlReaderLayer}
+import models.app.MicrosoftSqlServerPluginStreamContext
 
 import com.sneaksanddata.arcane.framework.services.app.GenericStreamRunnerService
-import com.sneaksanddata.arcane.framework.services.caching.schema_cache.MutableSchemaCache
+import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
 import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
-import com.sneaksanddata.arcane.framework.services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager}
+import com.sneaksanddata.arcane.framework.services.iceberg.{
+  IcebergEntityManager,
+  IcebergS3CatalogWriter,
+  IcebergTablePropertyManager
+}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import com.sneaksanddata.arcane.framework.services.mssql.*
@@ -20,7 +24,6 @@ import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{
   GenericGraphBuilderFactory,
   GenericStreamingGraphBuilder
 }
-import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericGroupingTransformer
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.{
   BackfillApplyBatchProcessor,
   BackfillOverwriteWatermarkProcessor
@@ -34,6 +37,7 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.transfor
   FieldFilteringTransformer,
   StagingProcessor
 }
+import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
 import com.sneaksanddata.arcane.framework.testkit.appbuilder.TestAppBuilder.buildTestApp
 import com.sneaksanddata.arcane.framework.testkit.streaming.TimeLimitLifetimeService
 import zio.{ZIO, ZLayer}
@@ -50,22 +54,19 @@ object Common:
     *   The test application.
     */
   def getTestApp(
-      runTimeout: Duration,
-      streamContextLayer: ZLayer[Any, Nothing, SqlServerChangeTrackingStreamContext.Environment]
-  ): ZIO[Any, Throwable, Unit] = {
+      runDuration: Duration,
+      streamContextLayer: ZLayer[Any, Nothing, MicrosoftSqlServerPluginStreamContext]
+  ): ZIO[Any, Throwable, Unit] =
     buildTestApp(
       appLayer,
       streamContextLayer,
-      MsSqlReader.layer,
-      MsSqlDataProvider.layer,
+      msSqlReaderLayer,
       MsSqlStreamingDataProvider.layer,
       MsSqlHookManager.layer,
-      MsSqlBackfillOverwriteBatchFactory.layer,
-      ColumnSummaryFieldsFilteringService.layer
+      MsSqlBackfillOverwriteBatchFactory.layer
     )(
       GenericStreamRunnerService.layer,
       GenericGraphBuilderFactory.composedLayer,
-      GenericGroupingTransformer.layer,
       DisposeBatchProcessor.layer,
       FieldFilteringTransformer.layer,
       MergeBatchProcessor.layer,
@@ -73,7 +74,6 @@ object Common:
       FieldsFilteringService.layer,
       IcebergS3CatalogWriter.layer,
       JdbcMergeServiceClient.layer,
-      ZLayer.succeed(MutableSchemaCache()),
       BackfillApplyBatchProcessor.layer,
       GenericBackfillStreamingOverwriteDataProvider.layer,
       GenericBackfillStreamingMergeDataProvider.layer,
@@ -82,10 +82,16 @@ object Common:
       ArcaneDimensionsProvider.layer,
       WatermarkProcessor.layer,
       BackfillOverwriteWatermarkProcessor.layer,
-      IcebergTablePropertyManager.layer,
-      ZLayer.succeed(TimeLimitLifetimeService(runTimeout))
+      ZLayer.succeed(TimeLimitLifetimeService(runDuration)),
+      MsSqlDataProvider.layer,
+      DefaultStreamBootstrapper.layer,
+      ThroughputShaperBuilder.layer,
+      IcebergEntityManager.sinkLayer,
+      IcebergEntityManager.stagingLayer,
+      IcebergTablePropertyManager.stagingLayer,
+      IcebergTablePropertyManager.sinkLayer,
+      ColumnSummaryFieldsFilteringService.layer
     )
-  }
 
   def getChangeTrackingVersion(dbName: String, connection: Connection): ZIO[Any, Throwable, Long] =
     ZIO.scoped {
@@ -209,38 +215,6 @@ object Common:
       yield ()
     }
 
-  /** Gets the data from the *target* table. Using the connection string provided in the
-    * `ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI` environment variable.
-    * @param targetTableName
-    *   The name of the target table.
-    * @param decoder
-    *   The decoder for the result set.
-    * @tparam Result
-    *   The type of the result.
-    * @return
-    *   A ZIO effect that gets the data.
-    */
-  def getData[Result](
-      targetTableName: String,
-      columnList: String,
-      decoder: ResultSet => Result
-  ): ZIO[Any, Throwable, List[Result]] = ZIO.scoped {
-    for
-      connection <- ZIO.attempt(DriverManager.getConnection(sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")))
-      statement  <- ZIO.attempt(connection.createStatement())
-      resultSet <- ZIO.fromAutoCloseable(
-        ZIO.attemptBlocking(statement.executeQuery(s"SELECT $columnList from $targetTableName"))
-      )
-      data <- ZIO.attempt {
-        Iterator
-          .continually((resultSet.next(), resultSet))
-          .takeWhile(_._1)
-          .map { case (_, rs) => decoder(rs) }
-          .toList
-      }
-    yield data
-  }
-
   /** Inserts columns into the test table.
     *
     * @param connection
@@ -322,7 +296,3 @@ object Common:
         _ <- ZIO.attempt(statement.execute())
       yield ()
     }
-
-  val IntStrDecoder: ResultSet => (Int, String) = (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
-  val IntStrStrDecoder: ResultSet => (Int, String, String) = (rs: ResultSet) =>
-    (rs.getInt(1), rs.getString(2), rs.getString(3))
