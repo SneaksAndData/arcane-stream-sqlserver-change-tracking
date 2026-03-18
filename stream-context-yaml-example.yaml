@@ -20,6 +20,7 @@ staging:
     catalogUri: http://localhost:20001/catalog
     namespace: test
     warehouse: demo
+    maxCatalogInstanceLifetime: 3600 second
 streamMode:
   backfill:
     backfillBehavior: Overwrite
@@ -60,6 +61,7 @@ sink:
     catalogUri: http://localhost:20001/catalog
     namespace: test
     warehouse: demo
+    maxCatalogInstanceLifetime: 3600 second
 throughput:
   shaperImpl:
     memoryBound:
