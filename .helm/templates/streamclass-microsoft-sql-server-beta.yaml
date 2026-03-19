@@ -1,7 +1,7 @@
 apiVersion: streaming.sneaksanddata.com/v1
 kind: StreamClass
 metadata:
-  name: {{ template "app.fullname" . }}
+  name: {{ template "app.fullname" . }}-beta
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "streamclass.labels" $ | nindent 4 }}
