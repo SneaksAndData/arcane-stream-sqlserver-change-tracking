@@ -432,6 +432,8 @@ spec:
                                   type: integer
                                   default: 10000
                     configuration:
+                      type: object
+                      description: Configuration for SQL Server connection
                       extraConnectionParameters:
                         type: object
                         description: Extra parameters for SqlServer JDBC connection
