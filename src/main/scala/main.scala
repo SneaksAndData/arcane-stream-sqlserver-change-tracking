@@ -41,9 +41,9 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.transfor
 }
 import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
 import zio.logging.backend.SLF4J
-import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
-import zio.metrics.connectors.statsd.DatagramSocketConfig
+import zio.metrics.connectors.statsd.{DatagramSocketConfig, statsdUDS}
+import zio.metrics.connectors.{MetricsConfig, datadog}
 import zio.metrics.jvm.DefaultJvmMetrics
 import zio.{Runtime, ZIO, ZIOAppDefault, ZLayer}
 
@@ -92,7 +92,7 @@ object main extends ZIOAppDefault {
     DefaultStreamBootstrapper.layer,
     ThroughputShaperBuilder.layer,
     ArcaneDimensionsProvider.layer,
-    DefaultJvmMetrics.liveV2.unit
+    (DefaultJvmMetrics.liveV2 >>> statsdUDS >>> datadog.live).unit
   )
 
   @main
