@@ -104,6 +104,10 @@ spec:
                         warehouse:
                           type: string
                           description: Catalog warehouse to use for all sessions
+                        maxCatalogInstanceLifetime:
+                          type: string
+                          description: Lifetime of a RESTSessionCatalog instances
+                          default: 3500 second
                 streamMode:
                   type: object
                   description: Configuration for various modes of operation (backfill, change capture)
@@ -268,6 +272,10 @@ spec:
                           type: string
                         warehouse:
                           type: string
+                        maxCatalogInstanceLifetime:
+                          type: string
+                          description: Lifetime of a RESTSessionCatalog instances
+                          default: 3500 second
                 throughput:
                   type: object
                   description: Configuration for throughput management controls
@@ -434,28 +442,29 @@ spec:
                     configuration:
                       type: object
                       description: Configuration for SQL Server connection
-                      extraConnectionParameters:
-                        type: object
-                        description: Extra parameters for SqlServer JDBC connection
-                        additionalProperties:
+                      properties:
+                        extraConnectionParameters:
+                          type: object
+                          description: Extra parameters for SqlServer JDBC connection
+                          additionalProperties:
+                            type: string
+                          default: {}
+                        connectionUrl:
                           type: string
-                        default: {}
-                      connectionUrl:
-                        type: string
-                        nullable: true
-                        description: JDBC connection URL for Sql Server. Only use this for dev/test environments, utilize secret reference instead for live.
-                        default: null
-                      schemaName:
-                        type: string
-                        description: Schema name for source queries
-                      tableName:
-                        type: string
-                        description: Source table name
-                      fetchSize:
-                        type: integer
-                        nullable: true
-                        default: 256
-                        description: Fetch size for cursor advancement calls. Increasing this value will have effect until network packet size saturates. Only change this if really necessary.
+                          nullable: true
+                          description: JDBC connection URL for Sql Server. Only use this for dev/test environments, utilize secret reference instead for live.
+                          default: null
+                        schemaName:
+                          type: string
+                          description: Schema name for source queries
+                        tableName:
+                          type: string
+                          description: Source table name
+                        fetchSize:
+                          type: integer
+                          nullable: true
+                          default: 256
+                          description: Fetch size for cursor advancement calls. Increasing this value will have effect until network packet size saturates. Only change this if really necessary.
                 streamConfigurationSecretRef:
                   description: |
                     Name of the secret containing Sql Server and Trino connection information. Must contain the following: ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI (Trino) and ARCANE_FRAMEWORK__MICROSOFT_SQL_SERVER_CONNECTION_URI (SQL)
