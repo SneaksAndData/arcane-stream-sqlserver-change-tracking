@@ -131,8 +131,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |        "tableRowCountWeight": 0.5,
        |        "tableSizeWeight": 0.5,
        |        "tableSizeScaleFactor": 1
-       |      },
-       |      "static": null
+       |      }
        |    },
        |    "advisedRatePeriod": "1 second",
        |    "advisedChunksBurst": 1,
@@ -144,24 +143,18 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |      "extraConnectionParameters": {
        |        "databaseName": "$dbName"
        |      },
-       |      "connectionUrl": null,
        |      "schemaName": "dbo",
        |      "tableName": "$sourceTableName",
        |      "fetchSize": 128
        |    },
        |    "buffering": {
        |      "enabled": false,
-       |      "strategy": {
-       |        "unbounded": null,
-       |        "buffered": null
-       |      }
+       |      "strategy": {}
        |    },
        |    "fieldSelectionRule": {
        |      "essentialFields": [],
        |      "rule":{
-       |        "all": {},
-       |        "include": null,
-       |        "exclude": null
+       |        "all": {}
        |      },
        |      "isServerSide": true
        |    }
