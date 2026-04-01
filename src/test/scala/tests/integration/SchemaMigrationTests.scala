@@ -11,7 +11,10 @@ import com.sneaksanddata.arcane.framework.services.iceberg.base.SinkEntityManage
 import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import com.sneaksanddata.arcane.framework.testkit.iceberg.TestEntityManager
 import com.sneaksanddata.arcane.framework.testkit.setups.FrameworkTestSetup.prepareWatermark
-import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.{IntStrStrDecoder, readTarget}
+import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.{
+  IntStrStrDecoder,
+  readTarget
+}
 import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.{liveSeed, runOrFail}
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
@@ -158,7 +161,8 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |  }
        |}""".stripMargin
 
-  private def before = TestAspect.before(Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName) *> liveSeed)
+  private def before =
+    TestAspect.before(Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName) *> liveSeed)
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SchemaMigrationTests")(
     test("handle the schema migration (column insertions)") {

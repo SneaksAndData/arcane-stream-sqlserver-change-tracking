@@ -8,7 +8,11 @@ import tests.integration.Fixtures.initialSchema
 import com.sneaksanddata.arcane.framework.services.mssql.*
 import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import com.sneaksanddata.arcane.framework.testkit.setups.FrameworkTestSetup.prepareWatermark
-import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.{IntStrDecoder, getWatermark, readTarget}
+import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.{
+  IntStrDecoder,
+  getWatermark,
+  readTarget
+}
 import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.{liveSeed, runOrFail}
 import org.scalatest.matchers.should.Matchers.should
 import zio.test.TestAspect.timeout
@@ -162,7 +166,8 @@ object StreamRunner extends ZIOSpecDefault:
 
   private val resultData = streamingData ++ updatedData.filterNot(e => deletedData.contains(e._1))
 
-  private def before = TestAspect.before(Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName) *> liveSeed)
+  private def before =
+    TestAspect.before(Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName) *> liveSeed)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
     test("fail stream when watermark is not set") {
