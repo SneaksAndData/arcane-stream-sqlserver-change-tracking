@@ -13,7 +13,7 @@ import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerific
   getWatermark,
   readTarget
 }
-import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.runOrFail
+import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.{liveSeed, runOrFail}
 import org.scalatest.matchers.should.Matchers.should
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, TestSystem, ZIOSpecDefault, assertTrue}
@@ -166,7 +166,8 @@ object StreamRunner extends ZIOSpecDefault:
 
   private val resultData = streamingData ++ updatedData.filterNot(e => deletedData.contains(e._1))
 
-  private def before = TestAspect.before(Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName))
+  private def before =
+    TestAspect.before(liveSeed *> Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName))
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
     test("fail stream when watermark is not set") {
