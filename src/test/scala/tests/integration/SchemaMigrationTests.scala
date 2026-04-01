@@ -81,7 +81,9 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |      "extraConnectionParameters": {
        |        "clientTags": "test"
        |      },
-       |      "queryRetryMode": "Never",
+       |      "queryRetryMode": {
+       |        "never": {}
+       |      },
        |      "queryRetryBaseDuration": "100 millisecond",
        |      "queryRetryOnMessageContents": [],
        |      "queryRetryScaleFactor": 0.1,
