@@ -162,7 +162,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |}""".stripMargin
 
   private def before =
-    TestAspect.before(Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName) *> liveSeed)
+    TestAspect.before(liveSeed *> Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SchemaMigrationTests")(
     test("handle the schema migration (column insertions)") {

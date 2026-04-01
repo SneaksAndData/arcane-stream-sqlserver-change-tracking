@@ -167,7 +167,7 @@ object StreamRunner extends ZIOSpecDefault:
   private val resultData = streamingData ++ updatedData.filterNot(e => deletedData.contains(e._1))
 
   private def before =
-    TestAspect.before(Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName) *> liveSeed)
+    TestAspect.before(liveSeed *> Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName))
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
     test("fail stream when watermark is not set") {
