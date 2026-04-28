@@ -2,5 +2,5 @@ apiVersion: v2
 name: arcane-stream-microsoft-sql-server
 description: Microsoft SQL Server Stream Plugin for Arcane
 type: application
-version: 0.0.0
-appVersion: 0.0.0
+version: 1.0.0
+appVersion: 2.3.0
