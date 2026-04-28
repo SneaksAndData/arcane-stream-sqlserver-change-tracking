@@ -1,6 +1,6 @@
 import sbt.Keys.libraryDependencies
 
-ThisBuild / version := "0.1.0-SNAPSHOT"
+ThisBuild / version := "2.3.0-SNAPSHOT"
 ThisBuild / trackInternalDependencies := TrackLevel.TrackIfMissing
 ThisBuild / exportJars := true
 ThisBuild / scalaVersion := "3.6.1"
@@ -21,7 +21,7 @@ lazy val plugin = (project in file("."))
   .settings(
     name := "arcane-stream-sqlserver-change-tracking",
     idePackagePrefix := Some("com.sneaksanddata.arcane.sql_server_change_tracking"),
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "2.1.1-77-ge52d1f0",
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "2.2.0",
     libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.74.Final",
 
     // Test dependencies
@@ -29,7 +29,7 @@ lazy val plugin = (project in file("."))
     libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test,
     libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.24" % Test,
     libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.24" % Test,
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.1.3" % Test,
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.2.0" % Test,
 
     Test / parallelExecution := false,
 
