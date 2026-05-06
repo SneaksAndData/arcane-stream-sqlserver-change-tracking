@@ -400,7 +400,7 @@ spec:
                               type: object
                               nullable: true
                               description: Use all fields without filters.
-                              default: { }
+                              default: null
                             include:
                               type: object
                               description: Only use fields provided. You must specify mandatory fields like ARCANE_MERGE_KEY as well.
