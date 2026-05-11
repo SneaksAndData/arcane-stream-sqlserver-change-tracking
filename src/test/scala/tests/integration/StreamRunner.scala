@@ -255,7 +255,9 @@ object StreamRunner extends ZIOSpecDefault:
           IntStrDecoder
         )
 
-        watermark <- getWatermark(streamingStreamContext.sink.targetTableFullName.split('.').last)(using MsSqlWatermark.rw)
+        watermark <- getWatermark(streamingStreamContext.sink.targetTableFullName.split('.').last)(using
+          MsSqlWatermark.rw
+        )
         latestVersion <- Common.getChangeTrackingVersion(dbName, sourceConnection)
       yield assertTrue(afterStream.sorted == streamingData.sorted) implies assertTrue(
         afterBackfill.sorted == (streamingData ++ backfillData).sorted
