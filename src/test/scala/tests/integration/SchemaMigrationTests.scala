@@ -62,7 +62,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |      "catalogUri": "http://localhost:20001/catalog",
        |      "namespace": "test",
        |      "warehouse": "demo",
-       |      "maxCatalogInstanceLifetime": "3600 second"
+       |      "maxCatalogInstanceLifetime": "3500 second"
        |    }
        |  },
        |  "streamMode": {
@@ -78,6 +78,10 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |  },
        |  "sink": {
        |    "mergeServiceClient": {
+       |      "connectionUrl": "jdbc:trino://localhost:8080",
+       |      "credentialType": {
+       |          "basic": {}
+       |      },
        |      "extraConnectionParameters": {
        |        "clientTags": "test"
        |      },
@@ -118,27 +122,24 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |      "catalogUri": "http://localhost:20001/catalog",
        |      "namespace": "test",
        |      "warehouse": "demo",
-       |      "maxCatalogInstanceLifetime": "3600 second"
+       |      "maxCatalogInstanceLifetime": "3500 second"
        |    }
        |  },
        |  "throughput": {
        |    "shaperImpl": {
        |      "memoryBound": {
-       |        "meanStringTypeSizeEstimate": 50,
-       |        "meanObjectTypeSizeEstimate": 4096,
-       |        "burstEstimateDivisionFactor": 2,
-       |        "rateEstimateDivisionFactor": 2,
+       |        "fallbackStringTypeSizeEstimate": 50,
+       |        "objectTypeSizeEstimate": 4096,
        |        "chunkCostScale": 1,
        |        "chunkCostMax": 2,
-       |        "tableRowCountWeight": 0.5,
-       |        "tableSizeWeight": 0.5,
-       |        "tableSizeScaleFactor": 1
+       |        "tableRowCountWeight": 0.05,
+       |        "tableSizeWeight": 0.05,
+       |        "tableSizeScaleFactor": 2
        |      }
        |    },
-       |    "advisedRatePeriod": "1 second",
-       |    "advisedChunksBurst": 1,
-       |    "advisedChunkSize": 1,
-       |    "advisedRateChunks": 1
+       |    "advisedRate": "1000 per 1 second",
+       |    "advisedBurst": 1000,
+       |    "advisedChunkSize": 1
        |  },
        |  "source": {
        |    "configuration": {
