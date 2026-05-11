@@ -4,7 +4,7 @@ import models.app.MicrosoftSqlServerPluginStreamContext
 
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.schemas.ArcaneSchema
-import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
+import com.sneaksanddata.arcane.framework.services.app.base.StreamRunnerService
 import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, PosixStreamLifetimeService}
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
@@ -15,7 +15,7 @@ import com.sneaksanddata.arcane.framework.services.iceberg.{
   IcebergTablePropertyManager
 }
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
-import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
+import com.sneaksanddata.arcane.framework.services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
 import com.sneaksanddata.arcane.framework.services.mssql.*
 import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlReader
 import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
@@ -41,9 +41,8 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.transfor
 }
 import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
 import zio.logging.backend.SLF4J
-import zio.metrics.connectors.datadog.DatadogPublisherConfig
-import zio.metrics.connectors.statsd.{DatagramSocketConfig, statsdUDS}
-import zio.metrics.connectors.{MetricsConfig, datadog}
+import zio.metrics.connectors.datadog
+import zio.metrics.connectors.statsd.statsdUDS
 import zio.metrics.jvm.DefaultJvmMetrics
 import zio.{Runtime, ZIO, ZIOAppDefault, ZLayer}
 
@@ -91,7 +90,7 @@ object main extends ZIOAppDefault {
     BackfillOverwriteWatermarkProcessor.layer,
     DefaultStreamBootstrapper.layer,
     ThroughputShaperBuilder.layer,
-    ArcaneDimensionsProvider.layer,
+    GlobalMetricTagProvider.layer,
     (DefaultJvmMetrics.liveV2 >>> statsdUDS >>> datadog.live).unit
   )
 
