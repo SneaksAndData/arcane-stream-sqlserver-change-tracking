@@ -156,6 +156,7 @@ spec:
                             basic:
                               type: object
                               description: Basic auth
+                              nullable: true
                               properties:
                                 user:
                                   type: string
@@ -167,6 +168,7 @@ spec:
                                   default: null
                             anonymous:
                               type: object
+                              nullable: true
                               description: No auth credential
                               default: null
                         extraConnectionParameters:
