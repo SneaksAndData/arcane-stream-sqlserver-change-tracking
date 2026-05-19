@@ -11,6 +11,43 @@ capture changes from SQL Server database and store them in a S3 compatible stora
 
 TBD
 
+### Development setup
+#### Installing JAVA
+A few suggested ways to install/manage JAVA and its versions:
+- SDKMAN (https://sdkman.io/):
+  - List available JAVA versions: `sdk list java`
+  - Installing JAVA with specific version/vendor: `sdk install java 21.0.2-tem`
+- mise (https://mise.jdx.dev/):
+  - List available JAVA versions: `mise ls-remote java`
+  - Installing JAVA with specific version/vendor: `mise use -g java@temurin-21.0.2+13.0.LTS`
+
+#### Installing SBT
+A few suggested ways to install/manage SBT and its versions:
+- SDKMAN (https://sdkman.io/):
+    - List available JAVA versions: `sdk list sbt`
+    - Installing JAVA with specific version/vendor: `sdk install sbt 1.10.1`
+- mise (https://mise.jdx.dev/):
+    - List available JAVA versions: `mise ls-remote java`
+    - Installing JAVA with specific version/vendor: `mise use -g sbt@1.10.1`
+
+#### Getting access to GitHub Packages registry
+In order to build, test and run the project, `GITHUB_TOKEN` environment variable needs to be set.
+It is used to authenticate against GitHub Maven package registry, specifially for JAR dependencies under
+https://maven.pkg.github.com/SneaksAndData/arcane-framework-scala.
+
+Create [new](https://github.com/settings/personal-access-tokens/new) personal access token PAT (Personal Access Token).
+For example, fine-grained token with "Public repositories" access and without explicit permissions.
+
+Export `GITHUB_TOKEN` environment variable before running any `sbt` commands.
+For example, put `export GITHUB_TOKEN=github_pat_xxx` line in your `.zshrc`/`.bashrc` file.
+
+#### Building the project
+To build a fat JAR run `sbt assembly`.
+
+#### Running tests
+
+#### Running plugin locally
+
 ### Development
 
 Project uses `Scala 3.6.1` and tested on JDK 21. When using GraalVM, use JDK 22 version.
