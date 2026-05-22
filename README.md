@@ -7,28 +7,16 @@
 This repository will contain the SQL Server Change Tracking stream for the Arcane. This stream will allow you to
 capture changes from SQL Server database and store them in a S3 compatible storage.
 
-### Quickstart
-
-TBD
-
 ### Development setup
-#### Installing JAVA
-A few suggested ways to install/manage JAVA and its versions:
-- SDKMAN (https://sdkman.io/):
-  - List available JAVA versions: `sdk list java`
-  - Installing JAVA with specific version/vendor: `sdk install java 21.0.2-tem`
-- mise (https://mise.jdx.dev/):
-  - List available JAVA versions: `mise ls-remote java`
-  - Installing JAVA with specific version/vendor: `mise use -g java@temurin-21.0.2+13.0.LTS`
 
-#### Installing SBT
-A few suggested ways to install/manage SBT and its versions:
-- SDKMAN (https://sdkman.io/):
-    - List available JAVA versions: `sdk list sbt`
-    - Installing JAVA with specific version/vendor: `sdk install sbt 1.10.1`
-- mise (https://mise.jdx.dev/):
-    - List available JAVA versions: `mise ls-remote java`
-    - Installing JAVA with specific version/vendor: `mise use -g sbt@1.10.1`
+#### Tooling
+Install the following tools:
+- `mise` - for managing tooling versions, environment variables: https://github.com/jdx/mise
+- `just` - for orchestrating tasks: https://github.com/casey/just
+- Docker/Docker compose - for integration testing: https://www.docker.com/products/docker-desktop/
+
+Once the above are installed, run `mise install`.
+It will install other necessary tools (e.g. JDK and SBT) at recommended versions for this project only.
 
 #### Getting access to GitHub Packages registry
 In order to build, test and run the project, `GITHUB_TOKEN` environment variable needs to be set.
@@ -41,18 +29,11 @@ For example, fine-grained token with "Public repositories" access and without ex
 Export `GITHUB_TOKEN` environment variable before running any `sbt` commands.
 For example, put `export GITHUB_TOKEN=github_pat_xxx` line in your `.zshrc`/`.bashrc` file.
 
-#### Building the project
-To build a fat JAR run `sbt assembly`.
-
-#### Running tests
-
-#### Running plugin locally
+#### Common tasks
+- Building the project (fat JAR): `just build`
+- Running integration tests: `just it`
+- Running streaming application locally: `just dev`
+  - `dev.env` is required, see `dev.env.example` for an example application configuration
 
 ### Development
-
-Project uses `Scala 3.6.1` and tested on JDK 21. When using GraalVM, use JDK 22 version.
-
-Plugin supports `GraalVM` native image builds. Each PR must be run with 
-`-agentlib:native-image-agent=config-merge-dir=./configs` on a [GraalVM-CE JDK](https://sdkman.io/jdks/#graalce) in 
-order to capture native image settings updates, if any.
-
+Project uses `Scala 3.8.3` and tested on JDK 25. 
