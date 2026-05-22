@@ -360,6 +360,7 @@ spec:
                         memoryBound:
                           type: object
                           nullable: true
+                          default: null
                           description: Enables MemoryBoundShaper, which updates throughput based on available free memory vs chunk size, using sigmoid function for cost estimation. Advised values are used as a fallback and computation baseline.
                           properties:
                             fallbackStringTypeSizeEstimate:
