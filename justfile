@@ -1,6 +1,9 @@
 build:
     mise exec -- sbt assembly
 
+clean:
+    mise exec -- sbt clean
+
 check:
     mise exec -- sbt scalafmtCheckAll
 
@@ -11,7 +14,8 @@ it: build
     # cleanup docker regardless of test outcome
     trap 'docker compose down' EXIT
 
-    docker compose up -d --wait
+    docker compose up -d
+    docker compose wait prepare_buckets lakekeeper_migrate lakekeeper_prepare setup_mssql
     mise exec --env it -- sbt test
 
 dev:
@@ -19,7 +23,7 @@ dev:
     set -euo pipefail
 
     if [[ ! -f dev.env ]]; then
-        echo "Missing .env.dev. Create it locally before running just dev." >&2
+        echo "Missing dev.env, create it locally before running just dev." >&2
         exit 1
     fi
 
