@@ -36,7 +36,7 @@ stream debug="":
     fi
 
     just build
-    mise exec --env dev -- env STREAMCONTEXT__BACKFILL=${STREAMCONTEXT__BACKFILL:-false} java -DLOG_LEVEL="${log_level}" -Dlogback.configurationFile=src/main/resources/logback.xml -Dscala.concurrent.context.numThreads=2 -Dscala.concurrent.context.maxThreads=2 -Djava.net.preferIPv6Addresses=true -jar target/com.sneaksanddata.arcane.sql-server-change-tracking.assembly.jar
+    mise exec --env dev -- env STREAMCONTEXT__BACKFILL=${STREAMCONTEXT__BACKFILL:-false} java -DLOG_LEVEL="${log_level}" -Dlogback.configurationFile=src/main/resources/logback.xml -Dscala.concurrent.context.numThreads=2 -Dscala.concurrent.context.maxThreads=2 -jar target/com.sneaksanddata.arcane.sql-server-change-tracking.assembly.jar
 
 backfill debug="":
     STREAMCONTEXT__BACKFILL=true just stream "{{ debug }}"
