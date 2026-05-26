@@ -32,8 +32,10 @@ For example, put `export GITHUB_TOKEN=github_pat_xxx` line in your `.zshrc`/`.ba
 #### Common tasks
 - Building the project (fat JAR): `just build`
 - Running integration tests: `just it`
-- Running streaming application locally: `just dev`
-  - `dev.env` is required, see `dev.env.example` for an example application configuration
+- Running streaming application locally:
+  - via `just stream [--debug]` or `just backfill [--debug]` (backfill mode). **Note**: `dev.env` is required, see `dev.env.example` for an example application configuration.
+- Cleaning build artifacts: `just clean`
+- Code style check: `just check`
 
 ### Development
 Project uses `Scala 3.8.3` and tested on JDK 25. 
