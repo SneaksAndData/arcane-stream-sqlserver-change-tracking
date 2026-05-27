@@ -31,6 +31,7 @@ For example, put `export GITHUB_TOKEN=github_pat_xxx` line in your `.zshrc`/`.ba
 
 #### Common tasks
 - Building the project (fat JAR): `just build`
+- Building Docker image: `just docker-build [tag]`
 - Running integration tests: `just it`
 - Running streaming application locally:
   - via `just stream [--debug]` or `just backfill [--debug]` (backfill mode). **Note**: `dev.env` is required, see `dev.env.example` for an example application configuration.
@@ -45,7 +46,7 @@ Furthermore, Arcane is lightweight enough so that actual streams can be deployed
 try out or test features in a dev setup.
 
 #### Setting up Kind
-Kind itself should be already installed if you ran `mise install`. Steps afters:
+Kind itself should be already installed if you ran `mise install`. Next steps:
 1. Create Kind cluster: `kind create cluster --name arcane-dev`
 2. Create namespace: `kubectl create namespace arcane --context kind-arcane-dev`
 3. Install required [CRDs](github.com/SneaksAndData/arcane-crd):
@@ -62,7 +63,14 @@ Kind itself should be already installed if you ran `mise install`. Steps afters:
     --namespace arcane \
     --kube-context kind-arcane-dev
   ```
-5. Install chart from this project:
+5. Build a Docker image for this project: `mise docker-build kind-dev`
+6. Load the Docker image to Kind cluster:
+```sh
+kind load docker-image \
+    ghcr.io/sneaksanddata/arcane-stream-sqlserver-change-tracking:kind-dev \
+    --name arcane-dev
+```
+7. Install chart from this project:
 ```sh
   helm upgrade --install arcane-mssql ./.helm \
       --kube-context kind-arcane-dev \
