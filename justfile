@@ -1,6 +1,13 @@
 build:
     mise exec -- sbt assembly
 
+docker-build version="dev":
+    docker build \
+        -f .container/Dockerfile \
+        --build-arg GITHUB_TOKEN="$GITHUB_TOKEN" \
+        -t ghcr.io/sneaksanddata/arcane-stream-sqlserver-change-tracking:{{ version }} \
+        .
+
 clean:
     mise exec -- sbt clean
 
