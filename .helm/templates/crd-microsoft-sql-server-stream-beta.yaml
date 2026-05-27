@@ -148,6 +148,7 @@ spec:
                           description: Base URL for the Trino connection
                         credentialType:
                           type: object
+                          nullable: true
                           description: Credential to use when connecting to a Trino cluster
                           default:
                             basic: null
@@ -318,13 +319,21 @@ spec:
                 throughput:
                   type: object
                   description: Configuration for throughput management controls
+                  nullable: true
                   default:
                     advisedChunkSize: 10000
-                    advisedRate: 100 per 1 second
-                    advisedBurst: 1
+                    advisedRate: 1000 per 15 second
+                    advisedBurst: 1000
                     shaperImpl:
                       static: null
-                      memoryBound: null
+                      memoryBound:
+                        fallbackStringTypeSizeEstimate: 50
+                        objectTypeSizeEstimate: 4096
+                        chunkCostScale: 1
+                        chunkCostMax: 10
+                        tableRowCountWeight: 0.02
+                        tableSizeWeight: 0.02
+                        tableSizeScaleFactor: 2
                   properties:
                     advisedChunkSize:
                       type: integer
@@ -340,6 +349,7 @@ spec:
                       default: 1000
                     shaperImpl:
                       type: object
+                      nullable: true
                       description: Implementation of a throughput shaper
                       default:
                         static: null
