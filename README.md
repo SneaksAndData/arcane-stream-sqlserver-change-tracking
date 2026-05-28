@@ -47,38 +47,38 @@ try out or test features in a dev setup.
 
 #### Setting up Kind
 Kind itself should be already installed if you ran `mise install`. Next steps:
-1. Create Kind cluster: `kind create cluster --name arcane-dev`
-2. Create namespace: `kubectl create namespace arcane --context kind-arcane-dev`
+1. Create Kind cluster: `kind create cluster --name arcane-sqlserver-change-tracking-dev`
+2. Create namespace: `kubectl create namespace arcane --context kind-arcane-sqlserver-change-tracking-dev`
 3. Install required [CRDs](github.com/SneaksAndData/arcane-crd):
 ```sh
-  helm install arcane-crd oci://ghcr.io/sneaksanddata/helm/arcane-crd \
-    --version vX.Y.Z \
-    --namespace arcane \
-    --kube-context kind-arcane-dev
+helm install arcane-crd oci://ghcr.io/sneaksanddata/helm/arcane-crd \
+  --version vX.Y.Z \
+  --namespace arcane \
+  --kube-context kind-arcane-sqlserver-change-tracking-dev
   ```
 4. Install Arcane [operator](github.com/SneaksAndData/arcane-operator):
 ```sh
-  helm install arcane oci://ghcr.io/sneaksanddata/helm/arcane-operator \
-    --version vX.Y.Z \
-    --namespace arcane \
-    --kube-context kind-arcane-dev
+helm install arcane oci://ghcr.io/sneaksanddata/helm/arcane-operator \
+  --version vX.Y.Z \
+  --namespace arcane \
+  --kube-context kind-arcane-sqlserver-change-tracking-dev
   ```
 5. Build a Docker image for this project: `mise docker-build kind-dev`
 6. Load the Docker image to Kind cluster:
 ```sh
 kind load docker-image \
     ghcr.io/sneaksanddata/arcane-stream-sqlserver-change-tracking:kind-dev \
-    --name arcane-dev
+    --name arcane-sqlserver-change-tracking-dev
 ```
 7. Install chart from this project:
 ```sh
-  helm upgrade --install arcane-mssql ./.helm \
-      --kube-context kind-arcane-dev \
-      --namespace arcane \
-      --set image.repository=ghcr.io/sneaksanddata/arcane-stream-sqlserver-change-tracking \
-      --set image.tag=kind-dev \
-      --set image.pullPolicy=IfNotPresent
-  ```
+helm upgrade --install arcane-mssql ./.helm \
+    --kube-context kind-arcane-sqlserver-change-tracking-dev \
+    --namespace arcane \
+    --set image.repository=ghcr.io/sneaksanddata/arcane-stream-sqlserver-change-tracking \
+    --set image.tag=kind-dev \
+    --set image.pullPolicy=IfNotPresent
+```
 
 #### Running streams in Kind 
 To be added...
