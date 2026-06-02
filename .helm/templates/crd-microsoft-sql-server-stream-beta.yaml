@@ -45,8 +45,10 @@ spec:
               type: object
               properties:
                 execution:
-                  description: ExecutionSettings represents the execution settings for
-                    the stream.
+                  description: |
+                    ExecutionSettings represents the execution settings for the stream controlled by Arcane Operator.
+                    These settings should never be referenced by the plugin application and/or Arcane Framework,
+                    but are meant to be used by the Arcane Operator alone for controlling the execution of the stream.
                   properties:
                     backfillJobTemplateRef:
                       description: BackfillJobTemplateRef represents a reference to
@@ -96,9 +98,9 @@ spec:
                       description: LayoutVersion represents the layout version of the
                         execution settings.
                       type: string
+                      default: "v1"
                     streamingBackend:
-                      description: StreamingBackend represents the backend configuration
-                        for streaming.
+                      description: StreamingBackend represents the backend configuration for streaming.
                       properties:
                         batch:
                           description: CronJobBackend represents the backend configuration
@@ -160,10 +162,6 @@ spec:
                           description: BatchJobBackend represents the backend configuration
                             for real-time streaming.
                           properties:
-                            changeCaptureInterval:
-                              description: ChangeCaptureInterval represents the interval
-                                at which changes are captured for real-time processing.
-                              type: string
                             jobTemplateRef:
                               description: JobTemplateRef represents a reference to
                                 the job template.
