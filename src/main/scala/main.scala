@@ -5,24 +5,48 @@ import models.app.MicrosoftSqlServerPluginStreamContext
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.schemas.ArcaneSchema
 import com.sneaksanddata.arcane.framework.services.app.base.StreamRunnerService
-import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, PosixStreamLifetimeService, StreamGraphResolver}
+import com.sneaksanddata.arcane.framework.services.app.{
+  GenericStreamRunnerService,
+  PosixStreamLifetimeService,
+  StreamGraphResolver
+}
 import com.sneaksanddata.arcane.framework.services.backfill.DefaultBackfillStateManager
 import com.sneaksanddata.arcane.framework.services.backfill.graph.DefaultBackfillMergeGraphBuilder
-import com.sneaksanddata.arcane.framework.services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
+import com.sneaksanddata.arcane.framework.services.backfill.processors.{
+  BackfillCompletionProcessor,
+  ShardStagingProcessor
+}
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
 import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
-import com.sneaksanddata.arcane.framework.services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
+import com.sneaksanddata.arcane.framework.services.iceberg.{
+  IcebergEntityManager,
+  IcebergS3CatalogWriter,
+  IcebergTablePropertyManager
+}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.merging.cleanup.CatalogDisposeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
 import com.sneaksanddata.arcane.framework.services.mssql.*
-import com.sneaksanddata.arcane.framework.services.mssql.backfill.{MsSqlBackfillMergeStreamDataProvider, MsSqlBackfillSourceDataProvider, MsSqlShardFactory, MsSqlShardedBackfillStreamDataProvider}
+import com.sneaksanddata.arcane.framework.services.mssql.backfill.{
+  MsSqlBackfillMergeStreamDataProvider,
+  MsSqlBackfillSourceDataProvider,
+  MsSqlShardFactory,
+  MsSqlShardedBackfillStreamDataProvider
+}
 import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlStreamingSource
 import com.sneaksanddata.arcane.framework.services.naming.DefaultNameGenerator
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{
+  DisposeBatchProcessor,
+  MergeBatchProcessor,
+  SchemaMigrationProcessor,
+  WatermarkProcessor
+}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
+  FieldFilteringTransformer,
+  StagingProcessor
+}
 import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
 import zio.logging.backend.SLF4J
 import zio.metrics.connectors.datadog
@@ -40,8 +64,11 @@ object main extends ZIOAppDefault {
     _            <- streamRunner.run
   yield ()
 
-  val streamingSourceLayer: ZLayer[MsSqlStreamingSource.Environment, Nothing, MsSqlStreamingSource & SchemaProvider[ArcaneSchema]] =
-    MsSqlStreamingSource.getLayer(context => context.asInstanceOf[MicrosoftSqlServerPluginStreamContext].source.configuration)
+  val streamingSourceLayer
+      : ZLayer[MsSqlStreamingSource.Environment, Nothing, MsSqlStreamingSource & SchemaProvider[ArcaneSchema]] =
+    MsSqlStreamingSource.getLayer(context =>
+      context.asInstanceOf[MicrosoftSqlServerPluginStreamContext].source.configuration
+    )
 
   private lazy val streamRunner = appLayer.provide(
     GenericStreamRunnerService.layer,
@@ -83,7 +110,6 @@ object main extends ZIOAppDefault {
     // maintenance and cleanup
     TargetMaintenanceProcessor.layer,
     CatalogDisposeServiceClient.layer,
-
     DefaultNameGenerator.layer,
     ColumnSummaryFieldsFilteringService.layer,
     DeclaredMetrics.layer,
