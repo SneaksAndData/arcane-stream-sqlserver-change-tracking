@@ -1,42 +1,24 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package tests.common
 
-import main.{appLayer, msSqlReaderLayer}
+import main.{appLayer, streamingSourceLayer}
 import models.app.MicrosoftSqlServerPluginStreamContext
 
-import com.sneaksanddata.arcane.framework.services.app.GenericStreamRunnerService
+import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, StreamGraphResolver}
+import com.sneaksanddata.arcane.framework.services.backfill.DefaultBackfillStateManager
+import com.sneaksanddata.arcane.framework.services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
 import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
-import com.sneaksanddata.arcane.framework.services.iceberg.{
-  IcebergEntityManager,
-  IcebergS3CatalogWriter,
-  IcebergTablePropertyManager
-}
+import com.sneaksanddata.arcane.framework.services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
+import com.sneaksanddata.arcane.framework.services.merging.cleanup.CatalogDisposeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
 import com.sneaksanddata.arcane.framework.services.mssql.*
-import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlReader
-import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
-  GenericBackfillStreamingMergeDataProvider,
-  GenericBackfillStreamingOverwriteDataProvider
-}
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{
-  GenericGraphBuilderFactory,
-  GenericStreamingGraphBuilder
-}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.{
-  BackfillApplyBatchProcessor,
-  BackfillOverwriteWatermarkProcessor
-}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  WatermarkProcessor
-}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
-  FieldFilteringTransformer,
-  StagingProcessor
-}
+import com.sneaksanddata.arcane.framework.services.mssql.backfill.{MsSqlBackfillMergeStreamDataProvider, MsSqlBackfillSourceDataProvider, MsSqlShardFactory, MsSqlShardedBackfillStreamDataProvider}
+import com.sneaksanddata.arcane.framework.services.naming.DefaultNameGenerator
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
 import com.sneaksanddata.arcane.framework.testkit.appbuilder.TestAppBuilder.buildTestApp
 import com.sneaksanddata.arcane.framework.testkit.streaming.TimeLimitLifetimeService
@@ -60,13 +42,14 @@ object Common:
     buildTestApp(
       appLayer,
       streamContextLayer,
-      msSqlReaderLayer,
-      MsSqlStreamingDataProvider.layer,
-      MsSqlHookManager.layer,
-      MsSqlBackfillOverwriteBatchFactory.layer
+      streamingSourceLayer,
+      // streaming
+      MsSqlStreamingDataProvider.layer.unit,
+      MsSqlStagedBatchFactory.layer,
+
     )(
       GenericStreamRunnerService.layer,
-      GenericGraphBuilderFactory.composedLayer,
+      StreamGraphResolver.composedLayer,
       DisposeBatchProcessor.layer,
       FieldFilteringTransformer.layer,
       MergeBatchProcessor.layer,
@@ -74,14 +57,9 @@ object Common:
       FieldsFilteringService.layer,
       IcebergS3CatalogWriter.layer,
       JdbcMergeServiceClient.layer,
-      BackfillApplyBatchProcessor.layer,
-      GenericBackfillStreamingOverwriteDataProvider.layer,
-      GenericBackfillStreamingMergeDataProvider.layer,
-      GenericStreamingGraphBuilder.backfillSubStreamLayer,
       DeclaredMetrics.layer,
       GlobalMetricTagProvider.layer,
       WatermarkProcessor.layer,
-      BackfillOverwriteWatermarkProcessor.layer,
       ZLayer.succeed(TimeLimitLifetimeService(runDuration)),
       MsSqlDataProvider.layer,
       DefaultStreamBootstrapper.layer,
@@ -90,7 +68,25 @@ object Common:
       IcebergEntityManager.stagingLayer,
       IcebergTablePropertyManager.stagingLayer,
       IcebergTablePropertyManager.sinkLayer,
-      ColumnSummaryFieldsFilteringService.layer
+      ColumnSummaryFieldsFilteringService.layer,
+
+      // backfill
+      MsSqlBackfillSourceDataProvider.layer,
+      MsSqlShardFactory.layer,
+      MsSqlShardedBackfillStreamDataProvider.layer,
+      MsSqlBackfillMergeStreamDataProvider.layer,
+      DefaultBackfillStateManager.layer,
+      ShardStagingProcessor.layer,
+      BackfillCompletionProcessor.layer,
+
+      // schema
+      SchemaMigrationProcessor.layer,
+
+      // maintenance and cleanup
+      TargetMaintenanceProcessor.layer,
+      CatalogDisposeServiceClient.layer,
+
+      DefaultNameGenerator.layer,
     )
 
   def getChangeTrackingVersion(dbName: String, connection: Connection): ZIO[Any, Throwable, Long] =

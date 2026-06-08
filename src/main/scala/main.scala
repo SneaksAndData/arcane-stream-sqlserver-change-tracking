@@ -5,40 +5,24 @@ import models.app.MicrosoftSqlServerPluginStreamContext
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.schemas.ArcaneSchema
 import com.sneaksanddata.arcane.framework.services.app.base.StreamRunnerService
-import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, PosixStreamLifetimeService}
+import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, PosixStreamLifetimeService, StreamGraphResolver}
+import com.sneaksanddata.arcane.framework.services.backfill.DefaultBackfillStateManager
+import com.sneaksanddata.arcane.framework.services.backfill.graph.DefaultBackfillMergeGraphBuilder
+import com.sneaksanddata.arcane.framework.services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
 import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
-import com.sneaksanddata.arcane.framework.services.iceberg.{
-  IcebergEntityManager,
-  IcebergS3CatalogWriter,
-  IcebergTablePropertyManager
-}
+import com.sneaksanddata.arcane.framework.services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
+import com.sneaksanddata.arcane.framework.services.merging.cleanup.CatalogDisposeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
 import com.sneaksanddata.arcane.framework.services.mssql.*
-import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlReader
-import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
-  GenericBackfillStreamingMergeDataProvider,
-  GenericBackfillStreamingOverwriteDataProvider
-}
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{
-  GenericGraphBuilderFactory,
-  GenericStreamingGraphBuilder
-}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.{
-  BackfillApplyBatchProcessor,
-  BackfillOverwriteWatermarkProcessor
-}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  WatermarkProcessor
-}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
-  FieldFilteringTransformer,
-  StagingProcessor
-}
+import com.sneaksanddata.arcane.framework.services.mssql.backfill.{MsSqlBackfillMergeStreamDataProvider, MsSqlBackfillSourceDataProvider, MsSqlShardFactory, MsSqlShardedBackfillStreamDataProvider}
+import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlStreamingSource
+import com.sneaksanddata.arcane.framework.services.naming.DefaultNameGenerator
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
 import zio.logging.backend.SLF4J
 import zio.metrics.connectors.datadog
@@ -56,18 +40,17 @@ object main extends ZIOAppDefault {
     _            <- streamRunner.run
   yield ()
 
-  val msSqlReaderLayer: ZLayer[MsSqlReader.Environment, Nothing, MsSqlReader & SchemaProvider[ArcaneSchema]] =
-    MsSqlReader.getLayer(context => context.asInstanceOf[MicrosoftSqlServerPluginStreamContext].source.configuration)
+  val streamingSourceLayer: ZLayer[MsSqlStreamingSource.Environment, Nothing, MsSqlStreamingSource & SchemaProvider[ArcaneSchema]] =
+    MsSqlStreamingSource.getLayer(context => context.asInstanceOf[MicrosoftSqlServerPluginStreamContext].source.configuration)
 
   private lazy val streamRunner = appLayer.provide(
     GenericStreamRunnerService.layer,
-    GenericGraphBuilderFactory.composedLayer,
+    StreamGraphResolver.composedLayer,
     DisposeBatchProcessor.layer,
     FieldFilteringTransformer.layer,
     MergeBatchProcessor.layer,
     StagingProcessor.layer,
     FieldsFilteringService.layer,
-    msSqlReaderLayer,
     MicrosoftSqlServerPluginStreamContext.layer,
     PosixStreamLifetimeService.layer,
     MsSqlDataProvider.layer,
@@ -77,17 +60,34 @@ object main extends ZIOAppDefault {
     IcebergTablePropertyManager.stagingLayer,
     IcebergTablePropertyManager.sinkLayer,
     JdbcMergeServiceClient.layer,
-    MsSqlStreamingDataProvider.layer,
-    MsSqlHookManager.layer,
-    BackfillApplyBatchProcessor.layer,
-    GenericBackfillStreamingOverwriteDataProvider.layer,
-    GenericBackfillStreamingMergeDataProvider.layer,
-    GenericStreamingGraphBuilder.backfillSubStreamLayer,
-    MsSqlBackfillOverwriteBatchFactory.layer,
+
+    // source
+    streamingSourceLayer,
+
+    // streaming
+    MsSqlStreamingDataProvider.layer.unit,
+    MsSqlStagedBatchFactory.layer,
+
+    // backfill
+    MsSqlBackfillSourceDataProvider.layer,
+    MsSqlShardFactory.layer,
+    MsSqlShardedBackfillStreamDataProvider.layer,
+    MsSqlBackfillMergeStreamDataProvider.layer,
+    DefaultBackfillStateManager.layer,
+    ShardStagingProcessor.layer,
+    BackfillCompletionProcessor.layer,
+
+    // schema
+    SchemaMigrationProcessor.layer,
+
+    // maintenance and cleanup
+    TargetMaintenanceProcessor.layer,
+    CatalogDisposeServiceClient.layer,
+
+    DefaultNameGenerator.layer,
     ColumnSummaryFieldsFilteringService.layer,
     DeclaredMetrics.layer,
     WatermarkProcessor.layer,
-    BackfillOverwriteWatermarkProcessor.layer,
     DefaultStreamBootstrapper.layer,
     ThroughputShaperBuilder.layer,
     GlobalMetricTagProvider.layer,
