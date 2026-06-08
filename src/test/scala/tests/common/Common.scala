@@ -44,7 +44,7 @@ import com.sneaksanddata.arcane.framework.testkit.appbuilder.TestAppBuilder.buil
 import com.sneaksanddata.arcane.framework.testkit.streaming.TimeLimitLifetimeService
 import zio.{ZIO, ZLayer}
 
-import java.sql.{Connection, DriverManager, ResultSet}
+import java.sql.Connection
 import java.time.Duration
 
 /** Common utilities for tests.
@@ -64,7 +64,7 @@ object Common:
       streamContextLayer,
       streamingSourceLayer,
       // streaming
-      MsSqlStreamingDataProvider.layer.unit,
+      MsSqlStreamingDataProvider.layer,
       MsSqlStagedBatchFactory.layer
     )(
       GenericStreamRunnerService.layer,

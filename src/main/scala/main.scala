@@ -92,7 +92,7 @@ object main extends ZIOAppDefault {
     streamingSourceLayer,
 
     // streaming
-    MsSqlStreamingDataProvider.layer.unit,
+    MsSqlStreamingDataProvider.layer,
     MsSqlStagedBatchFactory.layer,
 
     // backfill

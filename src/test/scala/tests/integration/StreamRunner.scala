@@ -28,23 +28,12 @@ object StreamRunner extends ZIOSpecDefault:
   private val dbName  = "StreamRunnerTests"
 
   private val streamContextStr = s"""
-                                    |       {
-                                    |  "backfillJobTemplateRef": {
-                                    |    "apiGroup": "streaming.sneaksanddata.com",
-                                    |    "kind": "StreamingJobTemplate",
-                                    |    "name": "arcane-stream-mssql-large-job"
-                                    |  },
-                                    |  "jobTemplateRef": {
-                                    |    "apiGroup": "streaming.sneaksanddata.com",
-                                    |    "kind": "StreamingJobTemplate",
-                                    |    "name": "arcane-stream-mssql-standard-job"
-                                    |  },
+                                    |{
                                     |  "observability": {
                                     |    "metricTags": {}
                                     |  },
                                     |  "staging": {
                                     |    "table": {
-                                    |      "stagingTablePrefix": "staging_mssql_test",
                                     |      "maxRowsPerFile": 10000,
                                     |      "stagingCatalogName": "iceberg",
                                     |      "stagingSchemaName": "test",
@@ -140,6 +129,7 @@ object StreamRunner extends ZIOSpecDefault:
                                     |        "databaseName": "$dbName"
                                     |      },
                                     |      "schemaName": "dbo",
+                                    |      "backfillShardSchemaName": "shards",
                                     |      "tableName": "$sourceTableName",
                                     |      "fetchSize": 128
                                     |    },
