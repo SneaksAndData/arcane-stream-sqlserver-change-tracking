@@ -14,7 +14,6 @@
   },
   "staging": {
     "table": {
-      "stagingTablePrefix": "staging_mssql_test",
       "maxRowsPerFile": 10000,
       "stagingCatalogName": "iceberg",
       "stagingSchemaName": "test",
@@ -108,6 +107,7 @@
     "configuration": {
       "extraConnectionParameters": {},
       "schemaName": "dbo",
+      "backfillShardSchemaName": "shards",
       "tableName": "mssql_test",
       "fetchSize": 128
     },
