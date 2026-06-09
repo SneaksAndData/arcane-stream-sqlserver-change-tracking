@@ -1,6 +1,6 @@
 import sbt.Keys.libraryDependencies
 
-ThisBuild / version := "2.3.4-SNAPSHOT"
+ThisBuild / version := "2.4.0-SNAPSHOT"
 ThisBuild / trackInternalDependencies := TrackLevel.TrackIfMissing
 ThisBuild / exportJars := true
 ThisBuild / scalaVersion := "3.8.3"
@@ -21,15 +21,15 @@ lazy val plugin = (project in file("."))
   .settings(
     name := "arcane-stream-sqlserver-change-tracking",
     idePackagePrefix := Some("com.sneaksanddata.arcane.sql_server_change_tracking"),
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "2.2.1-1-ga6f091e",
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "2.2.1-31-gb7ed054",
     libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.74.Final",
 
     // Test dependencies
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
-    libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.24" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.24" % Test,
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.2.1" % Test,
+    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.20" % Test,
+    libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.20" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.26" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.26" % Test,
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.2.1-1-g8900c85" % Test,
 
     Test / parallelExecution := false,
 
