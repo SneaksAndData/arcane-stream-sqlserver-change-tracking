@@ -66,9 +66,6 @@ spec:
                       type: object
                       description: Staging table creation properties
                       properties:
-                        stagingTablePrefix:
-                          type: string
-                          description: Prefix to use for staging table names
                         maxRowsPerFile:
                           type: integer
                           description: Maximum number of rows to pack into a single staging table
@@ -493,6 +490,9 @@ spec:
                         schemaName:
                           type: string
                           description: Schema name for source queries
+                        backfillShardSchemaName:
+                          type: string
+                          description: Schema name for storing shard tables during sharded (overwrite) backfill
                         tableName:
                           type: string
                           description: Source table name
@@ -501,6 +501,11 @@ spec:
                           nullable: true
                           default: 256
                           description: Fetch size for cursor advancement calls. Increasing this value will have effect until network packet size saturates. Only change this if really necessary.
+                        shardSizeMegabytes:
+                          type: integer
+                          nullable: true
+                          default: null
+                          description: Advised shard table physical size in megabytes. Setting this value to null enables automatic size evaluation via query cost estimation and physicals stats of the source table
                 streamConfigurationSecretRef:
                   description: |
                     Name of the secret containing Sql Server and Trino connection information. Must contain the following: ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI (Trino) and ARCANE_FRAMEWORK__MICROSOFT_SQL_SERVER_CONNECTION_URI (SQL)
