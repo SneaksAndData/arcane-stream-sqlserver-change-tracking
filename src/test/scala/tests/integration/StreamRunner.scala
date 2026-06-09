@@ -20,6 +20,7 @@ import zio.test.{Spec, TestAspect, TestEnvironment, TestSystem, ZIOSpecDefault, 
 import zio.{Cause, Duration, Scope, Unsafe, ZIO, ZLayer}
 
 import scala.language.postfixOps
+import scala.util.Random
 
 object StreamRunner extends ZIOSpecDefault:
 
@@ -28,23 +29,12 @@ object StreamRunner extends ZIOSpecDefault:
   private val dbName  = "StreamRunnerTests"
 
   private val streamContextStr = s"""
-                                    |       {
-                                    |  "backfillJobTemplateRef": {
-                                    |    "apiGroup": "streaming.sneaksanddata.com",
-                                    |    "kind": "StreamingJobTemplate",
-                                    |    "name": "arcane-stream-mssql-large-job"
-                                    |  },
-                                    |  "jobTemplateRef": {
-                                    |    "apiGroup": "streaming.sneaksanddata.com",
-                                    |    "kind": "StreamingJobTemplate",
-                                    |    "name": "arcane-stream-mssql-standard-job"
-                                    |  },
+                                    |{
                                     |  "observability": {
                                     |    "metricTags": {}
                                     |  },
                                     |  "staging": {
                                     |    "table": {
-                                    |      "stagingTablePrefix": "staging_mssql_test",
                                     |      "maxRowsPerFile": 10000,
                                     |      "stagingCatalogName": "iceberg",
                                     |      "stagingSchemaName": "test",
@@ -140,6 +130,7 @@ object StreamRunner extends ZIOSpecDefault:
                                     |        "databaseName": "$dbName"
                                     |      },
                                     |      "schemaName": "dbo",
+                                    |      "backfillShardSchemaName": "shards",
                                     |      "tableName": "$sourceTableName",
                                     |      "fetchSize": 128
                                     |    },
@@ -189,7 +180,7 @@ object StreamRunner extends ZIOSpecDefault:
         exitVal <- runner.runOrFail(Duration.fromSeconds(5)).exit
       yield exitVal.causeOption match
         case Some(Cause.Fail(value, _)) =>
-          assertTrue(value.squash.getMessage.contains("Target contains invalid watermark: 'null'"))
+          assertTrue(value.squash.getMessage.contains("Invalid watermark value: 'null'"))
         case _ => assertTrue(false) // unexpected: it succeeded or timed out
     },
     test("stream, backfill and stream again successfully") {
@@ -216,6 +207,7 @@ object StreamRunner extends ZIOSpecDefault:
         afterStream <- readTarget(streamingStreamContext.sink.targetTableFullName, "Id, Name", IntStrDecoder)
 
         _ <- TestSystem.putEnv("STREAMCONTEXT__BACKFILL", "true")
+        _ <- TestSystem.putEnv("STREAMCONTEXT__BACKFILL_ID", Random.alphanumeric.take(10).mkString(""))
 
         // Testing the stream runner in the backfill mode
         backfillRunner <- Common.getTestApp(Duration.fromSeconds(10), streamingStreamContextLayer).fork

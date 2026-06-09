@@ -36,22 +36,11 @@ object SchemaMigrationTests extends ZIOSpecDefault:
   private val streamContextStr =
     s"""
        {
-       |  "backfillJobTemplateRef": {
-       |    "apiGroup": "streaming.sneaksanddata.com",
-       |    "kind": "StreamingJobTemplate",
-       |    "name": "arcane-stream-mssql-large-job"
-       |  },
-       |  "jobTemplateRef": {
-       |    "apiGroup": "streaming.sneaksanddata.com",
-       |    "kind": "StreamingJobTemplate",
-       |    "name": "arcane-stream-mssql-standard-job"
-       |  },
        |  "observability": {
        |    "metricTags": {}
        |  },
        |  "staging": {
        |    "table": {
-       |      "stagingTablePrefix": "staging_mssql_test",
        |      "maxRowsPerFile": 10000,
        |      "stagingCatalogName": "iceberg",
        |      "stagingSchemaName": "test",
@@ -147,6 +136,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |        "databaseName": "$dbName"
        |      },
        |      "schemaName": "dbo",
+       |      "backfillShardSchemaName": "shards",
        |      "tableName": "$sourceTableName",
        |      "fetchSize": 128
        |    },
@@ -193,7 +183,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         streamRunner <- Common.getTestApp(Duration.fromSeconds(15), getStreamContextLayer).fork
         _            <- Common.insertData(dbName, sourceConnection, sourceTableName, streamingData)
 
-        _ <- ZIO.sleep(Duration.fromSeconds(10))
+        _ <- ZIO.sleep(Duration.fromSeconds(5))
 
         // update SOURCE (SQL) schema with a new column
         _ <- Common.addColumns(dbName, sourceConnection, sourceTableName, "NewName VARCHAR(100)")
