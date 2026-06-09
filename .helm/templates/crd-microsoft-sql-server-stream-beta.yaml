@@ -98,7 +98,6 @@ spec:
                       description: LayoutVersion represents the layout version of the
                         execution settings.
                       type: string
-                      default: "v1"
                     streamingBackend:
                       description: StreamingBackend represents the backend configuration for streaming.
                       properties:
@@ -214,10 +213,22 @@ spec:
                       description: Suspended indicates whether the stream is suspended.
                       type: boolean
                   required:
-                    - backfillJobTemplateRef
                     - layoutVersion
                     - streamingBackend
                     - suspended
+                  default:
+                    layoutVersion: "v1"
+                    backfillJobTemplateRef:
+                      apiGroup: streaming.sneaksanddata.com
+                      kind: StreamingJobTemplate
+                      name: standard-job-template
+                    streamingBackend:
+                      changeCapture:
+                        jobTemplateRef:
+                          apiGroup: streaming.sneaksanddata.com
+                          kind: StreamingJobTemplate
+                          name: standard-job-template
+                    suspended: false
                   type: object
                 observability:
                   type: object
