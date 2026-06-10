@@ -11,7 +11,6 @@ import com.sneaksanddata.arcane.framework.services.app.{
   StreamGraphResolver
 }
 import com.sneaksanddata.arcane.framework.services.backfill.DefaultBackfillStateManager
-import com.sneaksanddata.arcane.framework.services.backfill.graph.DefaultBackfillMergeGraphBuilder
 import com.sneaksanddata.arcane.framework.services.backfill.processors.{
   BackfillCompletionProcessor,
   ShardStagingProcessor
@@ -27,7 +26,7 @@ import com.sneaksanddata.arcane.framework.services.iceberg.{
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.merging.cleanup.CatalogDisposeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.DataDog.UdsPublisher
-import com.sneaksanddata.arcane.framework.services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
+import com.sneaksanddata.arcane.framework.services.metrics.{DataDog, DeclaredMetrics, GlobalMetricTagProvider}
 import com.sneaksanddata.arcane.framework.services.mssql.*
 import com.sneaksanddata.arcane.framework.services.mssql.backfill.{
   MsSqlBackfillMergeStreamDataProvider,
@@ -50,10 +49,7 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.transfor
 }
 import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
 import zio.logging.backend.SLF4J
-import zio.metrics.connectors.datadog
-import zio.metrics.connectors.statsd.statsdUDS
-import zio.metrics.jvm.DefaultJvmMetrics
-import zio.{Runtime, ZIO, ZIOAppDefault, ZIOAspect, ZLayer}
+import zio.{Runtime, ZIO, ZIOAppDefault, ZLayer}
 
 object main extends ZIOAppDefault {
 
@@ -118,6 +114,7 @@ object main extends ZIOAppDefault {
     DefaultStreamBootstrapper.layer,
     ThroughputShaperBuilder.layer,
     GlobalMetricTagProvider.layer,
+    DataDog.UdsPublisher.layer,
     UdsPublisher.jvmLayer.unit
   )
 
