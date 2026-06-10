@@ -677,7 +677,9 @@ spec:
                           description: Schema name for source queries
                         backfillShardSchemaName:
                           type: string
+                          nullable: true
                           description: Schema name for storing shard tables during sharded (overwrite) backfill
+                          default: shards
                         tableName:
                           type: string
                           description: Source table name
