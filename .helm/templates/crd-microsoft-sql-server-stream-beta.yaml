@@ -50,6 +50,7 @@ spec:
                     These settings should never be referenced by the plugin application and/or Arcane Framework,
                     but are meant to be used by the Arcane Operator alone for controlling the execution of the stream.
                   properties:
+                    nullable: true
                     backfillJobTemplateRef:
                       description: BackfillJobTemplateRef represents a reference to
                         the job template.
@@ -228,7 +229,7 @@ spec:
                           apiGroup: streaming.sneaksanddata.com
                           kind: StreamingJobTemplate
                           name: standard-job-template
-                    suspended: false
+                    suspended: true
                   type: object
                 observability:
                   type: object
