@@ -124,12 +124,14 @@ spec:
                       apiGroup: streaming.sneaksanddata.com
                       kind: StreamingJobTemplate
                       name: standard-job-template
+                      namespace: default
                     streamingBackend:
                       changeCapture:
                         jobTemplateRef:
                           apiGroup: streaming.sneaksanddata.com
                           kind: StreamingJobTemplate
                           name: standard-job-template
+                          namespace: default
                     suspended: true
                   type: object
                 observability:
