@@ -25,7 +25,6 @@ import com.sneaksanddata.arcane.framework.services.iceberg.{
 }
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.merging.cleanup.CatalogDisposeServiceClient
-import com.sneaksanddata.arcane.framework.services.metrics.DataDog.UdsPublisher
 import com.sneaksanddata.arcane.framework.services.metrics.{DataDog, DeclaredMetrics, GlobalMetricTagProvider}
 import com.sneaksanddata.arcane.framework.services.mssql.*
 import com.sneaksanddata.arcane.framework.services.mssql.backfill.{
@@ -115,7 +114,6 @@ object main extends ZIOAppDefault {
     ThroughputShaperBuilder.layer,
     GlobalMetricTagProvider.layer,
     DataDog.UdsPublisher.layer,
-    UdsPublisher.jvmLayer.unit
   )
 
   @main
