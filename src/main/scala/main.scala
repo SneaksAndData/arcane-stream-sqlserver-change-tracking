@@ -113,7 +113,7 @@ object main extends ZIOAppDefault {
     DefaultStreamBootstrapper.layer,
     ThroughputShaperBuilder.layer,
     GlobalMetricTagProvider.layer,
-    DataDog.UdsPublisher.layer,
+    DataDog.UdsPublisher.layer
   )
 
   @main
