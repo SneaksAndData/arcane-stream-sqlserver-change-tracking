@@ -70,6 +70,8 @@ spec:
                       description: StreamingBackend represents the backend configuration for streaming.
                       properties:
                         batch:
+                          nullable: true
+                          default: null
                           description: CronJobBackend represents the backend configuration for batch processing.
                           properties:
                             jobTemplateRef:
@@ -92,6 +94,8 @@ spec:
                             - schedule
                           type: object
                         changeCapture:
+                          nullable: true
+                          default: null
                           description: BatchJobBackend represents the backend configuration for real-time streaming.
                           properties:
                             jobTemplateRef:
