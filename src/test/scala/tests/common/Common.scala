@@ -11,6 +11,7 @@ import com.sneaksanddata.arcane.framework.services.backfill.processors.{
   ShardStagingProcessor
 }
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
+import com.sneaksanddata.arcane.framework.services.completion.DefaultStreamFinalizer
 import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
 import com.sneaksanddata.arcane.framework.services.iceberg.{
   IcebergEntityManager,
@@ -104,7 +105,8 @@ object Common:
       // maintenance and cleanup
       TargetMaintenanceProcessor.layer,
       CatalogDisposeServiceClient.layer,
-      DefaultNameGenerator.layer
+      DefaultNameGenerator.layer,
+      DefaultStreamFinalizer.layer
     )
 
   def getChangeTrackingVersion(dbName: String, connection: Connection): ZIO[Any, Throwable, Long] =
