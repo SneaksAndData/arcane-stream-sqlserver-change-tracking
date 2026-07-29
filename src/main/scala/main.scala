@@ -17,6 +17,7 @@ import com.sneaksanddata.arcane.framework.services.backfill.processors.{
 }
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
+import com.sneaksanddata.arcane.framework.services.completion.DefaultStreamFinalizer
 import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
 import com.sneaksanddata.arcane.framework.services.iceberg.{
   IcebergEntityManager,
@@ -113,7 +114,8 @@ object main extends ZIOAppDefault {
     DefaultStreamBootstrapper.layer,
     ThroughputShaperBuilder.layer,
     GlobalMetricTagProvider.layer,
-    DataDog.UdsPublisher.layer
+    DataDog.UdsPublisher.layer,
+    DefaultStreamFinalizer.layer
   )
 
   @main
