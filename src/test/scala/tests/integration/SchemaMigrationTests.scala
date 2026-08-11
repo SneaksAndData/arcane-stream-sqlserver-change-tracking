@@ -128,7 +128,8 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |        "chunkCostMax": 2,
        |        "tableRowCountWeight": 0.05,
        |        "tableSizeWeight": 0.05,
-       |        "tableSizeScaleFactor": 2
+       |        "tableSizeScaleFactor": 2,
+       |        "chunkSizeCap": 1000000
        |      }
        |    },
        |    "advisedRate": "1000 per 1 second",
