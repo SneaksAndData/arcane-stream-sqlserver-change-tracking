@@ -4,6 +4,8 @@ package tests.common
 import main.{appLayer, streamingSourceLayer}
 import models.app.MicrosoftSqlServerPluginStreamContext
 
+import com.sneaksanddata.arcane.framework.plugins.LayerAssemblies
+import com.sneaksanddata.arcane.framework.plugins.mssql.Services
 import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, StreamGraphResolver}
 import com.sneaksanddata.arcane.framework.services.backfill.DefaultBackfillStateManager
 import com.sneaksanddata.arcane.framework.services.backfill.processors.{
@@ -12,7 +14,7 @@ import com.sneaksanddata.arcane.framework.services.backfill.processors.{
 }
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
 import com.sneaksanddata.arcane.framework.services.completion.DefaultStreamFinalizer
-import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
+import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.iceberg.{
   IcebergEntityManager,
   IcebergS3CatalogWriter,
@@ -43,6 +45,9 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.transfor
 import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
 import com.sneaksanddata.arcane.framework.testkit.appbuilder.TestAppBuilder.buildTestApp
 import com.sneaksanddata.arcane.framework.testkit.streaming.TimeLimitLifetimeService
+import zio.metrics.connectors.MetricsConfig
+import zio.metrics.connectors.datadog.DatadogPublisherConfig
+import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.{ZIO, ZLayer}
 
 import java.sql.Connection
@@ -58,55 +63,22 @@ object Common:
     */
   def getTestApp(
       runDuration: Duration,
-      streamContextLayer: ZLayer[Any, Nothing, MicrosoftSqlServerPluginStreamContext]
+      streamContextLayer: ZLayer[
+        Any,
+        Nothing,
+        MicrosoftSqlServerPluginStreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig
+      ]
   ): ZIO[Any, Throwable, Unit] =
     buildTestApp(
       appLayer,
-      streamContextLayer,
-      streamingSourceLayer,
-      // streaming
-      MsSqlStreamingDataProvider.layer,
-      MsSqlStagedBatchFactory.layer
+      streamContextLayer
     )(
+      Services.mssqlSourceLayer,
+      streamingSourceLayer,
+      LayerAssemblies.frameworkPipelineServicesLayer,
+      LayerAssemblies.frameworkStagingServicesLayer,
       GenericStreamRunnerService.layer,
-      StreamGraphResolver.composedLayer,
-      DisposeBatchProcessor.layer,
-      FieldFilteringTransformer.layer,
-      MergeBatchProcessor.layer,
-      StagingProcessor.layer,
-      FieldsFilteringService.layer,
-      IcebergS3CatalogWriter.layer,
-      JdbcMergeServiceClient.layer,
-      DeclaredMetrics.layer,
-      GlobalMetricTagProvider.layer,
-      WatermarkProcessor.layer,
-      ZLayer.succeed(TimeLimitLifetimeService(runDuration)),
-      MsSqlDataProvider.layer,
-      DefaultStreamBootstrapper.layer,
-      ThroughputShaperBuilder.layer,
-      IcebergEntityManager.sinkLayer,
-      IcebergEntityManager.stagingLayer,
-      IcebergTablePropertyManager.stagingLayer,
-      IcebergTablePropertyManager.sinkLayer,
-      ColumnSummaryFieldsFilteringService.layer,
-
-      // backfill
-      MsSqlBackfillSourceDataProvider.layer,
-      MsSqlShardFactory.layer,
-      MsSqlShardedBackfillStreamDataProvider.layer,
-      MsSqlBackfillMergeStreamDataProvider.layer,
-      DefaultBackfillStateManager.layer,
-      ShardStagingProcessor.layer,
-      BackfillCompletionProcessor.layer,
-
-      // schema
-      SchemaMigrationProcessor.layer,
-
-      // maintenance and cleanup
-      TargetMaintenanceProcessor.layer,
-      CatalogDisposeServiceClient.layer,
-      DefaultNameGenerator.layer,
-      DefaultStreamFinalizer.layer
+      StreamGraphResolver.composedLayer
     )
 
   def getChangeTrackingVersion(dbName: String, connection: Connection): ZIO[Any, Throwable, Long] =

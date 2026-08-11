@@ -16,6 +16,9 @@ import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerific
   readTarget
 }
 import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.{liveSeed, runOrFail}
+import zio.metrics.connectors.MetricsConfig
+import zio.metrics.connectors.datadog.DatadogPublisherConfig
+import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Duration, Scope, ZIO, ZLayer}
@@ -28,8 +31,10 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
   private def getStreamContext = MicrosoftSqlServerPluginStreamContext(streamContextStr)
 
-  private def getStreamContextLayer =
-    ZLayer.succeed[MicrosoftSqlServerPluginStreamContext](getStreamContext)
+  private def getStreamContextLayer(context: MicrosoftSqlServerPluginStreamContext) =
+    ZLayer.succeed[MicrosoftSqlServerPluginStreamContext](context) ++ ZLayer
+      .succeed[DatagramSocketConfig](context) ++ ZLayer
+      .succeed[MetricsConfig](context) ++ ZLayer.succeed(DatadogPublisherConfig())
 
   private val dbName = "SchemaMigrationTests"
 
@@ -180,7 +185,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
 
         // launch stream and wait for it to create target with streamingData rows (initial table)
-        streamRunner <- Common.getTestApp(Duration.fromSeconds(15), getStreamContextLayer).fork
+        streamRunner <- Common.getTestApp(Duration.fromSeconds(15), getStreamContextLayer(context)).fork
         _            <- Common.insertData(dbName, sourceConnection, sourceTableName, streamingData)
 
         _ <- ZIO.sleep(Duration.fromSeconds(5))
@@ -226,7 +231,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
         _                <- Common.addColumns(dbName, sourceConnection, sourceTableName, "NewName VARCHAR(100)")
 
-        streamRunner <- Common.getTestApp(Duration.fromSeconds(180), getStreamContextLayer).fork
+        streamRunner <- Common.getTestApp(Duration.fromSeconds(180), getStreamContextLayer(context)).fork
         _            <- Common.insertUpdatedData(dbName, sourceConnection, sourceTableName, streamingData)
 
         _ <- ZIO.sleep(Duration.fromSeconds(10))

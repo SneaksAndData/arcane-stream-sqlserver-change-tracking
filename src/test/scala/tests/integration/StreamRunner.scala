@@ -15,6 +15,9 @@ import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerific
 }
 import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.{liveSeed, runOrFail}
 import org.scalatest.matchers.should.Matchers.should
+import zio.metrics.connectors.MetricsConfig
+import zio.metrics.connectors.datadog.DatadogPublisherConfig
+import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, TestSystem, ZIOSpecDefault, assertTrue}
 import zio.{Cause, Duration, Scope, Unsafe, ZIO, ZLayer}
@@ -150,7 +153,9 @@ object StreamRunner extends ZIOSpecDefault:
 
   private val streamingStreamContext = MicrosoftSqlServerPluginStreamContext(streamContextStr)
   private val streamingStreamContextLayer =
-    ZLayer.succeed[MicrosoftSqlServerPluginStreamContext](streamingStreamContext)
+    ZLayer.succeed[MicrosoftSqlServerPluginStreamContext](streamingStreamContext) ++ ZLayer
+      .succeed[DatagramSocketConfig](streamingStreamContext) ++ ZLayer
+      .succeed[MetricsConfig](streamingStreamContext) ++ ZLayer.succeed(DatadogPublisherConfig())
 
   private val streamingData = List.range(1, 3).map(i => (i, s"Test$i"))
   private val backfillData  = List.range(4, 7).map(i => (i, s"Test$i"))
