@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.sql_server_change_tracking
 
 import models.app.MicrosoftSqlServerPluginStreamContext
 
+import com.sneaksanddata.arcane.framework.extensions.ZExtensions.*
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
 import com.sneaksanddata.arcane.framework.plugins.LayerAssemblies
@@ -13,7 +14,7 @@ import com.sneaksanddata.arcane.framework.services.naming.DefaultNameGenerator
 import zio.logging.backend.SLF4J
 import zio.{Runtime, ZIO, ZIOAppDefault, ZLayer}
 
-object main extends ZIOAppDefault {
+object main extends ZIOAppDefault:
 
   override val bootstrap: ZLayer[Any, Nothing, Unit] = Runtime.removeDefaultLoggers >>> SLF4J.slf4j
 
@@ -39,13 +40,4 @@ object main extends ZIOAppDefault {
   )
 
   @main
-  def run: ZIO[Any, Throwable, Unit] =
-    val app = streamRunner
-
-    app.catchAllCause { cause =>
-      for {
-        _ <- zlog(s"Application failed: ${cause.squashTrace.getMessage}", cause)
-        _ <- exit(zio.ExitCode(1))
-      } yield ()
-    }
-}
+  def run: ZIO[Any, Throwable, Unit] = streamRunner.handleAppFailure(_ => ZIO.unit)
