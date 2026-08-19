@@ -485,9 +485,9 @@ spec:
                               description: Hard cap on estimated chunk size. Values above 1.000.000 or below 100.000 are not recommended.
                               default: 1000000
                             maxStatisticsAge:
-                              type: string
+                              type: integer
                               description: Interval between statistics update
-                              default: 168 hour
+                              default: 604800
                 source:
                   type: object
                   properties:

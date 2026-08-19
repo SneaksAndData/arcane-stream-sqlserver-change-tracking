@@ -123,7 +123,7 @@ object StreamRunner extends ZIOSpecDefault:
                                     |        "tableSizeWeight": 0.05,
                                     |        "tableSizeScaleFactor": 2,
                                     |        "chunkSizeCap": 1000000,
-                                    |        "maxStatisticsAge": "168 hour"
+                                    |        "maxStatisticsAge": 604800
                                     |      }
                                     |    },
                                     |    "advisedRate": "1000 per 1 second",
