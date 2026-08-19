@@ -1,6 +1,6 @@
 import sbt.Keys.libraryDependencies
 
-ThisBuild / version := "2.4.0-SNAPSHOT"
+ThisBuild / version := "2.4.2-SNAPSHOT"
 ThisBuild / trackInternalDependencies := TrackLevel.TrackIfMissing
 ThisBuild / exportJars := true
 ThisBuild / scalaVersion := "3.8.3"
@@ -21,7 +21,7 @@ lazy val plugin = (project in file("."))
   .settings(
     name := "arcane-stream-sqlserver-change-tracking",
     idePackagePrefix := Some("com.sneaksanddata.arcane.sql_server_change_tracking"),
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "2.3.1",
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "2.3.1-6-gc6add66",
     libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.74.Final",
 
     // Test dependencies
