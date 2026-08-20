@@ -218,9 +218,9 @@ spec:
                         changeCaptureJitterSeed:
                           type: number
                           default: 0
-                        catchupSplitThreshold:
-                          type: string
-                          default: 3600 second
+                        changeCaptureRangeLimit:
+                          type: number
+                          default: 10
                 sink:
                   type: object
                   description: Configuration for the Iceberg Sink

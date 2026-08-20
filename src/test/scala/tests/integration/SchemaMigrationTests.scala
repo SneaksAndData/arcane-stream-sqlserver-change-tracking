@@ -68,7 +68,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |      "changeCaptureInterval": "5 second",
        |      "changeCaptureJitterVariance": 0.1,
        |      "changeCaptureJitterSeed": 0,
-       |      "catchupSplitThreshold": "3600 second"
+       |      "changeCaptureRangeLimit": 10
        |    }
        |  },
        |  "sink": {
