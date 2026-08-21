@@ -59,7 +59,8 @@ object StreamRunner extends ZIOSpecDefault:
                                     |    "changeCapture": {
                                     |      "changeCaptureInterval": "5 second",
                                     |      "changeCaptureJitterVariance": 0.1,
-                                    |      "changeCaptureJitterSeed": 0
+                                    |      "changeCaptureJitterSeed": 0,
+                                    |      "changeCaptureRangeLimit": 10
                                     |    }
                                     |  },
                                     |  "sink": {
@@ -121,7 +122,8 @@ object StreamRunner extends ZIOSpecDefault:
                                     |        "tableRowCountWeight": 0.05,
                                     |        "tableSizeWeight": 0.05,
                                     |        "tableSizeScaleFactor": 2,
-                                    |        "chunkSizeCap": 1000000
+                                    |        "chunkSizeCap": 1000000,
+                                    |        "maxStatisticsAge": 604800
                                     |      }
                                     |    },
                                     |    "advisedRate": "1000 per 1 second",
@@ -186,7 +188,7 @@ object StreamRunner extends ZIOSpecDefault:
         exitVal <- runner.runOrFail(Duration.fromSeconds(5)).exit
       yield exitVal.causeOption match
         case Some(Cause.Fail(value, _)) =>
-          assertTrue(value.squash.getMessage.contains("Invalid watermark value: 'null'"))
+          assertTrue(value.squash.getMessage.contains("Required property 'comment' is not set"))
         case _ => assertTrue(false) // unexpected: it succeeded or timed out
     },
     test("stream, backfill and stream again successfully") {
