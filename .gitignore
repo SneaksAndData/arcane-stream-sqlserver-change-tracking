@@ -65,3 +65,6 @@ project/**/metals.sbt
 
 # Idea folder at every level
 **/.idea
+
+# mise local dev environment (may contains sensitive info, e.g. credentials)
+dev.env

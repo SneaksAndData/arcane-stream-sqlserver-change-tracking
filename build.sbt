@@ -1,9 +1,9 @@
 import sbt.Keys.libraryDependencies
 
-ThisBuild / version := "0.1.0-SNAPSHOT"
+ThisBuild / version := "2.4.2-SNAPSHOT"
 ThisBuild / trackInternalDependencies := TrackLevel.TrackIfMissing
 ThisBuild / exportJars := true
-ThisBuild / scalaVersion := "3.6.1"
+ThisBuild / scalaVersion := "3.8.3"
 ThisBuild / organization := "com.sneaksanddata"
 
 resolvers += "Arcane framework repo" at "https://maven.pkg.github.com/SneaksAndData/arcane-framework-scala"
@@ -21,18 +21,22 @@ lazy val plugin = (project in file("."))
   .settings(
     name := "arcane-stream-sqlserver-change-tracking",
     idePackagePrefix := Some("com.sneaksanddata.arcane.sql_server_change_tracking"),
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "1.0.2",
-    libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.65.Final",
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "2.3.2",
+    libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.74.Final",
 
     // Test dependencies
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
-    libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.16" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.16" % Test,
+    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.20" % Test,
+    libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.20" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.26" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.26" % Test,
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.3.1" % Test,
 
     Test / parallelExecution := false,
 
     assembly / mainClass := Some("com.sneaksanddata.arcane.sql_server_change_tracking.main"),
+
+    // Put JAR in target/ directly, instead of in target/scala-x.x.x sub-directory
+    assembly / assemblyOutputPath := target.value / (assembly / assemblyJarName).value,
 
     // We do not use the version name here, because it's executable file name
     // and we want to keep it consistent with the name of the project
@@ -54,6 +58,7 @@ lazy val plugin = (project in file("."))
 
         // for javax.activation package take the first one
         case PathList("javax", "activation", _*) => MergeStrategy.last
+        case PathList("javax", "xml", _*) => MergeStrategy.last
 
         // For other files we use the default strategy (deduplicate)
         case x => MergeStrategy.deduplicate
