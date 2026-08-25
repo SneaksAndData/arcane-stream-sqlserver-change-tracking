@@ -1,8 +1,7 @@
-apiVersion: streaming.sneaksanddata.com/v1beta1
+apiVersion: streaming.sneaksanddata.com/v1
 kind: StreamClass
 metadata:
-  name: {{ template "app.fullname" . }}
-  namespace: {{ .Release.Namespace }}
+  name: {{ template "app.fullname" . }}-beta
   labels:
     {{- include "streamclass.labels" $ | nindent 4 }}
   {{- if .Values.additionalAnnotations }}
@@ -11,8 +10,8 @@ metadata:
   {{- end }}
 spec:
   apiGroupRef: streaming.sneaksanddata.com
-  kindRef: MicrosoftSqlServerStream
-  apiVersion: v1beta1
-  pluralName: microsoft-sql-server-streams
+  kindRef: MicrosoftSqlServerBetaStream
+  apiVersion: v1
+  pluralName: microsoft-sql-server-beta-streams
   secretRefs:
-    - connectionStringRef
+    - streamConfigurationSecretRef

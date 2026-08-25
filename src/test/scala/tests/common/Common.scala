@@ -1,83 +1,59 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package tests.common
 
-import main.appLayer
-import models.app.SqlServerChangeTrackingStreamContext
+import main.{appLayer, streamingSourceLayer}
+import models.app.MicrosoftSqlServerPluginStreamContext
 
-import com.sneaksanddata.arcane.framework.services.app.GenericStreamRunnerService
-import com.sneaksanddata.arcane.framework.services.app.base.{InterruptionToken, StreamLifetimeService}
-import com.sneaksanddata.arcane.framework.services.caching.schema_cache.MutableSchemaCache
-import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
-import com.sneaksanddata.arcane.framework.services.iceberg.IcebergS3CatalogWriter
-import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
-import com.sneaksanddata.arcane.framework.services.mssql.*
-import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
-  GenericBackfillStreamingMergeDataProvider,
-  GenericBackfillStreamingOverwriteDataProvider
-}
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{
-  GenericGraphBuilderFactory,
-  GenericStreamingGraphBuilder
-}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericGroupingTransformer
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor
-}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
-  FieldFilteringTransformer,
-  StagingProcessor
-}
+import com.sneaksanddata.arcane.framework.plugins.LayerAssemblies
+import com.sneaksanddata.arcane.framework.plugins.mssql.Services
+import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, StreamGraphResolver}
+import com.sneaksanddata.arcane.framework.testkit.appbuilder.TestAppBuilder.buildTestApp
+import zio.metrics.connectors.MetricsConfig
+import zio.metrics.connectors.datadog.DatadogPublisherConfig
+import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.{ZIO, ZLayer}
 
-import java.sql.{Connection, DriverManager, ResultSet}
+import java.sql.Connection
 import java.time.Duration
 
 /** Common utilities for tests.
   */
 object Common:
 
-  type StreamLifeTimeServiceLayer = ZLayer[Any, Nothing, StreamLifetimeService & InterruptionToken]
-  type StreamContextLayer         = ZLayer[Any, Nothing, SqlServerChangeTrackingStreamContext.Environment]
-
   /** Builds the test application from the provided layers.
-    * @param lifetimeService
-    *   The lifetime service layer.
-    * @param streamContextLayer
-    *   The stream context layer.
     * @return
     *   The test application.
     */
-  def buildTestApp(
-      lifetimeService: StreamLifeTimeServiceLayer,
-      streamContextLayer: StreamContextLayer
+  def getTestApp(
+      runDuration: Duration,
+      streamContextLayer: ZLayer[
+        Any,
+        Nothing,
+        MicrosoftSqlServerPluginStreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig
+      ]
   ): ZIO[Any, Throwable, Unit] =
-    appLayer.provide(
-      streamContextLayer,
-      lifetimeService,
+    buildTestApp(
+      appLayer,
+      streamContextLayer
+    )(
+      Services.mssqlSourceLayer,
+      streamingSourceLayer,
+      LayerAssemblies.frameworkPipelineServicesLayer,
+      LayerAssemblies.frameworkStagingServicesLayer,
       GenericStreamRunnerService.layer,
-      GenericGraphBuilderFactory.composedLayer,
-      GenericGroupingTransformer.layer,
-      DisposeBatchProcessor.layer,
-      FieldFilteringTransformer.layer,
-      MergeBatchProcessor.layer,
-      StagingProcessor.layer,
-      FieldsFilteringService.layer,
-      MsSqlConnection.layer,
-      MsSqlDataProvider.layer,
-      IcebergS3CatalogWriter.layer,
-      JdbcMergeServiceClient.layer,
-      MsSqlStreamingDataProvider.layer,
-      MsSqlHookManager.layer,
-      ZLayer.succeed(MutableSchemaCache()),
-      BackfillApplyBatchProcessor.layer,
-      GenericBackfillStreamingOverwriteDataProvider.layer,
-      GenericBackfillStreamingMergeDataProvider.layer,
-      GenericStreamingGraphBuilder.backfillSubStreamLayer,
-      MsSqlBackfillOverwriteBatchFactory.layer,
-      ColumnSummaryFieldsFilteringService.layer
+      StreamGraphResolver.composedLayer
     )
+
+  def getChangeTrackingVersion(dbName: String, connection: Connection): ZIO[Any, Throwable, Long] =
+    ZIO.scoped {
+      for
+        statement <- ZIO.attempt(
+          connection.prepareStatement(s"USE $dbName; SELECT CHANGE_TRACKING_CURRENT_VERSION() AS VALUE")
+        )
+        resultSet <- ZIO.attemptBlocking(statement.executeQuery())
+        _         <- ZIO.attempt(resultSet.next())
+      yield resultSet.getLong("VALUE")
+    }
 
   /** Inserts data into the test table.
     * @param connection
@@ -87,10 +63,17 @@ object Common:
     * @return
     *   A ZIO effect that inserts the data.
     */
-  def insertData(connection: Connection, tableName: String, data: Seq[(Int, String)]): ZIO[Any, Throwable, Unit] =
+  def insertData(
+      dbName: String,
+      connection: Connection,
+      tableName: String,
+      data: Seq[(Int, String)]
+  ): ZIO[Any, Throwable, Unit] =
     ZIO.scoped {
       for
-        statement <- ZIO.attempt(connection.prepareStatement(s"INSERT INTO $tableName (Id, Name) VALUES (?, ?)"))
+        statement <- ZIO.attempt(
+          connection.prepareStatement(s"USE $dbName; INSERT INTO $tableName (Id, Name) VALUES (?, ?)")
+        )
         _ <- ZIO.foreachDiscard(data) { case (number, string) =>
           ZIO.attempt {
             statement.setInt(1, number)
@@ -110,13 +93,14 @@ object Common:
     *   A ZIO effect that inserts the data.
     */
   def insertUpdatedData(
+      dbName: String,
       connection: Connection,
       tableName: String,
       data: Seq[(Int, String, String)]
   ): ZIO[Any, Throwable, Unit] = ZIO.scoped {
     for
       statement <- ZIO.attempt(
-        connection.prepareStatement(s"INSERT INTO $tableName (Id, Name, NewName) VALUES (?, ?, ?)")
+        connection.prepareStatement(s"USE $dbName; INSERT INTO $tableName (Id, Name, NewName) VALUES (?, ?, ?)")
       )
       _ <- ZIO.foreachDiscard(data) { case (number, string, second_string) =>
         ZIO.attempt {
@@ -136,10 +120,17 @@ object Common:
     *   The data to update.
     * @return
     */
-  def updateData(connection: Connection, tableName: String, data: Seq[(Int, String)]): ZIO[Any, Throwable, Unit] =
+  def updateData(
+      dbName: String,
+      connection: Connection,
+      tableName: String,
+      data: Seq[(Int, String)]
+  ): ZIO[Any, Throwable, Unit] =
     ZIO.scoped {
       for
-        statement <- ZIO.attempt(connection.prepareStatement(s"UPDATE $tableName SET Name = ? WHERE Id = ?"))
+        statement <- ZIO.attempt(
+          connection.prepareStatement(s"USE $dbName; UPDATE $tableName SET Name = ? WHERE Id = ?")
+        )
         _ <- ZIO.foreachDiscard(data) { case (number, string) =>
           ZIO.attempt {
             statement.setString(1, string)
@@ -157,10 +148,15 @@ object Common:
     *   The primary keys of the data to delete.
     * @return
     */
-  def deleteData(connection: Connection, tableName: String, primaryKeys: Seq[Int]): ZIO[Any, Throwable, Unit] =
+  def deleteData(
+      dbName: String,
+      connection: Connection,
+      tableName: String,
+      primaryKeys: Seq[Int]
+  ): ZIO[Any, Throwable, Unit] =
     ZIO.scoped {
       for
-        statement <- ZIO.attempt(connection.prepareStatement(s"DELETE FROM $tableName WHERE Id = ?"))
+        statement <- ZIO.attempt(connection.prepareStatement(s"USE $dbName; DELETE FROM $tableName WHERE Id = ?"))
         _ <- ZIO.foreachDiscard(primaryKeys) { number =>
           ZIO.attempt {
             statement.setInt(1, number)
@@ -169,38 +165,6 @@ object Common:
         }
       yield ()
     }
-
-  /** Gets the data from the *target* table. Using the connection string provided in the
-    * `ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI` environment variable.
-    * @param targetTableName
-    *   The name of the target table.
-    * @param decoder
-    *   The decoder for the result set.
-    * @tparam Result
-    *   The type of the result.
-    * @return
-    *   A ZIO effect that gets the data.
-    */
-  def getData[Result](
-      targetTableName: String,
-      columnList: String,
-      decoder: ResultSet => Result
-  ): ZIO[Any, Throwable, List[Result]] = ZIO.scoped {
-    for
-      connection <- ZIO.attempt(DriverManager.getConnection(sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")))
-      statement  <- ZIO.attempt(connection.createStatement())
-      resultSet <- ZIO.fromAutoCloseable(
-        ZIO.attempt(statement.executeQuery(s"SELECT $columnList from $targetTableName"))
-      )
-      data <- ZIO.attempt {
-        Iterator
-          .continually((resultSet.next(), resultSet))
-          .takeWhile(_._1)
-          .map { case (_, rs) => decoder(rs) }
-          .toList
-      }
-    yield data
-  }
 
   /** Inserts columns into the test table.
     *
@@ -213,17 +177,27 @@ object Common:
     * @return
     *   A ZIO effect that inserts the data.
     */
-  def addColumns(connection: Connection, tableName: String, migrationExpression: String): ZIO[Any, Throwable, Unit] =
+  def addColumns(
+      dbName: String,
+      connection: Connection,
+      tableName: String,
+      migrationExpression: String
+  ): ZIO[Any, Throwable, Unit] =
     ZIO.scoped {
       for
         statement <- ZIO.fromAutoCloseable(
-          ZIO.attempt(connection.prepareStatement(s"ALTER TABLE $tableName ADD $migrationExpression"))
+          ZIO.attempt(connection.prepareStatement(s"USE $dbName; ALTER TABLE $tableName ADD $migrationExpression"))
         )
         _ <- ZIO.attempt(statement.execute())
       yield ()
     }
 
-  def waitForColumns(connection: Connection, tableName: String, expectedCount: Int): ZIO[Any, Throwable, Unit] =
+  def waitForColumns(
+      dbName: String,
+      connection: Connection,
+      tableName: String,
+      expectedCount: Int
+  ): ZIO[Any, Throwable, Unit] =
     for _ <- ZIO
         .sleep(Duration.ofSeconds(1))
         .repeatUntilZIO(_ =>
@@ -234,7 +208,7 @@ object Common:
                 statement <- ZIO.fromAutoCloseable(
                   ZIO.attempt(
                     connection.prepareStatement(
-                      s"select count(1) from information_schema.columns where table_name = N'$tableName'"
+                      s"USE $dbName; select count(1) from information_schema.columns where table_name = N'$tableName'"
                     )
                   )
                 )
@@ -257,34 +231,19 @@ object Common:
     * @return
     *   A ZIO effect that inserts the data.
     */
-  def removeColumns(connection: Connection, tableName: String, migrationExpression: String): ZIO[Any, Throwable, Unit] =
+  def removeColumns(
+      dbName: String,
+      connection: Connection,
+      tableName: String,
+      migrationExpression: String
+  ): ZIO[Any, Throwable, Unit] =
     ZIO.scoped {
       for
         statement <- ZIO.fromAutoCloseable(
-          ZIO.attempt(connection.prepareStatement(s"ALTER TABLE $tableName DROP COLUMN $migrationExpression"))
+          ZIO.attempt(
+            connection.prepareStatement(s"USE $dbName; ALTER TABLE $tableName DROP COLUMN $migrationExpression")
+          )
         )
         _ <- ZIO.attempt(statement.execute())
       yield ()
     }
-
-  val IntStrDecoder: ResultSet => (Int, String) = (rs: ResultSet) => (rs.getInt(1), rs.getString(2))
-  val IntStrStrDecoder: ResultSet => (Int, String, String) = (rs: ResultSet) =>
-    (rs.getInt(1), rs.getString(2), rs.getString(3))
-
-  def waitForData[T](
-      tableName: String,
-      columnList: String,
-      decoder: ResultSet => T,
-      expectedSize: Int
-  ): ZIO[Any, Nothing, Unit] = ZIO
-    .sleep(Duration.ofSeconds(1))
-    .repeatUntilZIO(_ =>
-      (for {
-        _ <- ZIO.log("Waiting for data to be loaded")
-        inserted <- Common.getData(
-          tableName,
-          columnList,
-          decoder
-        )
-      } yield inserted.length == expectedSize).orElseSucceed(false)
-    )
