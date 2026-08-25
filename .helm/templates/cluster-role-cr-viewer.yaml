@@ -24,4 +24,6 @@ rules:
       resources:
         - microsoft-sql-server-streams
         - microsoft-sql-server-streams/status
+        - microsoft-sql-server-beta-streams
+        - microsoft-sql-server-beta-streams/status
 {{- end }}

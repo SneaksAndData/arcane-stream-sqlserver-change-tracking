@@ -1,5 +1,3 @@
-environment: "Development"
-
 image:
   # Repository to pull the image from
   repository: "ghcr.io/sneaksanddata/arcane-stream-sqlserver-change-tracking"
@@ -113,8 +111,8 @@ jobTemplateSettings:
   extraEnv: []
   # Example:
   #
-  #  - name: ASPNETCORE_ENVIRONMENT
-  #    value: production
+  #  - name: APPLICATION_ENVIRONMENT
+  #    value: Production
 
   # Extra environment variables referencing a ConfigMap or Secret
   extraEnvFrom: []
@@ -156,8 +154,15 @@ jobTemplateSettings:
   # Node labels for pod assignment
   affinity: {}
 
+  # Security context settings for the pod
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
   # Security context settings for the container
-  securityContext:
+  containerSecurityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
