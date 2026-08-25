@@ -36,7 +36,7 @@ services:
       lakekeeper:
         condition: service_healthy
     network_mode: host
-    image: "trinodb/trino:474"
+    image: "trinodb/trino:483"
     volumes:
       - ./integration-tests.properties:/etc/trino/catalog/iceberg.properties
 ##  http-proxy:
@@ -48,7 +48,7 @@ services:
 ##    volumes:
 ##      - ./http-proxy-envoy-config.yaml:/etc/envoy/envoy.yaml
   lakekeeper:
-    image: quay.io/lakekeeper/catalog:v0.9.2
+    image: quay.io/lakekeeper/catalog:v0.13.3
     network_mode: host
     environment:
 #      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
@@ -73,7 +73,7 @@ services:
       minio:
         condition: service_healthy
   lakekeeper_migrate:
-    image: quay.io/lakekeeper/catalog:v0.9.2
+    image: quay.io/lakekeeper/catalog:v0.13.3
     network_mode: host
     environment:
 #      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
@@ -99,14 +99,16 @@ services:
       - ./bootstrap-lk.py:/bootstrap-lk.py
     command: [ "/bin/sh", "-c", "pip install requests && python /bootstrap-lk.py"  ]
   lakekeeper_db:
-    image: bitnami/postgresql:16.3.0
+    image: postgres:16.3-bullseye
     network_mode: host
     restart: always
     environment:
-      - POSTGRESQL_USERNAME=postgres
-      - POSTGRESQL_PASSWORD=postgres
-      - POSTGRESQL_DATABASE=postgres
+      - POSTGRES_USERNAME=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_HOST_AUTH_METHOD=trust
+      - POSTGRES_DB=postgres
       - PGHOST=localhost
+      - PGPORT=5432
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres -p 5432 -d postgres" ]
       interval: 2s
@@ -139,20 +141,3 @@ services:
           sleep 1
         done
         /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -i /app/integration-tests.sql
-#  insert_changes:
-#    container_name: insert-data
-#    image: mcr.microsoft.com/mssql-tools
-#    networks:
-#      mesh:
-#        ipv4_address: 10.1.0.7
-#    depends_on:
-#      setup_mssql:
-#        condition: service_completed_successfully
-#    entrypoint:
-#      - "bash"
-#      - "-c"
-#      - |
-#        while true; do
-#          /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -Q "INSERT INTO IntegrationTests.dbo.TestTable (Id, Name) VALUES (ABS(CHECKSUM(NewId())) % 14000, 'Name' + CAST(RAND() as nvarchar(50)))";
-#          sleep 5;
-#        done

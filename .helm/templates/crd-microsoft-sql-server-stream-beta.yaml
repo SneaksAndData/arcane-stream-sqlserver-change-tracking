@@ -2,16 +2,16 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name:  microsoft-sql-server-streams.streaming.sneaksanddata.com
+  name:  microsoft-sql-server-beta-streams.streaming.sneaksanddata.com
 spec:
   group: streaming.sneaksanddata.com
   scope: Namespaced
   names:
-    plural: microsoft-sql-server-streams
-    singular: microsoft-sql-server-stream
-    kind: MicrosoftSqlServerStream
+    plural: microsoft-sql-server-beta-streams
+    singular: microsoft-sql-server-beta-stream
+    kind: MicrosoftSqlServerBetaStream
     shortNames:
-      - mssql-stream
+      - mssqlb-stream
   versions:
     - name: v1
       served: true
@@ -308,7 +308,7 @@ spec:
                               nullable: true
                               default: null
                           default:
-                            never: { }
+                            never: {}
                     targetTableProperties:
                       type: object
                       description: Additional configurations like partitioning, sort order etc. for a target table. These are not supported until 2.3 framework release.
@@ -418,8 +418,8 @@ spec:
                           default: 3500 second
                 throughput:
                   type: object
-                  nullable: true
                   description: Configuration for throughput management controls
+                  nullable: true
                   default:
                     advisedChunkSize: 10000
                     advisedRate: 1000 per 15 second
@@ -431,10 +431,9 @@ spec:
                         objectTypeSizeEstimate: 4096
                         chunkCostScale: 1
                         chunkCostMax: 10
-                        tableRowCountWeight: 0.03
-                        tableSizeWeight: 0.03
+                        tableRowCountWeight: 0.02
+                        tableSizeWeight: 0.02
                         tableSizeScaleFactor: 2
-                        chunkSizeCap: 1000000
                   properties:
                     advisedChunkSize:
                       type: integer
@@ -443,7 +442,7 @@ spec:
                     advisedRate:
                       type: string
                       description: Row intake rate. For all shapers except Static, this setting is treated as a computation baseline.
-                      default: 1000 per 15 second
+                      default: 100 per 1 second
                     advisedBurst:
                       type: integer
                       description: Row intake burst. For all shapers except Static, this setting is treated as a computation baseline.
@@ -594,7 +593,7 @@ spec:
                           description: Extra parameters for SqlServer JDBC connection
                           additionalProperties:
                             type: string
-                          default: { }
+                          default: {}
                         connectionUrl:
                           type: string
                           nullable: true
@@ -620,7 +619,7 @@ spec:
                           type: integer
                           nullable: true
                           default: null
-                          description: Advised shard table physical size in megabytes. Setting this value to null enables automatic size evaluation via query cost estimation and physicals stats of the source table.
+                          description: Advised shard table physical size in megabytes. Setting this value to null enables automatic size evaluation via query cost estimation and physicals stats of the source table
                 streamConfigurationSecretRef:
                   description: |
                     Name of the secret containing Sql Server and Trino connection information. Must contain the following: ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI (Trino) and ARCANE_FRAMEWORK__MICROSOFT_SQL_SERVER_CONNECTION_URI (SQL)

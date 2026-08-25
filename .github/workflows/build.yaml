@@ -15,14 +15,15 @@ jobs:
       id-token: write      # required for dependabot PRs
       pull-requests: write # required for dependabot PRs
       contents: read       # required for dependabot PRs
+      code-quality: write
 
       checks: write       # required for cobertura-action
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Setup Scala
-        uses: japgolly/setup-everything-scala@v3.1
+        uses: japgolly/setup-everything-scala@v4.1
         with:
-          java-version: temurin:1.23.0.1
+          java-version: temurin:1.25.0.2
       - name: Build the Docker Compose stack
         run: docker compose up --quiet-pull -d
       - name: Get Compose Logs
@@ -36,7 +37,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
-        run: sbt clean coverage test coverageReport
+        run: |
+          sbt clean coverage test coverageReport
 
       - name: Validate formatting
         env:
@@ -44,7 +46,8 @@ jobs:
         shell: bash
         run: sbt scalafmtCheckAll
 
-      - uses: 5monkeys/cobertura-action@v14
+      - uses: actions/upload-code-coverage@v1
         with:
-          path: ./target/scala-3.6.1/coverage-report/cobertura.xml
-          minimum_coverage: 0
+          file: target/scala-3.8.3/coverage-report/cobertura.xml
+          language: Java
+          label: code-coverage/jacoco
