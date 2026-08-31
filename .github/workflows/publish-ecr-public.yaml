@@ -84,7 +84,7 @@ jobs:
             latest=false
 
       - name: Push image to ECR Public registry
-        uses: akhilerm/tag-push-action@v2.2.0
+        uses: akhilerm/tag-push-action@v2.3.0
         with:
           src: ${{ steps.meta.outputs.tags }}
           dst: public.ecr.aws/ecco-sneaks-and-data/arcane/arcane-stream-microsoft-sql-server:${{ steps.meta.outputs.version }}
