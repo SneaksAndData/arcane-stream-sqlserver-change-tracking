@@ -1,19 +1,31 @@
-import sbt.Keys.libraryDependencies
 
-ThisBuild / version := "2.4.2-SNAPSHOT"
+
+ThisBuild / version := "2.5.0-SNAPSHOT"
 ThisBuild / trackInternalDependencies := TrackLevel.TrackIfMissing
 ThisBuild / exportJars := true
-ThisBuild / scalaVersion := "3.8.3"
+ThisBuild / scalaVersion := "3.9.0"
 ThisBuild / organization := "com.sneaksanddata"
 
 resolvers += "Arcane framework repo" at "https://maven.pkg.github.com/SneaksAndData/arcane-framework-scala"
 
-credentials += Credentials(
+val githubToken: Option[String] =
+  sys.env.get("GITHUB_TOKEN").orElse {
+    val tokenFile = file(".ghtoken")
+    if (tokenFile.exists()) {
+      val source = scala.io.Source.fromFile(tokenFile)
+      try Some(source.mkString.trim)
+      finally source.close()
+    } else None
+  }
+
+credentials ++= githubToken.map { token =>
+  Credentials(
     "GitHub Package Registry",
     "maven.pkg.github.com",
     "_",
-    sys.env("GITHUB_TOKEN")
-)
+    token
+  )
+}.toSeq
 
 mainClass := Some("com.sneaksanddata.arcane.sql_server_change_tracking.main")
 
@@ -21,15 +33,15 @@ lazy val plugin = (project in file("."))
   .settings(
     name := "arcane-stream-sqlserver-change-tracking",
     idePackagePrefix := Some("com.sneaksanddata.arcane.sql_server_change_tracking"),
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "2.3.2",
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "2.3.2-35-ge0ce1a0",
     libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.74.Final",
 
     // Test dependencies
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.20" % Test,
     libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.20" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.26" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.26" % Test,
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.3.1" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.27" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.27" % Test,
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.3.1-5-ge508df3" % Test,
 
     Test / parallelExecution := false,
 
