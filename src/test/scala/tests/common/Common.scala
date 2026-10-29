@@ -7,6 +7,7 @@ import models.app.MicrosoftSqlServerPluginStreamContext
 import com.sneaksanddata.arcane.framework.plugins.LayerAssemblies
 import com.sneaksanddata.arcane.framework.plugins.mssql.Services
 import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, StreamGraphResolver}
+import com.sneaksanddata.arcane.framework.services.migration.DefaultMigrationService
 import com.sneaksanddata.arcane.framework.testkit.appbuilder.TestAppBuilder.buildTestApp
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
@@ -40,6 +41,7 @@ object Common:
       streamingSourceLayer,
       LayerAssemblies.frameworkPipelineServicesLayer,
       LayerAssemblies.frameworkStagingServicesLayer,
+      DefaultMigrationService.layer,
       GenericStreamRunnerService.layer,
       StreamGraphResolver.composedLayer
     )

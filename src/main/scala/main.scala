@@ -11,6 +11,7 @@ import com.sneaksanddata.arcane.framework.services.app.base.StreamRunnerService
 import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, StreamGraphResolver}
 import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlStreamingSource
 import com.sneaksanddata.arcane.framework.services.naming.DefaultNameGenerator
+import com.sneaksanddata.arcane.framework.services.migration.DefaultMigrationService
 import zio.logging.backend.SLF4J
 import zio.{Runtime, ZIO, ZIOAppDefault, ZLayer}
 
@@ -24,8 +25,8 @@ object main extends ZIOAppDefault:
     _            <- streamRunner.run
   yield ()
 
-  val streamingSourceLayer: ZLayer[PluginStreamContext, SecurityException, MsSqlStreamingSource] =
-    DefaultNameGenerator.layer >>> MsSqlStreamingSource.getLayer(context =>
+  val streamingSourceLayer: ZLayer[PluginStreamContext, Throwable, MsSqlStreamingSource] =
+    DefaultNameGenerator.layer >+> MsSqlStreamingSource.getLayer(context =>
       context.asInstanceOf[MicrosoftSqlServerPluginStreamContext].source.configuration
     )
 
@@ -34,6 +35,7 @@ object main extends ZIOAppDefault:
     streamingSourceLayer,
     LayerAssemblies.frameworkPipelineServicesLayer,
     LayerAssemblies.frameworkStagingServicesLayer,
+    DefaultMigrationService.layer,
     MicrosoftSqlServerPluginStreamContext.layer,
     GenericStreamRunnerService.layer,
     StreamGraphResolver.composedLayer
