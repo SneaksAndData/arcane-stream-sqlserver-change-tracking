@@ -44,6 +44,7 @@ lazy val plugin = (project in file("."))
     libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.3.1-2-g404ebe4" % Test,
 
     Test / parallelExecution := false,
+    Test / fork := true,
 
     assembly / mainClass := Some("com.sneaksanddata.arcane.sql_server_change_tracking.main"),
 
