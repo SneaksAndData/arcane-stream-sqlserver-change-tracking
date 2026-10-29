@@ -505,56 +505,42 @@ spec:
                 source:
                   type: object
                   properties:
-                    fieldSelectionRule:
+                    modifications:
                       type: object
-                      description: Select a subset of fields from source
-                      default:
-                        rule:
-                          all: null
-                          include: null
-                          exclude: null
+                      description: Row and schema modifications to apply to data read from the source, in their configured order
+                      default: { }
                       properties:
-                        isServerSide:
-                          type: boolean
-                          description: If set to true, indicates that a source can provide field selection. This disables field filtering on the application level and relies on a source-specific filtering query instead.
-                          default: true
-                        essentialFields:
-                          type: array
-                          items:
-                            type: string
-                          default:
-                            - sys_change_version
-                            - sys_change_operation
-                            - changetrackingversion
-                            - arcane_merge_key
-                        rule:
+                        fieldSelector:
                           type: object
+                          description: Select a subset of fields read from the source. Only one of `include`/`exclude` may be set.
+                          nullable: true
+                          default: null
                           properties:
-                            all:
-                              type: object
-                              nullable: true
-                              description: Use all fields without filters.
-                              default: { }
                             include:
                               type: object
                               description: Only use fields provided. You must specify mandatory fields like ARCANE_MERGE_KEY as well.
                               nullable: true
+                              default: null
                               properties:
                                 fields:
                                   type: array
                                   items:
                                     type: string
-                              default: null
                             exclude:
                               type: object
                               description: Exclude provided fields.
                               nullable: true
+                              default: null
                               properties:
                                 fields:
                                   type: array
                                   items:
                                     type: string
-                              default: null
+                        surrogateTimestamp:
+                          type: object
+                          description: Adds the time at which Arcane loaded a batch into the sink.
+                          nullable: true
+                          default: null
                     buffering:
                       type: object
                       default:
