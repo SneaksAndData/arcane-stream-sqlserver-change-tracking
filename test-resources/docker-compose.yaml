@@ -1,4 +1,4 @@
-version: '3.3'
+name: arcane-stream-sqlserver-change-tracking
 
 services:
   minio:
@@ -19,14 +19,6 @@ services:
     image: "trinodb/trino:483"
     volumes:
       - ./integration-tests.properties:/etc/trino/catalog/iceberg.properties
-##  http-proxy:
-##    image: "envoyproxy/envoy:v1.31.2"
-##    command:
-##      - envoy
-##      - "-c"
-##      - /etc/envoy/envoy.yaml
-##    volumes:
-##      - ./http-proxy-envoy-config.yaml:/etc/envoy/envoy.yaml
   lakekeeper:
     image: quay.io/lakekeeper/catalog:v0.13.5
     network_mode: host

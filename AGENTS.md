@@ -15,32 +15,35 @@ that captures SQL Server Change Tracking changes and merges them into an Iceberg
 ## Commands (via `justfile`)
 
 - `just build` — `sbt assembly`, produces `target/com.sneaksanddata.arcane.sql-server-change-tracking.assembly.jar`.
-- `just check` — `sbt scalafmtCheckAll` (run before committing; CI fails the build on formatting drift).
+- `just check` / `just fmt-check` — `sbt scalafmtCheckAll` (run before committing; CI fails the build on formatting drift).
+- `just fmt` — `sbt scalafmtAll`, auto-formats.
 - `just clean` — `sbt clean`.
-- `just it` — full integration test run: brings up `docker-compose.yaml` (MinIO/S2, Lakekeeper + Postgres, Trino,
-  a real MSSQL server seeded via `integration-tests.sql`), waits for health, then runs `sbt test` with env from
-  `integration-tests.env` (loaded by `mise.it.toml`). Tears down compose on exit via `trap`.
+- `just up` / `just stop` / `just fresh` / `just logs` / `just ps` — manage the `test-resources/docker-compose.yaml`
+  stack directly (MinIO/S2, Lakekeeper + Postgres, Trino, a real MSSQL server seeded via `test-resources/integration-tests.sql`).
+- `just test [sbt-args]` — exports `test-resources/integration-tests.env` then runs `sbt` with the given args (defaults to `test`).
+- `just test-only <pattern>` — runs `sbt testOnly` scoped to a class/pattern match, with the same env loaded.
+- `just it` — full integration run: `just build`, `just up`, waits for `lakekeeper_migrate`/`lakekeeper_prepare`/`setup_mssql`
+  to exit, then `just test`. Tears down compose on exit via `trap`.
 - `just stream [--debug]` / `just backfill [--debug]` — runs the assembled JAR locally against `dev.env`
   (copy from `dev.env.example`; the file is required and the recipe aborts if it's missing). `backfill` just sets
   `STREAMCONTEXT__BACKFILL=true` and calls `stream`.
 - `just docker-build [tag]` — builds the container image via `.container/Dockerfile`, passing `GITHUB_TOKEN` as a
   build arg.
 
-There is no "run a single test" shortcut in `justfile`; to scope a run, use
-`mise exec --env it -- sbt "testOnly com.sneaksanddata.arcane.sql_server_change_tracking.tests.integration.StreamRunner"`
+To scope a single test, use `just test-only StreamRunner` (matches by class name) or
+`just test-only "com.sneaksanddata.arcane.sql_server_change_tracking.tests.integration.StreamRunner"` for an exact match
 (tests are ZIO-test/ScalaTest specs under `src/test/scala/tests/integration`, and effectively all are integration
 tests requiring the Docker Compose stack — there is no separate fast unit-test suite).
 
 ## Test suite notes
 
 - `Test / parallelExecution := false` in `build.sbt` — specs run sequentially by design; don't try to parallelize.
-- Integration tests assume live services at fixed localhost ports from `docker-compose.yaml`: MSSQL `1433`,
+- Integration tests assume live services at fixed localhost ports from `test-resources/docker-compose.yaml`: MSSQL `1433`,
   Lakekeeper (Iceberg REST catalog) `20001`, Trino `8080`, Postgres `5432`. Credentials/URIs are hardcoded in
-  `integration-tests.env` / `docker-compose.yaml` (e.g. MSSQL `sa`/`tMIxN11yGZgMC`).
-- `integration-tests.sql` bootstraps the MSSQL schema/sample data and is run by the `setup_mssql` compose service.
-- CI (`.github/workflows/build.yaml`) runs `docker compose up`, sources `integration-tests.env` into `$GITHUB_ENV`,
-  then `sbt clean coverage test coverageReport`, then `sbt scalafmtCheckAll` — reproduce this order locally when
-  validating changes (tests first, formatting check after).
+  `test-resources/integration-tests.env` / `test-resources/docker-compose.yaml` (e.g. MSSQL `sa`/`tMIxN11yGZgMC`).
+- `test-resources/integration-tests.sql` bootstraps the MSSQL schema/sample data and is run by the `setup_mssql` compose service.
+- CI (`.github/workflows/build.yaml`) uses `just up`, `just logs`, `just test "clean; coverage; test; coverageReport"`,
+  then `just fmt-check` — reproduce this order locally when validating changes (tests first, formatting check after).
 
 ## Formatting
 
