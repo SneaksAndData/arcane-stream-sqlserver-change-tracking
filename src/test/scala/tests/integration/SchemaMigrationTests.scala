@@ -20,7 +20,7 @@ import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
 import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.test.TestAspect.timeout
-import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestAspect, TestEnvironment, TestSystem, ZIOSpecDefault, assertTrue}
 import zio.{Duration, Scope, ZIO, ZLayer}
 
 import java.sql.ResultSet
@@ -152,18 +152,22 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |      "enabled": false,
        |      "strategy": {}
        |    },
-       |    "fieldSelectionRule": {
-       |      "essentialFields": [],
-       |      "rule":{
-       |        "all": {}
-       |      },
-       |      "isServerSide": true
+       |    "modifications": {
+       |      "modifications": {}
        |    }
        |  }
        |}""".stripMargin
 
   private def before =
     TestAspect.before(liveSeed *> Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName))
+
+  private def runMigration(context: MicrosoftSqlServerPluginStreamContext) =
+    for
+      _        <- TestSystem.putEnv("STREAMCONTEXT__RUNMODE", "migrate")
+      migrator <- Common.getTestApp(Duration.fromSeconds(10), getStreamContextLayer(context)).fork
+      _        <- migrator.runOrFail(Duration.fromSeconds(5))
+      _        <- TestSystem.putEnv("STREAMCONTEXT__RUNMODE", "stream")
+    yield ()
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SchemaMigrationTests")(
     test("handle the schema migration (column insertions)") {
@@ -184,6 +188,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         )
         // manually migrate
         _ <- entityManager.migrateSchema(fakeSchema, initialSchema, targetTableName.split("\\.").last)
+        _ <- runMigration(context)
 
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
 
@@ -230,6 +235,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         )
         // manually migrate
         _ <- entityManager.migrateSchema(fakeSchema, initialSchema, targetTableName.split("\\.").last)
+        _ <- runMigration(context)
 
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
         _                <- Common.addColumns(dbName, sourceConnection, sourceTableName, "NewName VARCHAR(100)")

@@ -508,39 +508,45 @@ spec:
                     modifications:
                       type: object
                       description: Row and schema modifications to apply to data read from the source, in their configured order
-                      default: { }
+                      default:
+                        modifications: { }
                       properties:
-                        fieldSelector:
+                        modifications:
                           type: object
-                          description: Select a subset of fields read from the source. Only one of `include`/`exclude` may be set.
-                          nullable: true
-                          default: null
+                          description: Row and schema modification settings, in their configured order
+                          default: { }
                           properties:
-                            include:
+                            fieldSelector:
                               type: object
-                              description: Only use fields provided. You must specify mandatory fields like ARCANE_MERGE_KEY as well.
+                              description: Select a subset of fields read from the source. Only one of `include`/`exclude` may be set.
                               nullable: true
                               default: null
                               properties:
-                                fields:
-                                  type: array
-                                  items:
-                                    type: string
-                            exclude:
+                                include:
+                                  type: object
+                                  description: Only use fields provided. You must specify mandatory fields like ARCANE_MERGE_KEY as well.
+                                  nullable: true
+                                  default: null
+                                  properties:
+                                    fields:
+                                      type: array
+                                      items:
+                                        type: string
+                                exclude:
+                                  type: object
+                                  description: Exclude provided fields.
+                                  nullable: true
+                                  default: null
+                                  properties:
+                                    fields:
+                                      type: array
+                                      items:
+                                        type: string
+                            surrogateTimestamp:
                               type: object
-                              description: Exclude provided fields.
+                              description: Adds the time at which Arcane loaded a batch into the sink.
                               nullable: true
                               default: null
-                              properties:
-                                fields:
-                                  type: array
-                                  items:
-                                    type: string
-                        surrogateTimestamp:
-                          type: object
-                          description: Adds the time at which Arcane loaded a batch into the sink.
-                          nullable: true
-                          default: null
                     buffering:
                       type: object
                       default:

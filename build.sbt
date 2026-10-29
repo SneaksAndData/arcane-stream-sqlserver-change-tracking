@@ -33,7 +33,7 @@ lazy val plugin = (project in file("."))
   .settings(
     name := "arcane-stream-sqlserver-change-tracking",
     idePackagePrefix := Some("com.sneaksanddata.arcane.sql_server_change_tracking"),
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "2.3.2-37-gcb5a204",
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "2.3.2-38-gc341e72",
     libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.74.Final",
 
     // Test dependencies
@@ -41,7 +41,7 @@ lazy val plugin = (project in file("."))
     libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.20" % Test,
     libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.27" % Test,
     libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.27" % Test,
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.3.1-5-ge508df3" % Test,
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.3.1-2-g404ebe4" % Test,
 
     Test / parallelExecution := false,
 

@@ -144,12 +144,8 @@ object StreamRunner extends ZIOSpecDefault:
                                     |      "enabled": false,
                                     |      "strategy": {}
                                     |    },
-                                    |    "fieldSelectionRule": {
-                                    |      "essentialFields": [],
-                                    |      "rule":{
-                                    |        "all": {}
-                                    |      },
-                                    |      "isServerSide": true
+                                    |    "modifications": {
+                                    |      "modifications": {}
                                     |    }
                                     |  }
                                     |}""".stripMargin
@@ -171,9 +167,19 @@ object StreamRunner extends ZIOSpecDefault:
   private def before =
     TestAspect.before(liveSeed *> Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName))
 
+  private def runMigration =
+    for
+      _        <- TestSystem.putEnv("STREAMCONTEXT__RUNMODE", "migrate")
+      migrator <- Common.getTestApp(Duration.fromSeconds(10), streamingStreamContextLayer).fork
+      _        <- migrator.runOrFail(Duration.fromSeconds(5))
+      _        <- TestSystem.putEnv("STREAMCONTEXT__RUNMODE", "stream")
+    yield ()
+
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
     test("fail stream when watermark is not set") {
       for
+        _ <- runMigration
+
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
 
         // Start streaming WITHOUT preparing watermark
@@ -188,7 +194,9 @@ object StreamRunner extends ZIOSpecDefault:
         exitVal <- runner.runOrFail(Duration.fromSeconds(5)).exit
       yield exitVal.causeOption match
         case Some(Cause.Fail(value, _)) =>
-          assertTrue(value.squash.getMessage.contains("Required property 'comment' is not set"))
+          assertTrue(value.squash.getMessage.contains("Required property 'arcane.core.watermark' is not set"))
+        case Some(Cause.Die(value, _)) =>
+          assertTrue(value.getMessage.contains("Required property 'arcane.core.watermark' is not set"))
         case _ => assertTrue(false) // unexpected: it succeeded or timed out
     },
     test("stream, backfill and stream again successfully") {
@@ -198,6 +206,7 @@ object StreamRunner extends ZIOSpecDefault:
           initialSchema,
           MsSqlWatermark.epoch
         )
+        _ <- runMigration
 
         sourceConnection <- ZIO.succeed(Fixtures.getConnection)
 
