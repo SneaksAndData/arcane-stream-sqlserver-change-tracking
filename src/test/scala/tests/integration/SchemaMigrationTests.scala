@@ -5,16 +5,11 @@ import models.app.MicrosoftSqlServerPluginStreamContext
 import tests.common.Common
 import tests.integration.Fixtures.initialSchema
 
-import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType
-import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, Field}
 import com.sneaksanddata.arcane.framework.services.iceberg.base.SinkEntityManager
 import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import com.sneaksanddata.arcane.framework.testkit.iceberg.TestEntityManager
 import com.sneaksanddata.arcane.framework.testkit.setups.FrameworkTestSetup.prepareWatermark
-import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.{
-  IntStrStrDecoder,
-  readTarget
-}
+import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.{IntStrDecoder, IntStrStrDecoder, readTarget}
 import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.{liveSeed, runOrFail}
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
@@ -24,7 +19,7 @@ import zio.test.{Spec, TestAspect, TestEnvironment, TestSystem, ZIOSpecDefault, 
 import zio.{Duration, Scope, ZIO, ZLayer}
 
 import java.sql.ResultSet
-import scala.util.Random
+import java.util.UUID
 
 object SchemaMigrationTests extends ZIOSpecDefault:
 
@@ -49,7 +44,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |      "maxRowsPerFile": 10000,
        |      "stagingCatalogName": "iceberg",
        |      "stagingSchemaName": "test",
-       |      "isUnifiedSchema": false
+       |      "isUnifiedSchema": true
        |    },
        |    "icebergCatalog": {
        |      "catalogProperties": {},
@@ -171,8 +166,8 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SchemaMigrationTests")(
     {
-      val runId           = Random.alphanumeric.take(8).mkString("")
-      val sourceTableName = s"SchemaEvolutionInsertTests_$runId"
+      val runId           = UUID.randomUUID().toString.replace("-", "_")
+      val sourceTableName = s"schema_evolution_insert_$runId"
       val targetTableName = s"iceberg.test.schema_evolution_insert_$runId"
 
       test("handle the schema migration (column insertions)") {
@@ -184,15 +179,14 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
         for {
           context <- ZIO.succeed(getStreamContext(sourceTableName, targetTableName))
-          fakeSchema = ArcaneSchema(Seq(Field("test", StringType)))
           entityManager <- ZIO.service[SinkEntityManager]
           _ <- prepareWatermark(
             targetTableName.split("\\.").last,
-            fakeSchema,
+            initialSchema,
             MsSqlWatermark.epoch
           )
-          // manually migrate
-          _ <- entityManager.migrateSchema(fakeSchema, initialSchema, targetTableName.split("\\.").last)
+
+          // migrate from nothing to latest
           _ <- runMigration(context)
 
           sourceConnection <- ZIO.succeed(Fixtures.getConnection)
@@ -229,9 +223,10 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         )
       }.provideLayer(TestEntityManager.sinkEntityManagerLayer)
         @@ before(sourceTableName, targetTableName)
-    }, {
-      val runId           = Random.alphanumeric.take(8).mkString("")
-      val sourceTableName = s"SchemaEvolutionDeleteTests_$runId"
+    },
+    {
+      val runId           = UUID.randomUUID().toString.replace("-", "_")
+      val sourceTableName = s"schema_evolution_delete_$runId"
       val targetTableName = s"iceberg.test.schema_evolution_delete_$runId"
 
       test("handle the schema migration (column deletions)") {
@@ -242,15 +237,13 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
         for {
           context <- ZIO.succeed(getStreamContext(sourceTableName, targetTableName))
-          fakeSchema = ArcaneSchema(Seq(Field("test", StringType)))
           entityManager <- ZIO.service[SinkEntityManager]
           _ <- prepareWatermark(
             targetTableName.split("\\.").last,
-            fakeSchema,
+            initialSchema,
             MsSqlWatermark.epoch
           )
           // manually migrate
-          _ <- entityManager.migrateSchema(fakeSchema, initialSchema, targetTableName.split("\\.").last)
           _ <- runMigration(context)
 
           sourceConnection <- ZIO.succeed(Fixtures.getConnection)
@@ -260,7 +253,6 @@ object SchemaMigrationTests extends ZIOSpecDefault:
           streamRunner <- Common.getTestApp(Duration.fromSeconds(15), getStreamContextLayer(context)).fork
           _            <- Common.insertUpdatedData(dbName, sourceConnection, sourceTableName, streamingData)
 
-          _ <- ZIO.sleep(Duration.fromSeconds(5))
           _ <- streamRunner.runOrFail(Duration.fromSeconds(10))
 
           // update SOURCE (SQL) schema by removing the column

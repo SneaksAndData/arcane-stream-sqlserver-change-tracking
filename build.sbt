@@ -43,9 +43,6 @@ lazy val plugin = (project in file("."))
     libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.27" % Test,
     libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.3.1-2-g404ebe4" % Test,
 
-    Test / parallelExecution := false,
-    Test / fork := true,
-
     assembly / mainClass := Some("com.sneaksanddata.arcane.sql_server_change_tracking.main"),
 
     // Put JAR in target/ directly, instead of in target/scala-x.x.x sub-directory
