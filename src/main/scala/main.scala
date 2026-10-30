@@ -24,8 +24,8 @@ object main extends ZIOAppDefault:
     _            <- streamRunner.run
   yield ()
 
-  val streamingSourceLayer: ZLayer[PluginStreamContext, SecurityException, MsSqlStreamingSource] =
-    DefaultNameGenerator.layer >>> MsSqlStreamingSource.getLayer(context =>
+  val streamingSourceLayer: ZLayer[PluginStreamContext, Throwable, MsSqlStreamingSource] =
+    DefaultNameGenerator.layer >+> MsSqlStreamingSource.getLayer(context =>
       context.asInstanceOf[MicrosoftSqlServerPluginStreamContext].source.configuration
     )
 

@@ -68,3 +68,6 @@ project/**/metals.sbt
 
 # mise local dev environment (may contains sensitive info, e.g. credentials)
 dev.env
+
+# Local GitHub token file
+.ghtoken

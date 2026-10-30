@@ -5,13 +5,12 @@ import models.app.MicrosoftSqlServerPluginStreamContext
 import tests.common.Common
 import tests.integration.Fixtures.initialSchema
 
-import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType
-import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, Field}
 import com.sneaksanddata.arcane.framework.services.iceberg.base.SinkEntityManager
 import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import com.sneaksanddata.arcane.framework.testkit.iceberg.TestEntityManager
 import com.sneaksanddata.arcane.framework.testkit.setups.FrameworkTestSetup.prepareWatermark
 import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.{
+  IntStrDecoder,
   IntStrStrDecoder,
   readTarget
 }
@@ -20,16 +19,16 @@ import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
 import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.test.TestAspect.timeout
-import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestAspect, TestEnvironment, TestSystem, ZIOSpecDefault, assertTrue}
 import zio.{Duration, Scope, ZIO, ZLayer}
 
 import java.sql.ResultSet
+import java.util.UUID
 
 object SchemaMigrationTests extends ZIOSpecDefault:
-  val sourceTableName = "SchemaEvolutionTests"
-  val targetTableName = "iceberg.test.schema_evolution"
 
-  private def getStreamContext = MicrosoftSqlServerPluginStreamContext(streamContextStr)
+  private def getStreamContext(sourceTableName: String, targetTableName: String) =
+    MicrosoftSqlServerPluginStreamContext(streamContextStr(sourceTableName, targetTableName))
 
   private def getStreamContextLayer(context: MicrosoftSqlServerPluginStreamContext) =
     ZLayer.succeed[MicrosoftSqlServerPluginStreamContext](context) ++ ZLayer
@@ -38,7 +37,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
 
   private val dbName = "SchemaMigrationTests"
 
-  private val streamContextStr =
+  private def streamContextStr(sourceTableName: String, targetTableName: String) =
     s"""
        {
        |  "observability": {
@@ -49,7 +48,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |      "maxRowsPerFile": 10000,
        |      "stagingCatalogName": "iceberg",
        |      "stagingSchemaName": "test",
-       |      "isUnifiedSchema": false
+       |      "isUnifiedSchema": true
        |    },
        |    "icebergCatalog": {
        |      "catalogProperties": {},
@@ -152,108 +151,137 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |      "enabled": false,
        |      "strategy": {}
        |    },
-       |    "fieldSelectionRule": {
-       |      "essentialFields": [],
-       |      "rule":{
-       |        "all": {}
-       |      },
-       |      "isServerSide": true
+       |    "modifications": {
+       |      "modifications": {}
        |    }
        |  }
        |}""".stripMargin
 
-  private def before =
+  private def before(sourceTableName: String, targetTableName: String) =
     TestAspect.before(liveSeed *> Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName))
 
+  private def runMigration(context: MicrosoftSqlServerPluginStreamContext) =
+    for
+      _        <- TestSystem.putEnv("STREAMCONTEXT__RUNMODE", "migrate")
+      migrator <- Common.getTestApp(Duration.fromSeconds(10), getStreamContextLayer(context)).fork
+      _        <- migrator.runOrFail(Duration.fromSeconds(5))
+      _        <- TestSystem.putEnv("STREAMCONTEXT__RUNMODE", "stream")
+    yield ()
+
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SchemaMigrationTests")(
-    test("handle the schema migration (column insertions)") {
-      val streamingData  = List.range(1, 4).map(i => (i, s"Test$i"))
-      val afterEvolution = List.range(4, 7).map(i => (i, s"Test$i", s"Updated $i"))
+    {
+      val runId           = UUID.randomUUID().toString.replace("-", "_")
+      val sourceTableName = s"schema_evolution_insert_$runId"
+      val targetTableName = s"iceberg.test.schema_evolution_insert_$runId"
 
-      val afterEvolutionExpected = List.range(1, 4).map(i => (i, s"Test$i", null))
-        ++ List.range(4, 7).map(i => (i, s"Test$i", s"Updated $i"))
+      test("handle the schema migration (column insertions)") {
+        val streamingData  = List.range(1, 4).map(i => (i, s"Test$i"))
+        val afterEvolution = List.range(4, 7).map(i => (i, s"Test$i", s"Updated $i"))
 
-      for {
-        context <- ZIO.succeed(getStreamContext)
-        fakeSchema = ArcaneSchema(Seq(Field("test", StringType)))
-        entityManager <- ZIO.service[SinkEntityManager]
-        _ <- prepareWatermark(
-          targetTableName.split("\\.").last,
-          fakeSchema,
-          MsSqlWatermark.epoch
+        val afterEvolutionExpected = List.range(1, 4).map(i => (i, s"Test$i", null))
+          ++ List.range(4, 7).map(i => (i, s"Test$i", s"Updated $i"))
+
+        for {
+          context       <- ZIO.succeed(getStreamContext(sourceTableName, targetTableName))
+          entityManager <- ZIO.service[SinkEntityManager]
+          _ <- prepareWatermark(
+            targetTableName.split("\\.").last,
+            initialSchema,
+            MsSqlWatermark.epoch
+          )
+
+          // migrate from nothing to latest
+          _ <- runMigration(context)
+
+          sourceConnection <- ZIO.succeed(Fixtures.getConnection)
+
+          // launch stream and wait for it to create target with streamingData rows (initial table)
+          streamRunner <- Common.getTestApp(Duration.fromSeconds(15), getStreamContextLayer(context)).fork
+          _            <- Common.insertData(dbName, sourceConnection, sourceTableName, streamingData)
+
+          _ <- ZIO.sleep(Duration.fromSeconds(5))
+          _ <- streamRunner.runOrFail(Duration.fromSeconds(10))
+
+          // update SOURCE (SQL) schema with a new column
+          _ <- Common.addColumns(dbName, sourceConnection, sourceTableName, "NewName VARCHAR(100)")
+          // let it propagate
+          _ <- Common.waitForColumns(dbName, sourceConnection, sourceTableName, 3)
+          // INSERT data with a new schema
+          _ <- Common.insertUpdatedData(dbName, sourceConnection, sourceTableName, afterEvolution)
+
+          // restart the stream so a fresh source picks up the schema change (SQL Server sources
+          // cannot observe schema changes mid-stream and require a restart)
+          streamRunnerAfterSchemaChange <- Common
+            .getTestApp(Duration.fromSeconds(15), getStreamContextLayer(context))
+            .fork
+          _ <- streamRunnerAfterSchemaChange.runOrFail(Duration.fromSeconds(10))
+
+          // read target table after schema migration
+          afterStream <- readTarget(
+            context.sink.targetTableFullName,
+            "Id, Name, NewName",
+            (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
+          )
+        } yield assertTrue(
+          afterStream.sorted == afterEvolutionExpected
         )
-        // manually migrate
-        _ <- entityManager.migrateSchema(fakeSchema, initialSchema, targetTableName.split("\\.").last)
+      }.provideLayer(TestEntityManager.sinkEntityManagerLayer)
+        @@ before(sourceTableName, targetTableName)
+    }, {
+      val runId           = UUID.randomUUID().toString.replace("-", "_")
+      val sourceTableName = s"schema_evolution_delete_$runId"
+      val targetTableName = s"iceberg.test.schema_evolution_delete_$runId"
 
-        sourceConnection <- ZIO.succeed(Fixtures.getConnection)
+      test("handle the schema migration (column deletions)") {
+        val streamingData  = List.range(1, 4).map(i => (i, s"Test$i", s"Updated $i"))
+        val afterEvolution = List.range(4, 7).map(i => (i, s"Test$i"))
 
-        // launch stream and wait for it to create target with streamingData rows (initial table)
-        streamRunner <- Common.getTestApp(Duration.fromSeconds(15), getStreamContextLayer(context)).fork
-        _            <- Common.insertData(dbName, sourceConnection, sourceTableName, streamingData)
+        val afterEvolutionExpected = streamingData ++ List.range(4, 7).map(i => (i, s"Test$i", null))
 
-        _ <- ZIO.sleep(Duration.fromSeconds(5))
+        for {
+          context       <- ZIO.succeed(getStreamContext(sourceTableName, targetTableName))
+          entityManager <- ZIO.service[SinkEntityManager]
+          _ <- prepareWatermark(
+            targetTableName.split("\\.").last,
+            initialSchema,
+            MsSqlWatermark.epoch
+          )
+          // manually migrate
+          _ <- runMigration(context)
 
-        // update SOURCE (SQL) schema with a new column
-        _ <- Common.addColumns(dbName, sourceConnection, sourceTableName, "NewName VARCHAR(100)")
-        // let it propagate
-        _ <- Common.waitForColumns(dbName, sourceConnection, sourceTableName, 3)
-        // INSERT data with a new schema
-        _ <- Common.insertUpdatedData(dbName, sourceConnection, sourceTableName, afterEvolution)
+          sourceConnection <- ZIO.succeed(Fixtures.getConnection)
+          _                <- Common.addColumns(dbName, sourceConnection, sourceTableName, "NewName VARCHAR(100)")
 
-        // overall test timeout
-        _ <- streamRunner.runOrFail(Duration.fromSeconds(10))
+          // launch stream while the source still has NewName, and stop it once the initial rows are processed
+          streamRunner <- Common.getTestApp(Duration.fromSeconds(15), getStreamContextLayer(context)).fork
+          _            <- Common.insertUpdatedData(dbName, sourceConnection, sourceTableName, streamingData)
 
-        // read target table after schema migration
-        afterStream <- readTarget(
-          context.sink.targetTableFullName,
-          "Id, Name, NewName",
-          (rs: ResultSet) => (rs.getInt(1), rs.getString(2), rs.getString(3))
+          _ <- streamRunner.runOrFail(Duration.fromSeconds(10))
+
+          // update SOURCE (SQL) schema by removing the column
+          _ <- Common.removeColumns(dbName, sourceConnection, sourceTableName, "NewName")
+          // let it propagate
+          _ <- Common.waitForColumns(dbName, sourceConnection, sourceTableName, 2)
+
+          _ <- Common.insertData(dbName, sourceConnection, sourceTableName, afterEvolution)
+
+          // restart the stream so a fresh source picks up the schema change (SQL Server sources
+          // cannot observe schema changes mid-stream and require a restart)
+          streamRunnerAfterSchemaChange <- Common
+            .getTestApp(Duration.fromSeconds(15), getStreamContextLayer(context))
+            .fork
+          _ <- streamRunnerAfterSchemaChange.runOrFail(Duration.fromSeconds(10))
+
+          afterEvolution <- readTarget(
+            context.sink.targetTableFullName,
+            "Id, Name, NewName",
+            IntStrStrDecoder
+          )
+
+        } yield assertTrue(
+          afterEvolution.sorted == afterEvolutionExpected
         )
-      } yield assertTrue(
-        afterStream.sorted == afterEvolutionExpected
-      )
-    }.provideLayer(TestEntityManager.sinkEntityManagerLayer),
-    test("handle the schema migration (column deletions)") {
-      val streamingData  = List.range(1, 4).map(i => (i, s"Test$i", s"Updated $i"))
-      val afterEvolution = List.range(4, 7).map(i => (i, s"Test$i"))
-
-      val afterEvolutionExpected = streamingData ++ List.range(4, 7).map(i => (i, s"Test$i", null))
-
-      for {
-        context <- ZIO.succeed(getStreamContext)
-        fakeSchema = ArcaneSchema(Seq(Field("test", StringType)))
-        entityManager <- ZIO.service[SinkEntityManager]
-        _ <- prepareWatermark(
-          targetTableName.split("\\.").last,
-          fakeSchema,
-          MsSqlWatermark.epoch
-        )
-        // manually migrate
-        _ <- entityManager.migrateSchema(fakeSchema, initialSchema, targetTableName.split("\\.").last)
-
-        sourceConnection <- ZIO.succeed(Fixtures.getConnection)
-        _                <- Common.addColumns(dbName, sourceConnection, sourceTableName, "NewName VARCHAR(100)")
-
-        streamRunner <- Common.getTestApp(Duration.fromSeconds(180), getStreamContextLayer(context)).fork
-        _            <- Common.insertUpdatedData(dbName, sourceConnection, sourceTableName, streamingData)
-
-        _ <- ZIO.sleep(Duration.fromSeconds(10))
-
-        _ <- Common.removeColumns(dbName, sourceConnection, sourceTableName, "NewName")
-        _ <- Common.waitForColumns(dbName, sourceConnection, sourceTableName, 2)
-
-        _ <- Common.insertData(dbName, sourceConnection, sourceTableName, afterEvolution)
-
-        _ <- streamRunner.runOrFail(Duration.fromSeconds(10))
-
-        afterEvolution <- readTarget(
-          context.sink.targetTableFullName,
-          "Id, Name, NewName",
-          IntStrStrDecoder
-        )
-
-      } yield assertTrue(
-        afterEvolution.sorted == afterEvolutionExpected
-      )
-    }.provideLayer(TestEntityManager.sinkEntityManagerLayer)
-  ) @@ before @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
+      }.provideLayer(TestEntityManager.sinkEntityManagerLayer)
+        @@ before(sourceTableName, targetTableName)
+    }
+  ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock
