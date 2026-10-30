@@ -45,8 +45,9 @@ lazy val plugin = (project in file("."))
 
     assembly / mainClass := Some("com.sneaksanddata.arcane.sql_server_change_tracking.main"),
 
-    // Put JAR in target/ directly, instead of in target/scala-x.x.x sub-directory
-    assembly / assemblyOutputPath := target.value / (assembly / assemblyJarName).value,
+    // Put JAR in <root>/target/ directly. sbt 2's `target` is the versioned per-project output
+    // directory (`target/out/jvm/scala-x.x.x/<project>`), so derive the path from the build root instead.
+    assembly / assemblyOutputPath := (ThisBuild / baseDirectory).value / "target" / (assembly / assemblyJarName).value,
 
     // We do not use the version name here, because it's executable file name
     // and we want to keep it consistent with the name of the project
