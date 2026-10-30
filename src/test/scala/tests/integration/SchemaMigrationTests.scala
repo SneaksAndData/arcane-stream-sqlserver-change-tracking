@@ -9,7 +9,11 @@ import com.sneaksanddata.arcane.framework.services.iceberg.base.SinkEntityManage
 import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import com.sneaksanddata.arcane.framework.testkit.iceberg.TestEntityManager
 import com.sneaksanddata.arcane.framework.testkit.setups.FrameworkTestSetup.prepareWatermark
-import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.{IntStrDecoder, IntStrStrDecoder, readTarget}
+import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.{
+  IntStrDecoder,
+  IntStrStrDecoder,
+  readTarget
+}
 import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.{liveSeed, runOrFail}
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
@@ -178,7 +182,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
           ++ List.range(4, 7).map(i => (i, s"Test$i", s"Updated $i"))
 
         for {
-          context <- ZIO.succeed(getStreamContext(sourceTableName, targetTableName))
+          context       <- ZIO.succeed(getStreamContext(sourceTableName, targetTableName))
           entityManager <- ZIO.service[SinkEntityManager]
           _ <- prepareWatermark(
             targetTableName.split("\\.").last,
@@ -223,8 +227,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         )
       }.provideLayer(TestEntityManager.sinkEntityManagerLayer)
         @@ before(sourceTableName, targetTableName)
-    },
-    {
+    }, {
       val runId           = UUID.randomUUID().toString.replace("-", "_")
       val sourceTableName = s"schema_evolution_delete_$runId"
       val targetTableName = s"iceberg.test.schema_evolution_delete_$runId"
@@ -236,7 +239,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
         val afterEvolutionExpected = streamingData ++ List.range(4, 7).map(i => (i, s"Test$i", null))
 
         for {
-          context <- ZIO.succeed(getStreamContext(sourceTableName, targetTableName))
+          context       <- ZIO.succeed(getStreamContext(sourceTableName, targetTableName))
           entityManager <- ZIO.service[SinkEntityManager]
           _ <- prepareWatermark(
             targetTableName.split("\\.").last,
