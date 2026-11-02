@@ -135,11 +135,7 @@ spec:
                   nullable: true
                   default:
                     layoutVersion: "v1"
-                    backfillJobTemplateRef:
-                      apiGroup: streaming.sneaksanddata.com
-                      kind: StreamingJobTemplate
-                      name: standard-job-template
-                      namespace: default
+                    migrationJobTemplateRef: null
                     streamingBackend:
                       changeCapture:
                         jobTemplateRef:
