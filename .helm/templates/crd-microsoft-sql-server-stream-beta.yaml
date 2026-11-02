@@ -50,10 +50,12 @@ spec:
                     These settings should never be referenced by the plugin application and/or Arcane Framework,
                     but are meant to be used by the Arcane Operator alone for controlling the execution of the stream.
                   properties:
-                    backfillJobTemplateRef:
+                    migrationJobTemplateRef:
                       description: |
-                        Name of the job template to be used for the for the application in backfill mode.
+                        Name of the job template to be used for the for the application running in `migrate` mode.
                       type: object
+                      nullable: true
+                      default: null
                       properties:
                         name:
                           type: string
