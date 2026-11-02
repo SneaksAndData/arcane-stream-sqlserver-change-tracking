@@ -499,9 +499,9 @@ spec:
                       type: object
                       description: Row and schema modifications to apply to data read from the source, in their configured order
                       default:
-                        modifications: { }
+                        supported: { }
                       properties:
-                        modifications:
+                        supported:
                           type: object
                           description: Row and schema modification settings, in their configured order
                           default: { }

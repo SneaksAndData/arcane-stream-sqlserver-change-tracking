@@ -18,17 +18,23 @@ object Fixtures:
     Seq(
       IndexedField(name = "Id", fieldType = IntType, fieldId = 1),
       IndexedField(name = "Name", fieldType = StringType, fieldId = 2),
-      IndexedMergeKeyField(3)
+      IndexedMergeKeyField(3),
+      IndexedField(
+        name = "ARCANE_VERSION",
+        fieldType = com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.LongType,
+        fieldId = 4
+      )
     )
   )
 
   def getConnection: Connection =
     DriverManager.getConnection(connectionString)
 
-  def createFreshSource(dbName: String, tableName: String): Connection =
-    val con = getConnection
+  def createFreshSource(dbName: String, tableName: String, extraColumnsSql: String = ""): Connection =
+    val con   = getConnection
+    val extra = if extraColumnsSql.trim.isEmpty then "" else s", $extraColumnsSql"
     val query =
-      s"use $dbName; drop table if exists dbo.$tableName; create table dbo.$tableName (Id int not null, Name nvarchar(10) not null)"
+      s"use $dbName; drop table if exists dbo.$tableName; create table dbo.$tableName (Id int not null, Name nvarchar(10) not null$extra)"
     val statement = con.createStatement()
     statement.executeUpdate(query)
 
@@ -43,9 +49,10 @@ object Fixtures:
   def withFreshTablesZIO(
       sourceDbName: String,
       sourceTableName: String,
-      targetTableName: String
+      targetTableName: String,
+      extraColumnsSql: String = ""
   ): ZIO[Any, Throwable, Unit] =
     for
-      _ <- ZIO.attempt(createFreshSource(sourceDbName, sourceTableName))
+      _ <- ZIO.attempt(createFreshSource(sourceDbName, sourceTableName, extraColumnsSql))
       _ <- clearTarget(targetTableName)
     yield ()

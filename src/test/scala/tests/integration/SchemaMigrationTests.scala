@@ -152,7 +152,7 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |      "strategy": {}
        |    },
        |    "modifications": {
-       |      "modifications": {}
+       |      "supported": {}
        |    }
        |  }
        |}""".stripMargin
