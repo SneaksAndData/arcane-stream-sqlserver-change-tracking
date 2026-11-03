@@ -40,20 +40,27 @@ logs *args="":
 ps:
     docker compose -f {{COMPOSE_FILE}} ps
 
+# NOTE: defaults to Test/testFull because under sbt 2 a bare `test` delegates to
+# `testQuick`, which silently selects no tests and still exits successfully,
+# hiding integration test failures.
 # Run tests with integration-tests.env loaded
-test *args="test":
+test *args="Test/testFull":
     export $(cat {{ENV_FILE}} | xargs) && sbt "{{args}}"
 
+# Accepts a bare class name (StreamRunner), an explicit glob (*StreamRunner*),
+# or a direct fully-qualified test address (com.sneaksanddata...StreamRunner).
 # Run specific tests with integration-tests.env loaded
 test-only *args:
     #!/usr/bin/env bash
     set -euo pipefail
     export $(cat {{ENV_FILE}} | xargs)
     ARGS="{{args}}"
-    if [[ "$ARGS" != *"*"* ]] && [[ "$ARGS" != *" "* ]]; then
-        sbt "testOnly *${ARGS}*"
+    if [[ "$ARGS" == *"*"* ]] || [[ "$ARGS" == *" "* ]] || [[ "$ARGS" == *"."* ]]; then
+        # explicit glob, multiple selectors, or direct test address: pass through as-is
+        sbt "Test/testOnly ${ARGS}"
     else
-        sbt "testOnly ${ARGS}"
+        # bare class name: match it anywhere in the fully-qualified name
+        sbt "Test/testOnly *${ARGS}*"
     fi
 
 # Validate formatting
