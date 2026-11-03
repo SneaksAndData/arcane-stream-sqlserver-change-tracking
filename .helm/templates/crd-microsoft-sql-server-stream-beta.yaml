@@ -50,10 +50,12 @@ spec:
                     These settings should never be referenced by the plugin application and/or Arcane Framework,
                     but are meant to be used by the Arcane Operator alone for controlling the execution of the stream.
                   properties:
-                    backfillJobTemplateRef:
+                    migrationJobTemplateRef:
                       description: |
-                        Name of the job template to be used for the for the application in backfill mode.
+                        Name of the job template to be used for the for the application running in `migrate` mode.
                       type: object
+                      nullable: true
+                      default: null
                       properties:
                         name:
                           type: string
@@ -133,11 +135,7 @@ spec:
                   nullable: true
                   default:
                     layoutVersion: "v1"
-                    backfillJobTemplateRef:
-                      apiGroup: streaming.sneaksanddata.com
-                      kind: StreamingJobTemplate
-                      name: standard-job-template
-                      namespace: default
+                    migrationJobTemplateRef: null
                     streamingBackend:
                       changeCapture:
                         jobTemplateRef:
@@ -198,10 +196,6 @@ spec:
                         warehouse:
                           type: string
                           description: Catalog warehouse to use for all sessions
-                        maxCatalogInstanceLifetime:
-                          type: string
-                          description: Lifetime of RESTSessionCatalog instances
-                          default: 3500 second
                 streamMode:
                   type: object
                   description: Configuration for various modes of operation (backfill, change capture)
@@ -412,10 +406,6 @@ spec:
                           type: string
                         warehouse:
                           type: string
-                        maxCatalogInstanceLifetime:
-                          type: string
-                          description: Lifetime of RESTSessionCatalog instances
-                          default: 3500 second
                 throughput:
                   type: object
                   description: Configuration for throughput management controls
@@ -509,9 +499,9 @@ spec:
                       type: object
                       description: Row and schema modifications to apply to data read from the source, in their configured order
                       default:
-                        modifications: { }
+                        supported: { }
                       properties:
-                        modifications:
+                        supported:
                           type: object
                           description: Row and schema modification settings, in their configured order
                           default: { }

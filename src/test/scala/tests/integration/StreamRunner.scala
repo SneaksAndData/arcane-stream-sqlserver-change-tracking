@@ -5,6 +5,7 @@ import models.app.MicrosoftSqlServerPluginStreamContext
 import tests.common.Common
 import tests.integration.Fixtures.initialSchema
 
+import com.sneaksanddata.arcane.framework.models.schemas.ArcaneSchema
 import com.sneaksanddata.arcane.framework.services.mssql.*
 import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import com.sneaksanddata.arcane.framework.testkit.setups.FrameworkTestSetup.prepareWatermark
@@ -30,7 +31,11 @@ object StreamRunner extends ZIOSpecDefault:
 
   private val dbName = "StreamRunnerTests"
 
-  private def getStreamContextStr(sourceTableName: String, targetTableName: String) = s"""
+  private def getStreamContextStr(
+      sourceTableName: String,
+      targetTableName: String,
+      modificationsJson: String = """{"supported": {}}"""
+  ) = s"""
                                     |{
                                     |  "observability": {
                                     |    "metricTags": {}
@@ -100,7 +105,7 @@ object StreamRunner extends ZIOSpecDefault:
                                     |      "targetAnalyzeSettings": {
                                     |        "includedColumns": [],
                                     |        "batchThreshold": 60
-                                    |      }
+                                    |        }
                                     |    },
                                     |    "icebergCatalog": {
                                     |      "catalogProperties": {},
@@ -141,19 +146,29 @@ object StreamRunner extends ZIOSpecDefault:
                                     |      "enabled": false,
                                     |      "strategy": {}
                                     |    },
-                                    |    "modifications": {
-                                    |      "modifications": {}
-                                    |    }
+                                    |    "modifications": $modificationsJson
                                     |  }
                                     |}""".stripMargin
 
-  private def getStreamingStreamContext(source: String, target: String) = MicrosoftSqlServerPluginStreamContext(
-    getStreamContextStr(source, target)
+  private def getStreamingStreamContext(
+      source: String,
+      target: String,
+      modificationsJson: String = """{"supported": {}}"""
+  ) = MicrosoftSqlServerPluginStreamContext(
+    getStreamContextStr(source, target, modificationsJson)
   )
-  private def getStreamingStreamContextLayer(source: String, target: String) =
-    ZLayer.succeed[MicrosoftSqlServerPluginStreamContext](getStreamingStreamContext(source, target)) ++ ZLayer
-      .succeed[DatagramSocketConfig](getStreamingStreamContext(source, target)) ++ ZLayer
-      .succeed[MetricsConfig](getStreamingStreamContext(source, target)) ++ ZLayer.succeed(DatadogPublisherConfig())
+  private def getStreamingStreamContextLayer(
+      source: String,
+      target: String,
+      modificationsJson: String = """{"supported": {}}"""
+  ) =
+    ZLayer.succeed[MicrosoftSqlServerPluginStreamContext](
+      getStreamingStreamContext(source, target, modificationsJson)
+    ) ++ ZLayer
+      .succeed[DatagramSocketConfig](getStreamingStreamContext(source, target, modificationsJson)) ++ ZLayer
+      .succeed[MetricsConfig](getStreamingStreamContext(source, target, modificationsJson)) ++ ZLayer.succeed(
+      DatadogPublisherConfig()
+    )
 
   private val streamingData = List.range(1, 3).map(i => (i, s"Test$i"))
   private val backfillData  = List.range(4, 7).map(i => (i, s"Test$i"))
@@ -163,15 +178,21 @@ object StreamRunner extends ZIOSpecDefault:
 
   private val resultData = streamingData ++ updatedData.filterNot(e => deletedData.contains(e._1))
 
-  private def before(source: String, target: String) =
-    TestAspect.before(liveSeed *> Fixtures.withFreshTablesZIO(dbName, source, target))
+  private def before(source: String, target: String, extraColumnsSql: String = "") =
+    TestAspect.before(liveSeed *> Fixtures.withFreshTablesZIO(dbName, source, target, extraColumnsSql))
 
-  private def runMigration(source: String, target: String) =
+  private def runMigration(
+      source: String,
+      target: String,
+      modificationsJson: String = """{"supported": {}}"""
+  ) =
     for
-      _        <- TestSystem.putEnv("STREAMCONTEXT__RUNMODE", "migrate")
-      migrator <- Common.getTestApp(Duration.fromSeconds(10), getStreamingStreamContextLayer(source, target)).fork
-      _        <- migrator.runOrFail(Duration.fromSeconds(5))
-      _        <- TestSystem.putEnv("STREAMCONTEXT__RUNMODE", "stream")
+      _ <- TestSystem.putEnv("STREAMCONTEXT__RUNMODE", "migrate")
+      migrator <- Common
+        .getTestApp(Duration.fromSeconds(10), getStreamingStreamContextLayer(source, target, modificationsJson))
+        .fork
+      _ <- migrator.runOrFail(Duration.fromSeconds(5))
+      _ <- TestSystem.putEnv("STREAMCONTEXT__RUNMODE", "stream")
     yield ()
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
@@ -257,5 +278,96 @@ object StreamRunner extends ZIOSpecDefault:
           watermark.version.toLong == latestVersion
         )
       } @@ before(sourceName, targetName)
+    }, {
+      val runId      = UUID.randomUUID().toString.replace("-", "_")
+      val sourceName = s"field_sel_$runId"
+      val targetName = s"iceberg.test.$sourceName"
+      val fieldSelectorModsJson =
+        """{"supported": {"fieldSelector": {"include": {"fields": ["Id", "Name"]}}}}"""
+
+      val sourceInitialSchema = ArcaneSchema(
+        Seq(
+          com.sneaksanddata.arcane.framework.models.schemas.IndexedField(
+            name = "Id",
+            fieldType = com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.IntType,
+            fieldId = 1
+          ),
+          com.sneaksanddata.arcane.framework.models.schemas.IndexedField(
+            name = "Name",
+            fieldType = com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType,
+            fieldId = 2
+          ),
+          com.sneaksanddata.arcane.framework.models.schemas.IndexedField(
+            name = "IgnoredCol",
+            fieldType = com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType,
+            fieldId = 3
+          ),
+          com.sneaksanddata.arcane.framework.models.schemas.IndexedMergeKeyField(4),
+          com.sneaksanddata.arcane.framework.models.schemas.IndexedField(
+            name = "ARCANE_VERSION",
+            fieldType = com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.LongType,
+            fieldId = 5
+          )
+        )
+      )
+
+      test("apply fieldSelector modification and exclude unselected columns") {
+        for
+          _ <- prepareWatermark(
+            targetName.split("\\.").last,
+            sourceInitialSchema,
+            MsSqlWatermark.epoch
+          )
+          _ <- runMigration(sourceName, targetName, fieldSelectorModsJson)
+
+          sourceConnection <- ZIO.succeed(Fixtures.getConnection)
+          context          <- ZIO.succeed(getStreamingStreamContext(sourceName, targetName, fieldSelectorModsJson))
+          layer            <- ZIO.succeed(getStreamingStreamContextLayer(sourceName, targetName, fieldSelectorModsJson))
+
+          runner <- Common.getTestApp(Duration.fromSeconds(10), layer).fork
+          _ <- ZIO.scoped {
+            for
+              st <- ZIO.attempt(
+                sourceConnection.prepareStatement(
+                  s"USE $dbName; INSERT INTO $sourceName (Id, Name, IgnoredCol) VALUES (?, ?, ?)"
+                )
+              )
+              _ <- ZIO.foreachDiscard(List((1, "A", "secret1"), (2, "B", "secret2"))) { case (id, name, secret) =>
+                ZIO.attempt {
+                  st.setInt(1, id)
+                  st.setString(2, name)
+                  st.setString(3, secret)
+                  st.executeUpdate()
+                }
+              }
+            yield ()
+          }
+
+          _ <- runner.runOrFail(Duration.fromSeconds(5))
+
+          rows <- readTarget(context.sink.targetTableFullName, "Id, Name", IntStrDecoder)
+          cols <- ZIO.scoped {
+            for
+              con <- ZIO.attempt(
+                java.sql.DriverManager.getConnection(sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI"))
+              )
+              st <- ZIO.attempt(con.createStatement())
+              rs <- ZIO.fromAutoCloseable(
+                ZIO.attemptBlocking(st.executeQuery(s"DESCRIBE ${context.sink.targetTableFullName}"))
+              )
+              colNames <- ZIO.attempt {
+                Iterator
+                  .continually((rs.next(), rs))
+                  .takeWhile(_._1)
+                  .map { case (_, r) => r.getString(1).toLowerCase }
+                  .toList
+              }
+            yield colNames
+          }
+        yield assertTrue(rows.sorted == List((1, "A"), (2, "B"))) implies
+          assertTrue(!cols.contains("ignoredcol")) implies
+          assertTrue(cols.contains("id")) implies
+          assertTrue(cols.contains("name"))
+      } @@ before(sourceName, targetName, extraColumnsSql = "IgnoredCol nvarchar(50) null")
     }
   ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock
