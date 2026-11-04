@@ -390,11 +390,11 @@ object StreamRunner extends ZIOSpecDefault:
           _ <- runMigration(sourceName, targetName)
 
           sourceConnection <- ZIO.succeed(Fixtures.getConnection)
-          context <- ZIO.succeed(getStreamingStreamContext(sourceName, targetName, rangeLimit = rangeLimit))
-          layer   <- ZIO.succeed(getStreamingStreamContextLayer(sourceName, targetName, rangeLimit = rangeLimit))
+          context          <- ZIO.succeed(getStreamingStreamContext(sourceName, targetName, rangeLimit = rangeLimit))
+          layer <- ZIO.succeed(getStreamingStreamContextLayer(sourceName, targetName, rangeLimit = rangeLimit))
 
           // every row is inserted in its own transaction, so each one gets a separate change tracking version
-          _ <- Common.insertData(dbName, sourceConnection, context.source.configuration.tableName, allData)
+          _             <- Common.insertData(dbName, sourceConnection, context.source.configuration.tableName, allData)
           latestVersion <- Common.getChangeTrackingVersion(dbName, sourceConnection)
 
           runner <- Common.getTestApp(Duration.fromSeconds(10), layer).fork
