@@ -34,7 +34,8 @@ object StreamRunner extends ZIOSpecDefault:
   private def getStreamContextStr(
       sourceTableName: String,
       targetTableName: String,
-      modificationsJson: String = """{"supported": {}}"""
+      modificationsJson: String = """{"supported": {}}""",
+      rangeLimit: Int = 10
   ) = s"""
                                     |{
                                     |  "observability": {
@@ -63,7 +64,7 @@ object StreamRunner extends ZIOSpecDefault:
                                     |      "changeCaptureInterval": "5 second",
                                     |      "changeCaptureJitterVariance": 0.1,
                                     |      "changeCaptureJitterSeed": 0,
-                                    |      "changeCaptureRangeLimit": 10
+                                    |      "changeCaptureRangeLimit": $rangeLimit
                                     |    }
                                     |  },
                                     |  "sink": {
@@ -153,22 +154,25 @@ object StreamRunner extends ZIOSpecDefault:
   private def getStreamingStreamContext(
       source: String,
       target: String,
-      modificationsJson: String = """{"supported": {}}"""
+      modificationsJson: String = """{"supported": {}}""",
+      rangeLimit: Int = 10
   ) = MicrosoftSqlServerPluginStreamContext(
-    getStreamContextStr(source, target, modificationsJson)
+    getStreamContextStr(source, target, modificationsJson, rangeLimit)
   )
   private def getStreamingStreamContextLayer(
       source: String,
       target: String,
-      modificationsJson: String = """{"supported": {}}"""
+      modificationsJson: String = """{"supported": {}}""",
+      rangeLimit: Int = 10
   ) =
     ZLayer.succeed[MicrosoftSqlServerPluginStreamContext](
-      getStreamingStreamContext(source, target, modificationsJson)
+      getStreamingStreamContext(source, target, modificationsJson, rangeLimit)
     ) ++ ZLayer
-      .succeed[DatagramSocketConfig](getStreamingStreamContext(source, target, modificationsJson)) ++ ZLayer
-      .succeed[MetricsConfig](getStreamingStreamContext(source, target, modificationsJson)) ++ ZLayer.succeed(
-      DatadogPublisherConfig()
-    )
+      .succeed[DatagramSocketConfig](getStreamingStreamContext(source, target, modificationsJson, rangeLimit)) ++ ZLayer
+      .succeed[MetricsConfig](getStreamingStreamContext(source, target, modificationsJson, rangeLimit)) ++ ZLayer
+      .succeed(
+        DatadogPublisherConfig()
+      )
 
   private val streamingData = List.range(1, 3).map(i => (i, s"Test$i"))
   private val backfillData  = List.range(4, 7).map(i => (i, s"Test$i"))
@@ -369,5 +373,43 @@ object StreamRunner extends ZIOSpecDefault:
           assertTrue(cols.contains("id")) implies
           assertTrue(cols.contains("name"))
       } @@ before(sourceName, targetName, extraColumnsSql = "IgnoredCol nvarchar(50) null")
+    }, {
+      val runId      = UUID.randomUUID().toString.replace("-", "_")
+      val sourceName = s"range_limit_$runId"
+      val targetName = s"iceberg.test.$sourceName"
+      val rangeLimit = 1
+      val allData    = List.range(1, 41).map(i => (i, s"Test$i"))
+
+      test("changeCaptureRangeLimit slows down watermark progression") {
+        for
+          _ <- prepareWatermark(
+            targetName.split("\\.").last,
+            initialSchema,
+            MsSqlWatermark.epoch
+          )
+          _ <- runMigration(sourceName, targetName)
+
+          sourceConnection <- ZIO.succeed(Fixtures.getConnection)
+          context          <- ZIO.succeed(getStreamingStreamContext(sourceName, targetName, rangeLimit = rangeLimit))
+          layer <- ZIO.succeed(getStreamingStreamContextLayer(sourceName, targetName, rangeLimit = rangeLimit))
+
+          // every row is inserted in its own transaction, so each one gets a separate change tracking version
+          _             <- Common.insertData(dbName, sourceConnection, context.source.configuration.tableName, allData)
+          latestVersion <- Common.getChangeTrackingVersion(dbName, sourceConnection)
+
+          runner <- Common.getTestApp(Duration.fromSeconds(10), layer).fork
+          _      <- runner.runOrFail(Duration.fromSeconds(10))
+          _      <- runner.interrupt
+
+          rows <- readTarget(context.sink.targetTableFullName, "Id, Name", IntStrDecoder)
+          watermark <- getWatermark(context.sink.targetTableFullName.split('.').last)(using
+            MsSqlWatermark.rw
+          )
+        yield assertTrue(watermark.version.toLong > MsSqlWatermark.epoch.version.toLong) &&
+          assertTrue(watermark.version.toLong < latestVersion) &&
+          assertTrue(rows.nonEmpty) &&
+          assertTrue(rows.size < allData.size) &&
+          assertTrue(rows.forall(allData.contains))
+      } @@ before(sourceName, targetName)
     }
-  ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock
+  ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
