@@ -1,14 +1,11 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package models.app
 
-import com.sneaksanddata.arcane.framework.models.app.{DefaultPluginStreamContext, PluginStreamContext}
+import com.sneaksanddata.arcane.framework.models.app.{DefaultPluginStreamContext, OverrideStreamContext, PluginStreamContext}
 import com.sneaksanddata.arcane.framework.models.settings.observability.DefaultObservabilitySettings
 import com.sneaksanddata.arcane.framework.models.settings.sink.DefaultSinkSettings
 import com.sneaksanddata.arcane.framework.models.settings.staging.DefaultStagingSettings
-import com.sneaksanddata.arcane.framework.models.settings.streaming.{
-  DefaultStreamModeSettings,
-  DefaultThroughputSettings
-}
+import com.sneaksanddata.arcane.framework.models.settings.streaming.{DefaultStreamModeSettings, DefaultThroughputSettings}
 import upickle.ReadWriter
 import upickle.implicits.key
 import zio.ZLayer
@@ -26,10 +23,20 @@ case class MicrosoftSqlServerPluginStreamContext(
     @key("throughput") private val throughputIn: DefaultThroughputSettings,
     override val source: MicrosoftSqlServerSourceSettings
 ) extends DefaultPluginStreamContext(observabilityIn, stagingIn, streamModeIn, sinkIn, throughputIn) derives ReadWriter:
-  // TODO: should be implemented when Operator supports overrides
-  override def merge[OtherImpl <: com.sneaksanddata.arcane.framework.models.app.OverrideStreamContext](
-      other: Option[OtherImpl]
-  ): this.type = this
+  override def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): this.type = {
+    other match {
+      case None => this
+      case Some(o) =>
+        this.observabilityIn.merge(o.observability)
+        this.stagingIn.merge(o.staging)
+        this.streamModeIn.merge(o.streamMode)
+        this.sinkIn.merge(o.sink)
+        this.throughputIn.merge(o.throughput)
+        this.source.merge(o.source)
+
+        this
+    }
+  }
 
 object MicrosoftSqlServerPluginStreamContext:
   def apply(value: String): MicrosoftSqlServerPluginStreamContext =
