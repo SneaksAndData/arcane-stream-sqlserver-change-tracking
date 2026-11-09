@@ -33,15 +33,16 @@ case class MicrosoftSqlServerPluginStreamContext(
   override def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): this.type = {
     other match {
       case None => this
-      case Some(o) =>
-        this.observabilityIn.merge(o.observability)
-        this.stagingIn.merge(o.staging)
-        this.streamModeIn.merge(o.streamMode)
-        this.sinkIn.merge(o.sink)
-        this.throughputIn.merge(o.throughput)
-        this.source.merge(o.source)
-
-        this
+      case Some(o: MicrosoftSqlServerOverrideStreamContext) =>
+        this.copy(
+            observabilityIn = this.observabilityIn.merge(o.observability),
+            stagingIn = this.staging.merge(o.staging),
+            streamModeIn = this.streamMode.merge(o.streamMode),
+            sinkIn = this.sinkIn.merge(o.sink),
+            throughputIn = this.throughput.merge(o.throughput),
+            source = this.source.merge(o.source)
+          )
+          .asInstanceOf[this.type]
     }
   }
 
