@@ -65,11 +65,11 @@ test-only *args:
 
 # Validate formatting
 fmt-check:
-    sbt scalafmtCheckAll
+    mise exec -- sbt scalafmtCheckAll
 
 # Format code
 fmt:
-    sbt scalafmtAll
+    mise exec -- sbt scalafmtAll
 
 check: fmt-check
 

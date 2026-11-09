@@ -1,11 +1,18 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package models.app
 
-import com.sneaksanddata.arcane.framework.models.app.{DefaultPluginStreamContext, OverrideStreamContext, PluginStreamContext}
+import com.sneaksanddata.arcane.framework.models.app.{
+  DefaultPluginStreamContext,
+  OverrideStreamContext,
+  PluginStreamContext
+}
 import com.sneaksanddata.arcane.framework.models.settings.observability.DefaultObservabilitySettings
 import com.sneaksanddata.arcane.framework.models.settings.sink.DefaultSinkSettings
 import com.sneaksanddata.arcane.framework.models.settings.staging.DefaultStagingSettings
-import com.sneaksanddata.arcane.framework.models.settings.streaming.{DefaultStreamModeSettings, DefaultThroughputSettings}
+import com.sneaksanddata.arcane.framework.models.settings.streaming.{
+  DefaultStreamModeSettings,
+  DefaultThroughputSettings
+}
 import upickle.ReadWriter
 import upickle.implicits.key
 import zio.ZLayer
