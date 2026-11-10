@@ -1,7 +1,11 @@
 package com.sneaksanddata.arcane.sql_server_change_tracking
 package models.app
 
-import com.sneaksanddata.arcane.framework.models.app.{DefaultPluginStreamContext, PluginStreamContext}
+import com.sneaksanddata.arcane.framework.models.app.{
+  DefaultPluginStreamContext,
+  OverrideStreamContext,
+  PluginStreamContext
+}
 import com.sneaksanddata.arcane.framework.models.settings.observability.DefaultObservabilitySettings
 import com.sneaksanddata.arcane.framework.models.settings.sink.DefaultSinkSettings
 import com.sneaksanddata.arcane.framework.models.settings.staging.DefaultStagingSettings
@@ -26,10 +30,23 @@ case class MicrosoftSqlServerPluginStreamContext(
     @key("throughput") private val throughputIn: DefaultThroughputSettings,
     override val source: MicrosoftSqlServerSourceSettings
 ) extends DefaultPluginStreamContext(observabilityIn, stagingIn, streamModeIn, sinkIn, throughputIn) derives ReadWriter:
-  // TODO: should be implemented when Operator supports overrides
-  override def merge[OtherImpl <: com.sneaksanddata.arcane.framework.models.app.OverrideStreamContext](
+  override def merge[OtherImpl <: OverrideStreamContext](
       other: Option[OtherImpl]
-  ): this.type = this
+  ): MicrosoftSqlServerPluginStreamContext = {
+    other match {
+      case None => this
+      case Some(o: MicrosoftSqlServerOverrideStreamContext) =>
+        this.copy(
+          observabilityIn = this.observabilityIn.merge(o.observability),
+          stagingIn = this.staging.merge(o.staging),
+          streamModeIn = this.streamMode.merge(o.streamMode),
+          sinkIn = this.sinkIn.merge(o.sink),
+          throughputIn = this.throughput.merge(o.throughput),
+          source = this.source.merge(o.source)
+        )
+      case _ => this
+    }
+  }
 
 object MicrosoftSqlServerPluginStreamContext:
   def apply(value: String): MicrosoftSqlServerPluginStreamContext =
