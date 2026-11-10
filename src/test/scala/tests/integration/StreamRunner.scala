@@ -182,8 +182,16 @@ object StreamRunner extends ZIOSpecDefault:
 
   private val resultData = streamingData ++ updatedData.filterNot(e => deletedData.contains(e._1))
 
+  // sbt's layered classloaders hide the JDBC driver from DriverManager's ServiceLoader lookup
+  private val registerDrivers = ZIO.attempt {
+    java.sql.DriverManager.registerDriver(new io.trino.jdbc.TrinoDriver())
+    java.sql.DriverManager.registerDriver(new com.microsoft.sqlserver.jdbc.SQLServerDriver())
+  }
+
   private def before(source: String, target: String, extraColumnsSql: String = "") =
-    TestAspect.before(liveSeed *> Fixtures.withFreshTablesZIO(dbName, source, target, extraColumnsSql))
+    TestAspect.before(
+      registerDrivers *> liveSeed *> Fixtures.withFreshTablesZIO(dbName, source, target, extraColumnsSql)
+    )
 
   private def runMigration(
       source: String,
