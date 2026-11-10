@@ -11,11 +11,12 @@ case class MicrosoftSqlServerSourceSettings(
     override val buffering: DefaultSourceBufferingSettings,
     override val modifications: DefaultDataRowModificationSettings,
     override val configuration: DefaultMsSqlServerDatabaseSourceSettings
-) extends StreamSourceSettings, Mergeable derives ReadWriter:
+) extends StreamSourceSettings,
+      Mergeable derives ReadWriter:
   override type SourceSettingsType = DefaultMsSqlServerDatabaseSourceSettings
-  
+
   override type MergeableFrom = OverrideMicrosoftSqlServerSourceSettings
-  override type MergeResult = MicrosoftSqlServerSourceSettings
+  override type MergeResult   = MicrosoftSqlServerSourceSettings
 
   override def merge(overrides: Option[MergeableFrom]): MergeResult =
     MicrosoftSqlServerSourceSettings(
@@ -23,4 +24,3 @@ case class MicrosoftSqlServerSourceSettings(
       modifications = this.modifications.merge(overrides.flatMap(_.modifications)),
       configuration
     )
-

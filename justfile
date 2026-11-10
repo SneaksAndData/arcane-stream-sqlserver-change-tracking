@@ -7,8 +7,11 @@ ENV_FILE := "test-resources/integration-tests.env"
 default:
     @just --list
 
+compile:
+    sbt compile
+
 build:
-    mise exec -- sbt assembly
+    sbt assembly
 
 docker-build version="dev":
     docker build \
@@ -18,7 +21,7 @@ docker-build version="dev":
         .
 
 clean:
-    mise exec -- sbt clean
+    sbt clean
 
 # Start test services in background
 up *args="":
