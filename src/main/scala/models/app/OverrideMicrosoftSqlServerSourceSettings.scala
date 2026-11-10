@@ -3,7 +3,12 @@ package models.app
 
 import com.sneaksanddata.arcane.framework.models.settings.mssql.DefaultMsSqlServerDatabaseSourceSettings
 import com.sneaksanddata.arcane.framework.models.settings.sources.modification.DefaultOverrideDataRowModificationSettings
-import com.sneaksanddata.arcane.framework.models.settings.sources.{DefaultOverrideSourceBufferingSettings, DefaultSourceBufferingSettings, OverrideSourceBufferingSettings, OverrideStreamSourceSettings}
+import com.sneaksanddata.arcane.framework.models.settings.sources.{
+  DefaultOverrideSourceBufferingSettings,
+  DefaultSourceBufferingSettings,
+  OverrideSourceBufferingSettings,
+  OverrideStreamSourceSettings
+}
 import upickle.ReadWriter
 
 /** A partial override of `MicrosoftSqlServerSourceSettings` provided by the Arcane operator via the environment
