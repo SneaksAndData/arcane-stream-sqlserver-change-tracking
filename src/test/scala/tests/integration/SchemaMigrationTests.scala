@@ -292,4 +292,4 @@ object SchemaMigrationTests extends ZIOSpecDefault:
       }.provideLayer(TestEntityManager.sinkEntityManagerLayer)
         @@ before(sourceTableName, targetTableName)
     }
-  ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock
+  ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
