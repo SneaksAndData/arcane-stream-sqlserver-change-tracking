@@ -157,8 +157,16 @@ object SchemaMigrationTests extends ZIOSpecDefault:
        |  }
        |}""".stripMargin
 
+  // sbt's layered classloaders hide the JDBC driver from DriverManager's ServiceLoader lookup
+  private val registerDrivers = ZIO.attempt {
+    java.sql.DriverManager.registerDriver(new io.trino.jdbc.TrinoDriver())
+    java.sql.DriverManager.registerDriver(new com.microsoft.sqlserver.jdbc.SQLServerDriver())
+  }
+
   private def before(sourceTableName: String, targetTableName: String) =
-    TestAspect.before(liveSeed *> Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName))
+    TestAspect.before(
+      registerDrivers *> liveSeed *> Fixtures.withFreshTablesZIO(dbName, sourceTableName, targetTableName)
+    )
 
   private def runMigration(context: MicrosoftSqlServerPluginStreamContext) =
     for
@@ -284,4 +292,4 @@ object SchemaMigrationTests extends ZIOSpecDefault:
       }.provideLayer(TestEntityManager.sinkEntityManagerLayer)
         @@ before(sourceTableName, targetTableName)
     }
-  ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock
+  ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
