@@ -30,7 +30,7 @@ case class MicrosoftSqlServerPluginStreamContext(
     @key("throughput") private val throughputIn: DefaultThroughputSettings,
     override val source: MicrosoftSqlServerSourceSettings
 ) extends DefaultPluginStreamContext(observabilityIn, stagingIn, streamModeIn, sinkIn, throughputIn) derives ReadWriter:
-  override def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): this.type = {
+  override def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): MicrosoftSqlServerStreamContext = {
     other match {
       case None => this
       case Some(o: MicrosoftSqlServerOverrideStreamContext) =>
@@ -42,7 +42,7 @@ case class MicrosoftSqlServerPluginStreamContext(
             throughputIn = this.throughput.merge(o.throughput),
             source = this.source.merge(o.source)
           )
-          .asInstanceOf[this.type]
+      case _ => this    
     }
   }
 
